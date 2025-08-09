@@ -8,13 +8,23 @@ import frc.mw_lib.logging.GitLogger;
 import frc.mw_lib.util.ConstantsLoader;
 import java.util.ArrayList;
 import java.util.List;
+import monologue.Annotations.Log;
 import monologue.Logged;
 import monologue.Monologue;
 
-public abstract class SubsystemManager implements Logged {
+public abstract class SubsystemManager {
   private static final String subsystems_key_ = "subsystems";
 
   protected ArrayList<MWSubsystem> subsystems_;
+
+  private class Contain implements Logged {
+    @Log.NT ArrayList<MWSubsystem> subsystems;
+
+    public Contain(ArrayList<MWSubsystem> subsystems) {
+      this.subsystems = subsystems;
+    }
+  }
+
   protected Notifier loopThread;
   protected boolean log_init = false;
 
@@ -91,7 +101,7 @@ public abstract class SubsystemManager implements Logged {
   /** Completes the subsystem registration process and begins calling each subsystem in a loop */
   protected void completeRegistration() {
     loopThread.startPeriodic(.01);
-    Monologue.setupMonologue(this, "Robot", false, false);
+    Monologue.setupMonologue(new Contain(subsystems_), "Robot", false, false);
     DriverStation.startDataLog(DataLogManager.getLog());
     GitLogger.logGitData();
     GitLogger.putGitDataToDashboard();
