@@ -49,7 +49,7 @@ public abstract class SubsystemManager {
     double timestamp = Timer.getFPGATimestamp();
     for (MWSubsystem subsystem : subsystems) {
       try {
-        subsystem.io.readInputs(timestamp);
+        subsystem.getIo().readInputs(timestamp);
       } catch (Exception e) {
         e.printStackTrace();
         DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to read inputs");
@@ -71,7 +71,7 @@ public abstract class SubsystemManager {
     timestamp = Timer.getFPGATimestamp();
     for (MWSubsystem subsystem : subsystems) {
       try {
-        subsystem.io.writeOutputs(timestamp);
+        subsystem.getIo().writeOutputs(timestamp);
       } catch (Exception e) {
         e.printStackTrace();
         DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to write outputs");

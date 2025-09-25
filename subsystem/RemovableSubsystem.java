@@ -1,6 +1,6 @@
 package frc.mw_lib.subsystem;
 
-public abstract class RemovableSubsystem extends MWSubsystem {
+public abstract class RemovableSubsystem<IoType extends SubsystemIO> extends MWSubsystem<IoType> {
 
   private String subsystem_name_;
   private boolean is_enabled_;
