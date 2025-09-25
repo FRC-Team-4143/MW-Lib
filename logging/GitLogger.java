@@ -6,12 +6,18 @@ import frc.robot.BuildConstants;
 
 public abstract class GitLogger {
 
-  private static StringPublisher project_name = NetworkTableInstance.getDefault().getStringTopic("/Metadata/PROJECT_NAME").publish();
-  private static StringPublisher git_sha = NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_SHA").publish();
-  private static StringPublisher git_date = NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_DATE").publish();
-  private static StringPublisher git_branch = NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_BRANCH").publish();
-  private static StringPublisher build_date = NetworkTableInstance.getDefault().getStringTopic("/Metadata/BUILD_DATE").publish();
-  private static StringPublisher dirty = NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
+  private static StringPublisher project_name =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/PROJECT_NAME").publish();
+  private static StringPublisher git_sha =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_SHA").publish();
+  private static StringPublisher git_date =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_DATE").publish();
+  private static StringPublisher git_branch =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_BRANCH").publish();
+  private static StringPublisher build_date =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/BUILD_DATE").publish();
+  private static StringPublisher dirty =
+      NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
   public static void logGitData() {
     project_name.set(BuildConstants.MAVEN_NAME);
