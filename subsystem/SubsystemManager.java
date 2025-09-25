@@ -10,7 +10,7 @@ import java.util.List;
 public abstract class SubsystemManager {
   private static final String subsystems_key_ = "subsystems";
 
-  protected ArrayList<MWSubsystem> subsystems;
+  protected ArrayList<MWSubsystemBase> subsystems;
   protected Notifier loopThread;
   protected boolean log_init = false;
 
@@ -35,8 +35,8 @@ public abstract class SubsystemManager {
     loopThread = new Notifier(this::doControlLoop);
   }
 
-  public void registerSubsystem(MWSubsystem system) {
-    if (system instanceof RemovableSubsystem && !((RemovableSubsystem) system).isEnabled()) {
+  public void registerSubsystem(MWSubsystemBase system) {
+    if (!enabled_systems_.contains(system.getName())) {
       DataLogManager.log("Registered disabled subsystem: " + system.getClass().getSimpleName());
     } else {
       subsystems.add(system);
@@ -47,7 +47,7 @@ public abstract class SubsystemManager {
 
     // For each subsystem get incoming data
     double timestamp = Timer.getFPGATimestamp();
-    for (MWSubsystem subsystem : subsystems) {
+    for (MWSubsystemBase subsystem : subsystems) {
       try {
         subsystem.getIo().readInputs(timestamp);
       } catch (Exception e) {
@@ -58,7 +58,7 @@ public abstract class SubsystemManager {
 
     // Now update the logic for each subsystem to allow I/O to relax
     timestamp = Timer.getFPGATimestamp();
-    for (MWSubsystem subsystem : subsystems) {
+    for (MWSubsystemBase subsystem : subsystems) {
       try {
         subsystem.updateLogic(timestamp);
       } catch (Exception e) {
@@ -69,7 +69,7 @@ public abstract class SubsystemManager {
 
     // Finally write the outputs to the actuators
     timestamp = Timer.getFPGATimestamp();
-    for (MWSubsystem subsystem : subsystems) {
+    for (MWSubsystemBase subsystem : subsystems) {
       try {
         subsystem.getIo().writeOutputs(timestamp);
       } catch (Exception e) {
@@ -90,7 +90,7 @@ public abstract class SubsystemManager {
    * through the getInstance method.
    */
   public void reset() {
-    for (MWSubsystem subsystem : subsystems) {
+    for (MWSubsystemBase subsystem : subsystems) {
       subsystem.reset();
     }
   }
