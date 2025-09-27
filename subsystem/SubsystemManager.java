@@ -1,8 +1,10 @@
 package frc.mw_lib.subsystem;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.Timer;
+import frc.mw_lib.logging.GitLogger;
 import frc.mw_lib.util.ConstantsLoader;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +22,7 @@ public abstract class SubsystemManager {
     if (disabled_subsystems_ == null) {
       // Determine removable subsystems to load
       disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
+
       DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
     }
 
@@ -30,9 +33,7 @@ public abstract class SubsystemManager {
     // Initialize the subsystem list
     subsystems = new ArrayList<>();
 
-    // create the thread to loop the subsystems and mark as daemon thread so
-    // the robot program can properly stop
-    loopThread = new Notifier(this::doControlLoop);
+    GitLogger.logGitData();
   }
 
   public void registerSubsystem(MWSubsystemBase system) {
@@ -43,45 +44,27 @@ public abstract class SubsystemManager {
     }
   }
 
-  private void doControlLoop() {
-
+  public void doControlLoop() {
     // For each subsystem get incoming data
-    double timestamp = Timer.getFPGATimestamp();
     for (MWSubsystemBase subsystem : subsystems) {
       try {
+        double timestamp = Timer.getFPGATimestamp();
+
+        DogLog.time(subsystem.getName() + "/loop_time");
+
         subsystem.getIo().readInputs(timestamp);
+
+        subsystem.updateLogic(timestamp);
+
+        subsystem.getIo().writeOutputs(timestamp);
+
+        DogLog.timeEnd(subsystem.getName() + "/loop_time");
+
       } catch (Exception e) {
         e.printStackTrace();
         DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to read inputs");
       }
     }
-
-    // Now update the logic for each subsystem to allow I/O to relax
-    timestamp = Timer.getFPGATimestamp();
-    for (MWSubsystemBase subsystem : subsystems) {
-      try {
-        subsystem.updateLogic(timestamp);
-      } catch (Exception e) {
-        e.printStackTrace();
-        DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to update logic");
-      }
-    }
-
-    // Finally write the outputs to the actuators
-    timestamp = Timer.getFPGATimestamp();
-    for (MWSubsystemBase subsystem : subsystems) {
-      try {
-        subsystem.getIo().writeOutputs(timestamp);
-      } catch (Exception e) {
-        e.printStackTrace();
-        DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to write outputs");
-      }
-    }
-  }
-
-  /** Completes the subsystem registration process and begins calling each subsystem in a loop */
-  protected void completeRegistration() {
-    loopThread.startPeriodic(.01);
   }
 
   /**
