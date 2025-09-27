@@ -36,20 +36,6 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
 
   /** Functions below this line are common. they can be used on all subsystems */
 
-  /** Gets the name of the subsystem used to enable and disable. Also used for logging */
-  public String getName() {
-    return subsystem_name_;
-  }
-
-  /**
-   * Gets the I/O container for the manager to exercise
-   *
-   * @return the generic I/O container to be called
-   */
-  public IoType getIo() {
-    return io;
-  }
-
   /**
    * Sets the desired state for the state machine
    *
@@ -61,9 +47,8 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
   }
 
   /**
-   * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASS
-   * IF YOU DO, BAD THINGS WILL HAPPEN!
-   * YOUR SUBSYSTEM WILL NOT TICK CORRECTLY
+   * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASS IF YOU DO, BAD THINGS WILL HAPPEN! YOUR SUBSYSTEM
+   * WILL NOT TICK CORRECTLY
    */
   @Override
   public void update(double timestamp) {
@@ -79,5 +64,23 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
    */
   public String getSubsystemKey() {
     return "Subsystem/" + subsystem_name_ + "/";
+  }
+
+  /**
+   * Gets the name of the subsystem used to enable and disable. Also used for logging
+   *
+   * @return the string name of the subsystem
+   */
+  public String getName() {
+    return subsystem_name_;
+  }
+
+  /**
+   * Gets the I/O container for the manager to exercise
+   *
+   * @return the generic I/O container to be called
+   */
+  public IoType getIo() {
+    return io;
   }
 }
