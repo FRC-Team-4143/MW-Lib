@@ -8,22 +8,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class SubsystemManager {
-  private static final String subsystems_key_ = "subsystems";
+  private static final String subsystems_key_ = "disabled_subsystems";
 
   protected ArrayList<MWSubsystemBase> subsystems;
   protected Notifier loopThread;
   protected boolean log_init = false;
 
-  protected static List<String> enabled_systems_;
+  protected static List<String> disabled_subsystems_;
 
   public static List<String> getEnabledSubsystems() {
-    if (enabled_systems_ == null) {
+    if (disabled_subsystems_ == null) {
       // Determine removable subsystems to load
-      enabled_systems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
-      DataLogManager.log("Expecting subsystems: " + enabled_systems_.toString());
+      disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
+      DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
     }
 
-    return enabled_systems_;
+    return disabled_subsystems_;
   }
 
   public SubsystemManager() {
@@ -36,7 +36,7 @@ public abstract class SubsystemManager {
   }
 
   public void registerSubsystem(MWSubsystemBase system) {
-    if (!enabled_systems_.contains(system.getName())) {
+    if (disabled_subsystems_.contains(system.getName())) {
       DataLogManager.log("Registered disabled subsystem: " + system.getClass().getSimpleName());
     } else {
       subsystems.add(system);
