@@ -24,7 +24,7 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
     subsystem_name_ = name;
   }
 
-  public void handleStateTransition(StateType wanted) {}
+  protected void handleStateTransition(StateType wanted) {}
 
   /** Computes updated outputs for the actuators */
   public abstract void updateLogic(double timestamp);
