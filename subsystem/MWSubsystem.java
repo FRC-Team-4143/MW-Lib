@@ -8,12 +8,12 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
   // state info
   protected IoType io;
   protected StateType system_state_;
-  protected StateType wanted_state_;
+  private StateType wanted_state_;
 
   // internal info
   protected String subsystem_name_;
 
-  public MWSubsystem() {
+  public MWSubsystem(StateType default_state) {
     // Use some Java magic to pull the class name
     String name = this.getClass().getSimpleName();
     name = name.substring(name.lastIndexOf('.') + 1);
@@ -22,6 +22,9 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
     }
 
     subsystem_name_ = name;
+
+    system_state_ = default_state;
+    wanted_state_ = default_state;
   }
 
   protected void handleStateTransition(StateType wanted) {
