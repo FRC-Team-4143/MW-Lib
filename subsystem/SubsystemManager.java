@@ -46,7 +46,7 @@ public abstract class SubsystemManager {
       try {
         double timestamp = Timer.getFPGATimestamp();
 
-        DogLog.time(subsystem.getName() + "/loop_time");
+        DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
 
         subsystem.getIo().readInputs(timestamp);
 
@@ -54,7 +54,7 @@ public abstract class SubsystemManager {
 
         subsystem.getIo().writeOutputs(timestamp);
 
-        DogLog.timeEnd(subsystem.getName() + "/loop_time");
+        DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
 
       } catch (Exception e) {
         e.printStackTrace();

@@ -5,6 +5,8 @@ public interface MWSubsystemBase {
 
   public String getName();
 
+  public String getSubsystemKey();
+
   /** Computes updated outputs for the actuators */
   public void updateLogic(double timestamp);
 
