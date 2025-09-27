@@ -24,7 +24,9 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
     subsystem_name_ = name;
   }
 
-  protected void handleStateTransition(StateType wanted) {}
+  protected void handleStateTransition(StateType wanted) {
+    system_state_ = wanted_state_;
+  }
 
   /** Computes updated outputs for the actuators */
   public abstract void updateLogic(double timestamp);
@@ -59,7 +61,7 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
   }
 
   /**
-   * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASSS
+   * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASS
    * IF YOU DO, BAD THINGS WILL HAPPEN!
    * YOUR SUBSYSTEM WILL NOT TICK CORRECTLY
    */
