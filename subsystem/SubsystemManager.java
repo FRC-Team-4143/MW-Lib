@@ -19,19 +19,15 @@ public abstract class SubsystemManager {
   protected static List<String> disabled_subsystems_;
 
   public static List<String> getEnabledSubsystems() {
-    if (disabled_subsystems_ == null) {
-      // Determine removable subsystems to load
-      disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
-
-      DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
-    }
-
     return disabled_subsystems_;
   }
 
   public SubsystemManager() {
     // Initialize the subsystem list
     subsystems = new ArrayList<>();
+
+    disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
+    DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
 
     GitLogger.logGitData();
   }
