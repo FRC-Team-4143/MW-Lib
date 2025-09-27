@@ -50,7 +50,7 @@ public abstract class SubsystemManager {
 
         subsystem.getIo().readInputs(timestamp);
 
-        subsystem.updateLogic(timestamp);
+        subsystem.update(timestamp);
 
         subsystem.getIo().writeOutputs(timestamp);
 

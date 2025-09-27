@@ -56,10 +56,18 @@ public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends 
   public void setWantedState(StateType wanted) {
     wanted_state_ = wanted;
     DogLog.log(getSubsystemKey() + "Wanted State", wanted_state_);
+  }
 
-    if (system_state_ != wanted) {
-      handleStateTransition(wanted);
-    }
+  /**
+   * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASSS
+   * IF YOU DO, BAD THINGS WILL HAPPEN!
+   * YOUR SUBSYSTEM WILL NOT TICK CORRECTLY
+   */
+  @Override
+  public void update(double timestamp) {
+    handleStateTransition(wanted_state_);
+
+    updateLogic(timestamp);
   }
 
   /**

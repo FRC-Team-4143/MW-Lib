@@ -8,7 +8,7 @@ public interface MWSubsystemBase {
   public String getSubsystemKey();
 
   /** Computes updated outputs for the actuators */
-  public void updateLogic(double timestamp);
+  public void update(double timestamp);
 
   /** Called to reset and configure the subsystem */
   public void reset();
