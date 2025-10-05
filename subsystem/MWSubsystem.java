@@ -2,24 +2,27 @@ package frc.mw_lib.subsystem;
 
 import dev.doglog.DogLog;
 
-public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends Enum<StateType>>
+public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends Enum<StateType>, ConstantsType extends MWConstants>
     implements MWSubsystemBase {
 
   // state info
   protected IoType io;
   protected StateType system_state_;
+  protected final ConstantsType CONSTANTS;
   private StateType wanted_state_;
 
   // internal info
   protected String subsystem_name_;
 
-  public MWSubsystem(StateType default_state) {
+  public MWSubsystem(StateType default_state, ConstantsType constants) {
     // Use some Java magic to pull the class name
     String name = this.getClass().getSimpleName();
     name = name.substring(name.lastIndexOf('.') + 1);
     if (name.endsWith("Subsystem")) {
       name = name.substring(0, name.length() - "Subsystem".length());
     }
+
+    CONSTANTS = constants;
 
     subsystem_name_ = name;
 

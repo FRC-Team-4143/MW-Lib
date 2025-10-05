@@ -1,8 +1,13 @@
 package frc.mw_lib.subsystem;
 
-public interface SubsystemIO {
+public abstract class SubsystemIO <ConstantsType extends MWConstants> {
+  protected final ConstantsType CONSTANTS;
 
-  public default void readInputs(double timestamp) {}
+  public SubsystemIO(ConstantsType constants){
+    CONSTANTS = constants;
+  }
 
-  public default void writeOutputs(double timestamp) {}
+  public abstract void readInputs(double timestamp);
+
+  public abstract void writeOutputs(double timestamp);
 }
