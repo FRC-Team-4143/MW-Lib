@@ -1,5 +1,6 @@
 package frc.mw_lib.subsystem;
 
+import edu.wpi.first.wpilibj.DataLogManager;
 import frc.mw_lib.util.ConstantsLoader;
 import frc.mw_lib.util.MWPreferences;
 
@@ -15,6 +16,8 @@ public class MWConstants {
     }
 
     system_name = name.toLowerCase();
+
+    DataLogManager.log("Loading constants for " + system_name);
   }
 
   // ConstantsLoader instance for loading configuration values
@@ -29,7 +32,7 @@ public class MWConstants {
     for (int i = 0; i < path_steps.length; i++) {
       arr[i + 1] = path_steps[i];
     }
-    return LOADER.getDoubleValue(path_steps);
+    return LOADER.getDoubleValue(arr);
   }
 
   protected final int getIntConstant(String... path_steps) {
@@ -38,7 +41,7 @@ public class MWConstants {
     for (int i = 0; i < path_steps.length; i++) {
       arr[i + 1] = path_steps[i];
     }
-    return LOADER.getIntValue(path_steps);
+    return LOADER.getIntValue(arr);
   }
 
   protected final String getStringConstant(String... path_steps) {
@@ -47,7 +50,7 @@ public class MWConstants {
     for (int i = 0; i < path_steps.length; i++) {
       arr[i + 1] = path_steps[i];
     }
-    return LOADER.getStringValue(path_steps);
+    return LOADER.getStringValue(arr);
   }
 
   protected final boolean getBoolConstant(String... path_steps) {
@@ -56,6 +59,6 @@ public class MWConstants {
     for (int i = 0; i < path_steps.length; i++) {
       arr[i + 1] = path_steps[i];
     }
-    return LOADER.getBoolValue(path_steps);
+    return LOADER.getBoolValue(arr);
   }
 }

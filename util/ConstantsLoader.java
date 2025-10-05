@@ -68,26 +68,50 @@ public class ConstantsLoader extends JSONReader {
 
   public double getDoubleValue(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
+
     return current.asDouble();
   }
 
   public int getIntValue(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
+
     return current.asInt();
   }
 
   public boolean getBoolValue(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
+
     return current.asBoolean();
   }
 
   public String getStringValue(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
+
     return current.asText();
   }
 
   public List<String> getStringList(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
 
     List<String> elements = new ArrayList<>();
     if (current.isArray()) {
@@ -105,6 +129,11 @@ public class ConstantsLoader extends JSONReader {
 
   protected List<String> getChildList(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
+
+    if( current.isMissingNode()){
+      throw new RuntimeException("Failed to find JSON path: " + String.join("/", path_steps));
+    }
+
     return getChildren(current);
   }
 

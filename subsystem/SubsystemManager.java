@@ -59,8 +59,8 @@ public abstract class SubsystemManager {
         DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
 
       } catch (Exception e) {
+        DataLogManager.log(" Failed to run update loop for " + subsystem.getClass().getCanonicalName());
         e.printStackTrace();
-        DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to read inputs");
       }
     }
   }
