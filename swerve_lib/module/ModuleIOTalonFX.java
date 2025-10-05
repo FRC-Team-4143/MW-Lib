@@ -3,6 +3,7 @@ package frc.mw_lib.swerve_lib.module;
 import static frc.mw_lib.util.PhoenixUtil.tryUntilOk;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
@@ -21,8 +22,6 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
-import frc.robot.Constants;
-import frc.robot.subsystems.swerve.SwerveConstants;
 
 public abstract class ModuleIOTalonFX implements ModuleIO {
   protected final SwerveModuleConstants<
@@ -63,12 +62,12 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
 
   protected ModuleIOTalonFX(
       SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration>
-          constants) {
+          constants, String can_bus_name) {
     this.constants = constants;
 
-    driveTalon = new TalonFX(constants.DriveMotorId, SwerveConstants.MODULE_CANBUS_NAME);
-    turnTalon = new TalonFX(constants.SteerMotorId, SwerveConstants.MODULE_CANBUS_NAME);
-    cancoder = new CANcoder(constants.EncoderId, SwerveConstants.MODULE_CANBUS_NAME);
+    driveTalon = new TalonFX(constants.DriveMotorId, can_bus_name);
+    turnTalon = new TalonFX(constants.SteerMotorId, can_bus_name);
+    cancoder = new CANcoder(constants.EncoderId, can_bus_name);
 
     // Configure drive motor
     var driveConfig = constants.DriveMotorInitialConfigs;
@@ -91,8 +90,6 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
     var turnConfig = new TalonFXConfiguration();
     turnConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     turnConfig.Slot0 = constants.SteerMotorGains;
-    if (Constants.CURRENT_MODE == Constants.Mode.SIM)
-      turnConfig.Slot0.withKD(0.5).withKS(0); // during simulation, gains are slightly different
 
     turnConfig.Feedback.FeedbackRemoteSensorID = constants.EncoderId;
     turnConfig.Feedback.FeedbackSensorSource =
@@ -131,7 +128,7 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
 
     // Configure periodic frames
     BaseStatusSignal.setUpdateFrequencyForAll(
-        SwerveConstants.ODOMETRY_FREQUENCY, turnAbsolutePosition, drivePosition);
+        new CANBus(can_bus_name).isNetworkFD() ? 250.0 : 100.0, turnAbsolutePosition, drivePosition);
     BaseStatusSignal.setUpdateFrequencyForAll(
         50.0,
         driveVelocity,

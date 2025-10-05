@@ -15,6 +15,8 @@ package frc.mw_lib.swerve_lib.module;
 
 import static edu.wpi.first.units.Units.*;
 
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import frc.mw_lib.util.PhoenixUtil;
 import java.util.Arrays;
@@ -27,8 +29,8 @@ import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 public class ModuleIOTalonFXSim extends ModuleIOTalonFX {
   private final SwerveModuleSimulation simulation;
 
-  public ModuleIOTalonFXSim(SwerveModuleConstants constants, SwerveModuleSimulation simulation) {
-    super(constants);
+  public ModuleIOTalonFXSim(SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration> constants, String can_bus_name, SwerveModuleSimulation simulation) {
+    super(constants, can_bus_name);
 
     this.simulation = simulation;
     simulation.useDriveMotorController(new PhoenixUtil.TalonFXMotorControllerSim(driveTalon));

@@ -21,7 +21,6 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import frc.robot.subsystems.swerve.SwerveConstants;
 
 public class Module {
 
@@ -88,7 +87,7 @@ public class Module {
     switch (DriveMode) {
       case CLOSED_LOOP -> io.setDriveVelocity(state.speedMetersPerSecond / constants.WheelRadius);
       case OPEN_LOOP -> io.setDriveOpenLoop(
-          state.speedMetersPerSecond / SwerveConstants.SPEED_AT_12V_MPS * 12.0);
+          state.speedMetersPerSecond / constants.SpeedAt12Volts * 12.0);
     }
     switch (SteerMode) {
       case CLOSED_LOOP -> io.setTurnPosition(state.angle);
