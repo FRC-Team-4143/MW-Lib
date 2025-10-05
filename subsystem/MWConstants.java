@@ -14,7 +14,7 @@ public class MWConstants {
       name = name.substring(0, name.length() - "Constants".length());
     }
 
-    system_name = name;
+    system_name = name.toLowerCase();
   }
 
   // ConstantsLoader instance for loading configuration values
