@@ -2,6 +2,8 @@ package frc.mw_lib.subsystem;
 
 import dev.doglog.DogLog;
 import dev.doglog.DogLogOptions;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.PowerDistribution;
@@ -18,6 +20,9 @@ public abstract class SubsystemManager {
   protected ArrayList<MWSubsystemBase> subsystems;
   protected Notifier loopThread;
   protected boolean log_init = false;
+
+  private static StringPublisher robot_name_pub_ = NetworkTableInstance.getDefault()
+      .getStringTopic("/Metadata/ROBOT_NAME").publish();
 
   protected static List<String> disabled_subsystems_;
 
@@ -40,7 +45,7 @@ public abstract class SubsystemManager {
 
     // Log robot metadata
     GitLogger.logGitData();
-    DogLog.log("ROBOT_NAME", ConstantsLoader.getInstance().getRobotName());
+    robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
 
     // Handle disabling subsystems
     disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
