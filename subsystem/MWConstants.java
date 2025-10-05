@@ -49,4 +49,13 @@ public class MWConstants {
     }
     return LOADER.getStringValue(path_steps);
   }
+
+  protected final boolean getBoolConstant(String... path_steps) {
+    String[] arr = new String[path_steps.length + 1];
+    arr[0] = system_name;
+    for (int i = 0; i < path_steps.length; i++) {
+      arr[i + 1] = path_steps[i];
+    }
+    return LOADER.getBoolValue(path_steps);
+  }
 }
