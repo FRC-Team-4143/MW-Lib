@@ -52,7 +52,7 @@ public abstract class MWSubsystem<
    */
   public void setWantedState(StateType wanted) {
     wanted_state_ = wanted;
-    DogLog.log(getSubsystemKey() + "Wanted State", wanted_state_);
+    DogLog.log(getSubsystemKey() + "WantedState", wanted_state_);
   }
 
   /**
