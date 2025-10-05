@@ -1,8 +1,11 @@
 package frc.mw_lib.subsystem;
 
 import dev.doglog.DogLog;
+import dev.doglog.DogLogOptions;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Notifier;
+import edu.wpi.first.wpilibj.PowerDistribution;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import frc.mw_lib.logging.GitLogger;
 import frc.mw_lib.util.ConstantsLoader;
@@ -26,10 +29,22 @@ public abstract class SubsystemManager {
     // Initialize the subsystem list
     subsystems = new ArrayList<>();
 
+    // setup all logging
+    if (RobotBase.isSimulation()) {
+      DogLog.setOptions(new DogLogOptions().withNtPublish(true).withCaptureDs(true));
+    } else {
+      DogLog.setOptions(new DogLogOptions().withCaptureNt(true).withCaptureDs(true));
+      DogLog.setPdh(new PowerDistribution());
+    }
+    DogLog.setEnabled(true);
+
+    // Log robot metadata
+    GitLogger.logGitData();
+    DogLog.log("ROBOT_NAME", ConstantsLoader.getInstance().getRobotName());
+
+    // Handle disabling subsystems
     disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
     DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
-
-    GitLogger.logGitData();
   }
 
   public void registerSubsystem(MWSubsystemBase system) {
@@ -41,23 +56,19 @@ public abstract class SubsystemManager {
   }
 
   public void doControlLoop() {
-    // For each subsystem get incoming data
+    // For each subsystem run its update loop
     for (MWSubsystemBase subsystem : subsystems) {
       try {
-        double timestamp = Timer.getFPGATimestamp();
-
         DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
 
+        // Run the subsystem update loop
+        double timestamp = Timer.getFPGATimestamp();
         subsystem.getIo().readInputs(timestamp);
-
         subsystem.update(timestamp);
-
         subsystem.getIo().writeOutputs(timestamp);
-
         subsystem.getIo().logData();
 
         DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
-
       } catch (Exception e) {
         DataLogManager.log(" Failed to run update loop for " + subsystem.getClass().getCanonicalName());
         e.printStackTrace();
@@ -66,9 +77,9 @@ public abstract class SubsystemManager {
   }
 
   /**
-   * If subsystems all need to be reset before a robot mode change, call this function to cleanly
-   * handle resetting them together. If only one subsystem needs to be reset, that can be accessed
-   * through the getInstance method.
+   * If subsystems all need to be reset before a robot mode change, call this
+   * function to cleanly handle resetting them together. If only one subsystem
+   * needs to be reset, that can be accessed through the getInstance method.
    */
   public void reset() {
     for (MWSubsystemBase subsystem : subsystems) {
