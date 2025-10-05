@@ -56,6 +56,9 @@ public abstract class SubsystemManager {
 
         DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
 
+        subsystem.logData();
+        subsystem.getIo().logData();
+
       } catch (Exception e) {
         e.printStackTrace();
         DataLogManager.log(subsystem.getClass().getCanonicalName() + "failed to read inputs");

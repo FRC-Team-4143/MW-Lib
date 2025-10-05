@@ -10,4 +10,6 @@ public abstract class SubsystemIO<ConstantsType extends MWConstants> {
   public abstract void readInputs(double timestamp);
 
   public abstract void writeOutputs(double timestamp);
+
+  public abstract void logData();
 }
