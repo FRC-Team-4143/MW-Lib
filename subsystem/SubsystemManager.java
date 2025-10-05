@@ -54,10 +54,9 @@ public abstract class SubsystemManager {
 
         subsystem.getIo().writeOutputs(timestamp);
 
-        DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
-
-        subsystem.logData();
         subsystem.getIo().logData();
+
+        DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
 
       } catch (Exception e) {
         e.printStackTrace();

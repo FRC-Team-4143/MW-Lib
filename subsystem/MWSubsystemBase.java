@@ -10,8 +10,6 @@ public interface MWSubsystemBase {
   /** Computes updated outputs for the actuators */
   public void update(double timestamp);
 
-  public void logData();
-
   /** Called to reset and configure the subsystem */
   public void reset();
 }
