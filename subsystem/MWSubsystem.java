@@ -2,7 +2,10 @@ package frc.mw_lib.subsystem;
 
 import dev.doglog.DogLog;
 
-public abstract class MWSubsystem<IoType extends SubsystemIO, StateType extends Enum<StateType>, ConstantsType extends MWConstants>
+public abstract class MWSubsystem<
+        IoType extends SubsystemIO,
+        StateType extends Enum<StateType>,
+        ConstantsType extends MWConstants>
     implements MWSubsystemBase {
 
   // state info
