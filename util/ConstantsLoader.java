@@ -9,6 +9,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotState;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -32,7 +33,15 @@ public class ConstantsLoader extends JSONReader {
 
   private ConstantsLoader() {
     String robot_name = "AlphaBot";
-    if (!MWPreferences.getInstance().hasPreference(robot_name_pref_name)) {
+    if(RobotBase.isSimulation()){
+      // Default to SimBot, but allow an environment variable to override it
+      robot_name = "SimBot";
+      if( System.getenv("ROBOT_NAME") != null ){
+        robot_name = System.getenv("ROBOT_NAME");
+      }
+      DriverStation.reportWarning("Simulation Environment Detected, Using Robot Name: " + robot_name, false);
+
+    } else if (!MWPreferences.getInstance().hasPreference(robot_name_pref_name)) {
       DriverStation.reportError(
           "Failed to retrieve robot name on startup, using default: " + robot_name, false);
     } else {
