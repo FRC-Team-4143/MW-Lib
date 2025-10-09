@@ -76,6 +76,15 @@ public abstract class MWSubsystem<
   }
 
   /**
+   * a common NT key to use for the subsystem
+   *
+   * @return the NT key to use as a base. eg getSubsystemKey() + "Some Special Value"
+   */
+  public String getNtKey() {
+    return "Robot/Subsystem/" + subsystem_name_ + "/";
+  }
+
+  /**
    * Gets the name of the subsystem used to enable and disable. Also used for logging
    *
    * @return the string name of the subsystem
