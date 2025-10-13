@@ -66,12 +66,21 @@ public abstract class SubsystemManager {
       try {
         DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
 
+        List<SubsystemIoBase> ios = subsystem.getIos();
+
         // Run the subsystem update loop
         double timestamp = Timer.getFPGATimestamp();
-        subsystem.getIo().readInputs(timestamp);
+        
+        for (SubsystemIoBase io : ios){
+          io.readInputs(timestamp);
+        }
+      
         subsystem.update(timestamp);
-        subsystem.getIo().writeOutputs(timestamp);
-        subsystem.getIo().logData();
+        
+        for(SubsystemIoBase io : ios){
+          io.writeOutputs(timestamp);
+          io.logData();
+        }
 
         DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
       } catch (Exception e) {

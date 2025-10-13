@@ -1,7 +1,9 @@
 package frc.mw_lib.subsystem;
 
+import java.util.List;
+
 public interface MWSubsystemBase {
-  public SubsystemIO getIo();
+  public List<SubsystemIoBase> getIos();
 
   public String getName();
 
