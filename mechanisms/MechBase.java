@@ -5,6 +5,7 @@ import frc.mw_lib.subsystem.SubsystemIoBase;
 
 public abstract class MechBase implements SubsystemIoBase {
     private final String mech_name_;
+    private String logging_prefix_ = "Unknown";
 
     protected final boolean IS_SIM;
 
@@ -19,6 +20,14 @@ public abstract class MechBase implements SubsystemIoBase {
 
         // identiy if we are in simulation
         IS_SIM = RobotBase.isSimulation();
+    }
+
+    public void setLoggingPrefix(String subsystem_name){
+        logging_prefix_ = subsystem_name;
+    }
+
+    public String getLoggingKey(){
+        return logging_prefix_ + "/" + mech_name_ + "/";
     }
 
     public String getMechName(){
