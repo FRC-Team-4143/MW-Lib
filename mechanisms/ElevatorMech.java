@@ -2,6 +2,14 @@ package frc.mw_lib.mechanisms;
 
 public class ElevatorMech extends MechBase {
 
+
+
+    public ElevatorMech() {
+        
+
+
+    }   
+
     @Override
     public String getSubsystemKey() {
         // TODO Auto-generated method stub
@@ -10,14 +18,20 @@ public class ElevatorMech extends MechBase {
 
     @Override
     public void readInputs(double timestamp) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'readInputs'");
+        if(IS_SIM){
+
+        } else {
+
+        }
     }
 
     @Override
     public void writeOutputs(double timestamp) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'writeOutputs'");
+        if(IS_SIM){
+
+        } else {
+
+        }
     }
 
     @Override
