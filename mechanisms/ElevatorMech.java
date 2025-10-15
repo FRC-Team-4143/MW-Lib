@@ -1,12 +1,17 @@
 package frc.mw_lib.mechanisms;
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+
 import java.util.List;
 
-import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 
@@ -16,13 +21,29 @@ import frc.mw_lib.mechanisms.FxMotorConfig.FxMotorType;
 
 public class ElevatorMech extends MechBase {
 
+    protected enum ControlMode {
+        POSITION,
+        VELOCITY,
+        DUTY_CYCLE
+    }
+    protected ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
+
     // Always assume that we have the leader motor in index 0
-    private final TalonFX motors_[];
-    private final PositionVoltage position_request_;
-    private final VelocityVoltage velocity_request_;
+    protected final TalonFX motors_[];
+    protected final PositionVoltage position_request_;
+    protected final VelocityVoltage velocity_request_;
+    protected final DutyCycleOut duty_cycle_request_;
 
     // Simulation
     private final ElevatorSim elevator_sim_;
+
+    // sensor inputs
+    protected double position_ = 0;
+    protected double velocity_ = 0;
+    protected double[] applied_voltage_;
+    protected double[] current_draw_;
+    protected double[] motor_temp_c_;
+    protected double[] bus_voltage_;
 
     public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius, double carriage_mass_kg,
     double max_extension, double rigging_ratio) {
@@ -68,6 +89,7 @@ public class ElevatorMech extends MechBase {
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
+        duty_cycle_request_ = new DutyCycleOut(0);
 
         DCMotor motor_type;
         if(motor_configs.get(0).motor_type == FxMotorType.X60){
@@ -88,36 +110,61 @@ public class ElevatorMech extends MechBase {
                 is_vertical, // Simulate gravity
                 0 // Starting height (m)
         );
+
+        // default the inputs
+        position_ = 0;
+        velocity_ = 0;
+        applied_voltage_ = new double[motors_.length];
+        current_draw_ = new double[motors_.length];
+        motor_temp_c_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
     }
 
     @Override
     public void readInputs(double timestamp) {
-        if (IS_SIM) {
-
-        } else {
-
+        
+        // always read the sensor data
+        position_ = motors_[0].getPosition().getValue().in(Radians);
+        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        for (int i = 0; i < motors_.length; i++) {
+            applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
+            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
+            bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
         }
+
+        // run the simulation update step here if we are simulating
+        if (IS_SIM) {
+        } 
     }
 
     @Override
     public void writeOutputs(double timestamp) {
-        if (IS_SIM) {
-
-        } else {
-
+        switch(control_mode_){
+            case POSITION:
+                motors_[0].setControl(position_request_);
+                break;
+            case VELOCITY:
+                motors_[0].setControl(velocity_request_);
+                break;
+            case DUTY_CYCLE:
+                motors_[0].setControl(duty_cycle_request_);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected control mode: " + control_mode_);
         }
     }
 
-    public void setCurrentPosition(double position, double feedforward) {
+    public void setCurrentPosition(double position) {
         motors_[0].setPosition(position);
     }
 
     public double getPosition() {
-        return 0;
+        return position_;
     }
 
     public double getVelocity() {
-        return 0;
+        return velocity_;
     }
 
     @Override
