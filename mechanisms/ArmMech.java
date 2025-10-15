@@ -3,12 +3,6 @@ package frc.mw_lib.mechanisms;
 public class ArmMech extends MechBase {
 
     @Override
-    public String getSubsystemKey() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getSubsystemKey'");
-    }
-
-    @Override
     public void readInputs(double timestamp) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'readInputs'");
