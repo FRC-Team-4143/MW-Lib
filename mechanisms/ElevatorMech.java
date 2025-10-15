@@ -89,7 +89,7 @@ public class ElevatorMech extends MechBase {
                     cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
                     cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
                     cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
-                }
+                } 
 
                 // also force the gear ratio to be correct
                 cfg.config.Feedback.SensorToMechanismRatio = gear_ratio;
