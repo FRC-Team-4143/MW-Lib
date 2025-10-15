@@ -5,8 +5,10 @@ import static edu.wpi.first.units.Units.Celsius;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.StrictFollower;
@@ -33,6 +35,7 @@ public class ElevatorMech extends MechBase {
     protected final PositionVoltage position_request_;
     protected final VelocityVoltage velocity_request_;
     protected final DutyCycleOut duty_cycle_request_;
+    protected BaseStatusSignal[] signals_;
 
     // Simulation
     private final ElevatorSim elevator_sim_;
@@ -64,6 +67,7 @@ public class ElevatorMech extends MechBase {
             throw new IllegalArgumentException("Motor configs is null or empty");
         }
 
+        ArrayList<BaseStatusSignal> all_signals_list = new ArrayList<>();
         motors_ = new TalonFX[motor_configs.size()];
         for (int i = 0; i < motor_configs.size(); i++) {
             FxMotorConfig cfg = motor_configs.get(i);
@@ -72,6 +76,7 @@ public class ElevatorMech extends MechBase {
             }
 
             motors_[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
+            ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();
 
             // Only apply the configs to the first motor, the rest are followers
             if (i == 0) {
@@ -86,16 +91,38 @@ public class ElevatorMech extends MechBase {
                 cfg.config.Feedback.SensorToMechanismRatio = gear_ratio;
 
                 motors_[i].getConfigurator().apply(cfg.config);
+
+                motor_signals.add(motors_[i].getPosition());
+                motor_signals.add(motors_[i].getVelocity());
             } else {
                 // make the rest of the motors followers
                 motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
             }
+
+            motor_signals.add(motors_[i].getMotorVoltage());
+            motor_signals.add(motors_[i].getSupplyCurrent());
+            motor_signals.add(motors_[i].getDeviceTemp());
+            // motor_signals.add(motors_[i].getSupplyVoltage()); // skip refreshing voltage
+            // to keep bandwidth low
+
+            // Optimize bus usage to the signals we want
+            for (BaseStatusSignal s : motor_signals) {
+                s.setUpdateFrequency(50); // 50 Hz update rate
+            }
+            motors_[i].optimizeBusUtilization();
+
+            // keep a master list of signals for refreshing later
+            all_signals_list.addAll(motor_signals);
         }
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
-        
+
+        // convert the list to an array for easy access
+        signals_ = new BaseStatusSignal[all_signals_list.size()];
+        signals_ = all_signals_list.toArray(signals_);
+
         this.gear_ratio_ = gear_ratio;
         this.drum_radius_ = drum_radius;
         this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
@@ -109,7 +136,7 @@ public class ElevatorMech extends MechBase {
         bus_voltage_ = new double[motors_.length];
 
         //////////////////////////
-        ///  SIMULATION SETUP  ///
+        /// SIMULATION SETUP ///
         //////////////////////////
 
         DCMotor motor_type;
@@ -136,6 +163,8 @@ public class ElevatorMech extends MechBase {
 
     @Override
     public void readInputs(double timestamp) {
+        BaseStatusSignal.refreshAll(signals_);
+
         // always read the sensor data
         position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Radians);
         velocity_ = position_to_rotations_ * motors_[0].getVelocity().getValue().in(RadiansPerSecond);
