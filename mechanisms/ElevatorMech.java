@@ -167,6 +167,21 @@ public class ElevatorMech extends MechBase {
         return velocity_;
     }
 
+    public void setTargetPosition(double position_rad) {
+        control_mode_ = ControlMode.POSITION;
+        position_request_.Position = position_rad;
+    }
+
+    public void setTargetVelocity(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_request_.Velocity = velocity_rad_per_sec;
+    }
+
+    public void setTargetDutyCycle(double duty_cycle) {
+        control_mode_ = ControlMode.DUTY_CYCLE;
+        duty_cycle_request_.Output = duty_cycle;
+    }
+
     @Override
     public void logData() {
         // TODO Auto-generated method stub
