@@ -2,14 +2,15 @@ package frc.mw_lib.mechanisms;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
@@ -23,6 +24,7 @@ import frc.mw_lib.mechanisms.FxMotorConfig.FxMotorType;
 public class ElevatorMech extends MechBase {
 
     protected enum ControlMode {
+        MOTION_MAGIC_POSITION,
         POSITION,
         VELOCITY,
         DUTY_CYCLE
@@ -33,6 +35,8 @@ public class ElevatorMech extends MechBase {
     // Always assume that we have the leader motor in index 0
     protected final TalonFX motors_[];
     protected final PositionVoltage position_request_;
+    protected final MotionMagicVoltage motion_magic_position_request_;
+    protected final boolean use_motion_magic_;
     protected final VelocityVoltage velocity_request_;
     protected final DutyCycleOut duty_cycle_request_;
     protected BaseStatusSignal[] signals_;
@@ -116,6 +120,7 @@ public class ElevatorMech extends MechBase {
         }
 
         position_request_ = new PositionVoltage(0).withSlot(0);
+        motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
@@ -126,6 +131,7 @@ public class ElevatorMech extends MechBase {
         this.gear_ratio_ = gear_ratio;
         this.drum_radius_ = drum_radius;
         this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
+        this.use_motion_magic_ = motor_configs.get(0).use_motion_magic;
 
         // default the inputs
         position_ = 0;
@@ -166,8 +172,8 @@ public class ElevatorMech extends MechBase {
         BaseStatusSignal.refreshAll(signals_);
 
         // always read the sensor data
-        position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Radians);
-        velocity_ = position_to_rotations_ * motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Rotations);
+        velocity_ = position_to_rotations_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
         for (int i = 0; i < motors_.length; i++) {
             applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
             current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
@@ -195,6 +201,9 @@ public class ElevatorMech extends MechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
+            case MOTION_MAGIC_POSITION:
+                motors_[0].setControl(motion_magic_position_request_);
+                break;
             case POSITION:
                 motors_[0].setControl(position_request_);
                 break;
@@ -226,8 +235,13 @@ public class ElevatorMech extends MechBase {
     }
 
     public void setTargetPosition(double position_rad) {
-        control_mode_ = ControlMode.POSITION;
-        position_request_.Position = position_rad;
+        if (use_motion_magic_) {
+            control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+            motion_magic_position_request_.Position = position_rad;
+        } else {
+            control_mode_ = ControlMode.POSITION;
+            position_request_.Position = position_rad;
+        }
     }
 
     public void setTargetVelocity(double velocity_rad_per_sec) {

@@ -80,6 +80,13 @@ public class ConstantsLoader extends JSONReader {
     return robot_name_;
   }
 
+  public static String[] combinePath(String[] base, String... steps) {
+    String[] combined = new String[base.length + steps.length];
+    System.arraycopy(base, 0, combined, 0, base.length);
+    System.arraycopy(steps, 0, combined, base.length, steps.length);
+    return combined;
+  }
+
   public double getDoubleValue(String... path_steps) {
     JsonNode current = walkTree(root_node_, path_steps);
 
