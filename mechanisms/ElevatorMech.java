@@ -17,6 +17,7 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import frc.mw_lib.mechanisms.FxMotorConfig.FxMotorType;
@@ -49,7 +50,10 @@ public class ElevatorMech extends MechBase {
 
     // sensor inputs
     protected double position_ = 0;
+    protected double position_target_ = 0;
     protected double velocity_ = 0;
+    protected double velocity_target_ = 0;
+    protected double duty_cycle_target_ = 0;
     protected double[] applied_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
@@ -235,6 +239,7 @@ public class ElevatorMech extends MechBase {
     }
 
     public void setTargetPosition(double position_m) {
+        position_target_ = position_m;
         if (use_motion_magic_) {
             control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
             motion_magic_position_request_.Position = position_m / position_to_rotations_;
@@ -246,18 +251,33 @@ public class ElevatorMech extends MechBase {
 
     public void setTargetVelocity(double velocity_mps) {
         control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_mps;
         velocity_request_.Velocity = velocity_mps / position_to_rotations_;
     }
 
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
+        duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
     }
 
     @Override
     public void logData() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'logData'");
+        // commands
+        DogLog.log(getLoggingKey() + "mode", control_mode_.toString());
+        DogLog.log(getLoggingKey() + "position/target", position_target_);
+        DogLog.log(getLoggingKey() + "position/actual", position_);
+        DogLog.log(getLoggingKey() + "velocity/target", velocity_target_); 
+        DogLog.log(getLoggingKey() + "velocity/actual", velocity_);
+        DogLog.log(getLoggingKey() + "duty_cycle/target", duty_cycle_target_);
+
+        // per motor data
+        for (int i = 0; i < motors_.length; i++) {
+            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i]);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i]);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp_c", motor_temp_c_[i]);
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i]);
+        }
     }
 
 }
