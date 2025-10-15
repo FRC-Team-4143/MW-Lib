@@ -221,6 +221,10 @@ public class ElevatorMech extends MechBase {
         return velocity_;
     }
 
+    public double getLeaderCurrent() {
+        return current_draw_[0];
+    }
+
     public void setTargetPosition(double position_rad) {
         control_mode_ = ControlMode.POSITION;
         position_request_.Position = position_rad;
