@@ -189,6 +189,9 @@ public class ArmMech extends MechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch(control_mode_){
+            case MOTION_MAGIC_POSITION:
+                motors_[0].setControl(motion_magic_position_request_);
+                break;
             case POSITION:
                 motors_[0].setControl(position_request_);
                 break;
