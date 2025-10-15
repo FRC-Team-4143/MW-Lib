@@ -11,7 +11,6 @@ import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
-import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 
@@ -26,6 +25,7 @@ public class ElevatorMech extends MechBase {
         VELOCITY,
         DUTY_CYCLE
     }
+
     protected ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Always assume that we have the leader motor in index 0
@@ -36,6 +36,9 @@ public class ElevatorMech extends MechBase {
 
     // Simulation
     private final ElevatorSim elevator_sim_;
+    private final double gear_ratio_;
+    private final double drum_radius_;
+    private final double position_to_rotations_;
 
     // sensor inputs
     protected double position_ = 0;
@@ -45,12 +48,14 @@ public class ElevatorMech extends MechBase {
     protected double[] motor_temp_c_;
     protected double[] bus_voltage_;
 
-    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius, double carriage_mass_kg,
-    double max_extension, double rigging_ratio) {
+    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
+            double carriage_mass_kg,
+            double max_extension, double rigging_ratio) {
         this(motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, rigging_ratio, false);
     }
 
-    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius, double carriage_mass_kg,
+    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
+            double carriage_mass_kg,
             double max_extension, double rigging_ratio, boolean is_vertical) {
         super();
 
@@ -90,14 +95,30 @@ public class ElevatorMech extends MechBase {
         position_request_ = new PositionVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
+        
+        this.gear_ratio_ = gear_ratio;
+        this.drum_radius_ = drum_radius;
+        this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
+
+        // default the inputs
+        position_ = 0;
+        velocity_ = 0;
+        applied_voltage_ = new double[motors_.length];
+        current_draw_ = new double[motors_.length];
+        motor_temp_c_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
+
+        //////////////////////////
+        ///  SIMULATION SETUP  ///
+        //////////////////////////
 
         DCMotor motor_type;
-        if(motor_configs.get(0).motor_type == FxMotorType.X60){
+        if (motor_configs.get(0).motor_type == FxMotorType.X60) {
             motor_type = DCMotor.getKrakenX60(motor_configs.size());
         } else {
             throw new IllegalArgumentException("Unsupported motor type");
             // motor_type = DCMotor.getKr(motor_configs.size());
-        } 
+        }
 
         // construct the simulation object
         elevator_sim_ = new ElevatorSim(
@@ -111,21 +132,13 @@ public class ElevatorMech extends MechBase {
                 0 // Starting height (m)
         );
 
-        // default the inputs
-        position_ = 0;
-        velocity_ = 0;
-        applied_voltage_ = new double[motors_.length];
-        current_draw_ = new double[motors_.length];
-        motor_temp_c_ = new double[motors_.length];
-        bus_voltage_ = new double[motors_.length];
     }
 
     @Override
     public void readInputs(double timestamp) {
-        
         // always read the sensor data
-        position_ = motors_[0].getPosition().getValue().in(Radians);
-        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Radians);
+        velocity_ = position_to_rotations_ * motors_[0].getVelocity().getValue().in(RadiansPerSecond);
         for (int i = 0; i < motors_.length; i++) {
             applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
             current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
@@ -135,12 +148,24 @@ public class ElevatorMech extends MechBase {
 
         // run the simulation update step here if we are simulating
         if (IS_SIM) {
-        } 
+            // Set input voltage from motor controller to simulation
+            elevator_sim_.setInput(motors_[0].getSimState().getMotorVoltage());
+
+            // Update simulation by 20ms
+            elevator_sim_.update(0.020);
+
+            // Convert meters to motor rotations
+            double motorPosition = elevator_sim_.getPositionMeters() * position_to_rotations_ * gear_ratio_;
+            double motorVelocity = elevator_sim_.getVelocityMetersPerSecond() * position_to_rotations_ * gear_ratio_;
+
+            motors_[0].getSimState().setRawRotorPosition(motorPosition);
+            motors_[0].getSimState().setRotorVelocity(motorVelocity);
+        }
     }
 
     @Override
     public void writeOutputs(double timestamp) {
-        switch(control_mode_){
+        switch (control_mode_) {
             case POSITION:
                 motors_[0].setControl(position_request_);
                 break;
