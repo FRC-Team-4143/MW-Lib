@@ -49,12 +49,14 @@ public class FxMotorConfig {
         config.Slot0.kS = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "ks"));
         config.Slot0.kV = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "kv"));
         config.Slot0.kA = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "ka"));
+        config.Slot0.kG = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "kg"));
         config.Slot0.kP = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "kp"));
         config.Slot0.kI = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "ki"));
         config.Slot0.kD = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "kd"));
         config.Slot1.kS = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ks"));
         config.Slot1.kV = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kv"));
         config.Slot1.kA = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ka"));
+        config.Slot1.kG = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kg"));
         config.Slot1.kP = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kp"));
         config.Slot1.kI = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ki"));
         config.Slot1.kD = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kd"));

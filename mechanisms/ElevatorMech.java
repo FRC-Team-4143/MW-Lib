@@ -88,12 +88,17 @@ public class ElevatorMech extends MechBase {
 
             // Only apply the configs to the first motor, the rest are followers
             if (i == 0) {
+                // force the gravity compensation mode
+                cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
+                cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
+                cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
+
                 // Configure the motor for position & velocity control with gravity compensation
-                if (is_vertical) {
-                    cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
-                    cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
-                    cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
-                } 
+                if (!is_vertical) {
+                    cfg.config.Slot0.kG = 0;
+                    cfg.config.Slot1.kG = 0;
+                    cfg.config.Slot2.kG = 0;
+                }
 
                 // also force the gear ratio to be correct
                 cfg.config.Feedback.SensorToMechanismRatio = gear_ratio;
@@ -267,7 +272,7 @@ public class ElevatorMech extends MechBase {
         DogLog.log(getLoggingKey() + "mode", control_mode_.toString());
         DogLog.log(getLoggingKey() + "position/target", position_target_);
         DogLog.log(getLoggingKey() + "position/actual", position_);
-        DogLog.log(getLoggingKey() + "velocity/target", velocity_target_); 
+        DogLog.log(getLoggingKey() + "velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "duty_cycle/target", duty_cycle_target_);
 
