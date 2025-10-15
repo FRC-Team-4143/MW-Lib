@@ -234,19 +234,19 @@ public class ElevatorMech extends MechBase {
         return current_draw_[0];
     }
 
-    public void setTargetPosition(double position_rad) {
+    public void setTargetPosition(double position_m) {
         if (use_motion_magic_) {
             control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
-            motion_magic_position_request_.Position = position_rad;
+            motion_magic_position_request_.Position = position_m / position_to_rotations_;
         } else {
             control_mode_ = ControlMode.POSITION;
-            position_request_.Position = position_rad;
+            position_request_.Position = position_m / position_to_rotations_;
         }
     }
 
-    public void setTargetVelocity(double velocity_rad_per_sec) {
+    public void setTargetVelocity(double velocity_mps) {
         control_mode_ = ControlMode.VELOCITY;
-        velocity_request_.Velocity = velocity_rad_per_sec;
+        velocity_request_.Velocity = velocity_mps / position_to_rotations_;
     }
 
     public void setTargetDutyCycle(double duty_cycle) {
