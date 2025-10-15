@@ -231,11 +231,11 @@ public class ElevatorMech extends MechBase {
         motors_[0].setPosition(position);
     }
 
-    public double getPosition() {
+    public double getCurrentPosition() {
         return position_;
     }
 
-    public double getVelocity() {
+    public double getCurrentVelocity() {
         return velocity_;
     }
 
