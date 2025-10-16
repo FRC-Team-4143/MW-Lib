@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.PositionVoltage;
@@ -62,14 +63,12 @@ public class ElevatorMech extends MechBase {
     public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
             double carriage_mass_kg,
             double max_extension, double rigging_ratio) {
-        this(motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, rigging_ratio, false);
+        this(motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, rigging_ratio, true);
     }
 
     public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
             double carriage_mass_kg,
             double max_extension, double rigging_ratio, boolean is_vertical) {
-        super();
-
         // throw a fit if we don't have any motors
         if (motor_configs == null || motor_configs.size() == 0) {
             throw new IllegalArgumentException("Motor configs is null or empty");
@@ -174,6 +173,21 @@ public class ElevatorMech extends MechBase {
                 0 // Starting height (m)
         );
 
+    }
+
+    protected void configSlot(int slot, SlotConfigs config) {
+        if (slot < 0 || slot > 2) {
+            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+        }
+        motors_[0].getConfigurator().apply(config, slot);
+    }
+
+    public void setPositionSlot(SlotConfigs config) {
+        configSlot(0, config);
+    }
+
+    public void setVelocitySlot(SlotConfigs config) {
+        configSlot(1, config);
     }
 
     @Override

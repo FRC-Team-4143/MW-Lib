@@ -1,6 +1,6 @@
 package frc.mw_lib.subsystem;
 
-public abstract class SubsystemIO<ConstantsType extends MWConstants> implements SubsystemIoBase {
+public abstract class SubsystemIO<ConstantsType extends MwConstants> implements SubsystemIoBase {
   protected final ConstantsType CONSTANTS;
   private final String subsystem_name_;
 

@@ -17,7 +17,7 @@ import java.util.List;
 public abstract class SubsystemManager {
   private static final String subsystems_key_ = "disabled_subsystems";
 
-  protected ArrayList<MWSubsystemBase> subsystems;
+  protected ArrayList<MwSubsystemBase> subsystems;
   protected Notifier loopThread;
   protected boolean log_init = false;
 
@@ -52,7 +52,7 @@ public abstract class SubsystemManager {
     DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
   }
 
-  public void registerSubsystem(MWSubsystemBase system) {
+  public void registerSubsystem(MwSubsystemBase system) {
     if (disabled_subsystems_.contains(system.getName())) {
       DataLogManager.log("Registered disabled subsystem: " + system.getClass().getSimpleName());
     } else {
@@ -62,7 +62,7 @@ public abstract class SubsystemManager {
 
   public void doControlLoop() {
     // For each subsystem run its update loop
-    for (MWSubsystemBase subsystem : subsystems) {
+    for (MwSubsystemBase subsystem : subsystems) {
       try {
         DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
 
@@ -96,7 +96,7 @@ public abstract class SubsystemManager {
    * needs to be reset, that can be accessed through the getInstance method.
    */
   public void reset() {
-    for (MWSubsystemBase subsystem : subsystems) {
+    for (MwSubsystemBase subsystem : subsystems) {
       subsystem.reset();
     }
   }

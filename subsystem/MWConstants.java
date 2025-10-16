@@ -4,10 +4,10 @@ import edu.wpi.first.wpilibj.DataLogManager;
 import frc.mw_lib.util.ConstantsLoader;
 import frc.mw_lib.util.MWPreferences;
 
-public class MWConstants {
+public class MwConstants {
   private final String system_name;
 
-  protected MWConstants() {
+  protected MwConstants() {
     // Use some Java magic to pull the class name
     String name = this.getClass().getSimpleName();
     name = name.substring(name.lastIndexOf('.') + 1);
@@ -25,6 +25,10 @@ public class MWConstants {
 
   // MW Preferences loader for loading from and to preferences
   protected final MWPreferences PREFERENCES = MWPreferences.getInstance();
+
+  protected String getSystemName() {
+    return system_name;
+  }
 
   protected final double getDoubleConstant(String... path_steps) {
     String[] arr = new String[path_steps.length + 1];
