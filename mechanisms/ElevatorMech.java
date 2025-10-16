@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.Slot1Configs;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
@@ -176,10 +178,13 @@ public class ElevatorMech extends MechBase {
     }
 
     protected void configSlot(int slot, SlotConfigs config) {
-        if (slot < 0 || slot > 2) {
+        if(slot == 0){
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+        } else if(slot == 1){
+            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+        } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");
         }
-        motors_[0].getConfigurator().apply(config, slot);
     }
 
     public void setPositionSlot(SlotConfigs config) {
