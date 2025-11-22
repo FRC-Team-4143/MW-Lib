@@ -288,12 +288,12 @@ public class ElevatorMech extends MechBase {
     @Override
     public void logData() {
         // commands
-        DogLog.log(getLoggingKey() + "mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "position/target", position_target_);
-        DogLog.log(getLoggingKey() + "position/actual", position_);
-        DogLog.log(getLoggingKey() + "velocity/target", velocity_target_);
-        DogLog.log(getLoggingKey() + "velocity/actual", velocity_);
-        DogLog.log(getLoggingKey() + "duty_cycle/target", duty_cycle_target_);
+        DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_);
+        DogLog.log(getLoggingKey() + "control/position/actual", position_);
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
