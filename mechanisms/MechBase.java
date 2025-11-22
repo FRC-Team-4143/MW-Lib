@@ -5,7 +5,7 @@ import frc.mw_lib.subsystem.SubsystemIoBase;
 
 public abstract class MechBase implements SubsystemIoBase {
     private final String mech_name_;
-    private String logging_prefix_ = "Unknown";
+    private String logging_prefix_ = "Subsystem/Unknown/";
 
     protected final boolean IS_SIM;
 
@@ -27,7 +27,7 @@ public abstract class MechBase implements SubsystemIoBase {
     }
 
     public String getLoggingKey(){
-        return logging_prefix_ + "/" + mech_name_ + "/";
+        return logging_prefix_  + mech_name_ + "/";
     }
 
     public String getMechName(){
