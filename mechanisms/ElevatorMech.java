@@ -71,72 +71,34 @@ public class ElevatorMech extends MechBase {
     public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
             double carriage_mass_kg,
             double max_extension, double rigging_ratio, boolean is_vertical) {
-        // throw a fit if we don't have any motors
-        if (motor_configs == null || motor_configs.size() == 0) {
-            throw new IllegalArgumentException("Motor configs is null or empty");
-        }
-
-        ArrayList<BaseStatusSignal> all_signals_list = new ArrayList<>();
-        motors_ = new TalonFX[motor_configs.size()];
-        for (int i = 0; i < motor_configs.size(); i++) {
-            FxMotorConfig cfg = motor_configs.get(i);
-            if (cfg.canbus_name == null || cfg.canbus_name.isEmpty()) {
-                throw new IllegalArgumentException("Motor canbus name is null or empty");
-            }
-
-            motors_[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
-            ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();
-
-            // Only apply the configs to the first motor, the rest are followers
-            if (i == 0) {
-                // force the gravity compensation mode
-                cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
-                cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
-                cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
-
-                // Configure the motor for position & velocity control with gravity compensation
-                if (!is_vertical) {
-                    cfg.config.Slot0.kG = 0;
-                    cfg.config.Slot1.kG = 0;
-                    cfg.config.Slot2.kG = 0;
-                }
-
-                // also force the gear ratio to be correct
-                cfg.config.Feedback.SensorToMechanismRatio = gear_ratio;
-
-                motors_[i].getConfigurator().apply(cfg.config);
-
-                motor_signals.add(motors_[i].getPosition());
-                motor_signals.add(motors_[i].getVelocity());
-            } else {
-                // make the rest of the motors followers
-                motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
-            }
-
-            motor_signals.add(motors_[i].getMotorVoltage());
-            motor_signals.add(motors_[i].getSupplyCurrent());
-            motor_signals.add(motors_[i].getDeviceTemp());
-            // motor_signals.add(motors_[i].getSupplyVoltage()); // skip refreshing voltage
-            // to keep bandwidth low
-
-            // Optimize bus usage to the signals we want
-            for (BaseStatusSignal s : motor_signals) {
-                s.setUpdateFrequency(50); // 50 Hz update rate
-            }
-            motors_[i].optimizeBusUtilization();
-
-            // keep a master list of signals for refreshing later
-            all_signals_list.addAll(motor_signals);
-        }
+        super();
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
+        // load the motors
+        ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio, (cfg) -> {
+            // Configure the motor for position & velocity control with gravity compensation
+            cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
+            cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
+            cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
+
+            // set the kG value if we are not vertical
+            if (!is_vertical) {
+                cfg.config.Slot0.kG = 0;
+                cfg.config.Slot1.kG = 0;
+                cfg.config.Slot2.kG = 0;
+            }
+
+            return cfg;
+        });
+        motors_ = configured_motors.motors;
+
         // convert the list to an array for easy access
-        signals_ = new BaseStatusSignal[all_signals_list.size()];
-        signals_ = all_signals_list.toArray(signals_);
+        signals_ = new BaseStatusSignal[configured_motors.all_signals_list.size()];
+        signals_ = configured_motors.all_signals_list.toArray(signals_);
 
         this.gear_ratio_ = gear_ratio;
         this.drum_radius_ = drum_radius;
@@ -178,9 +140,9 @@ public class ElevatorMech extends MechBase {
     }
 
     protected void configSlot(int slot, SlotConfigs config) {
-        if(slot == 0){
+        if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
-        } else if(slot == 1){
+        } else if (slot == 1) {
             motors_[0].getConfigurator().apply(Slot1Configs.from(config));
         } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");

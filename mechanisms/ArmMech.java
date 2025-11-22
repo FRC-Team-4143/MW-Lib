@@ -36,6 +36,7 @@ public class ArmMech extends MechBase {
         VELOCITY,
         DUTY_CYCLE
     }
+
     private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Always assume that we have the leader motor in index 0
@@ -62,68 +63,28 @@ public class ArmMech extends MechBase {
     protected double[] motor_temp_c_;
     protected double[] bus_voltage_;
 
-    public ArmMech(List<FxMotorConfig> motor_configs, double gear_ratio, double length, double mass_kg, double min_angle, double max_angle){
+    public ArmMech(List<FxMotorConfig> motor_configs, double gear_ratio, double length, double mass_kg,
+            double min_angle, double max_angle) {
         super();
-
-        // throw a fit if we don't have any motors
-        if (motor_configs == null || motor_configs.size() == 0) {
-            throw new IllegalArgumentException("Motor configs is null or empty");
-        }
-
-        ArrayList<BaseStatusSignal> all_signals_list = new ArrayList<>();
-        motors_ = new TalonFX[motor_configs.size()];
-        for (int i = 0; i < motor_configs.size(); i++) {
-            FxMotorConfig cfg = motor_configs.get(i);
-            if (cfg.canbus_name == null || cfg.canbus_name.isEmpty()) {
-                throw new IllegalArgumentException("Motor canbus name is null or empty");
-            }
-
-            motors_[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
-            ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();
-
-            // Only apply the configs to the first motor, the rest are followers
-            if (i == 0) {
-                // Configure the motor for position & velocity control with gravity compensation
-                cfg.config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
-                cfg.config.Slot1.GravityType = GravityTypeValue.Arm_Cosine;
-                cfg.config.Slot2.GravityType = GravityTypeValue.Arm_Cosine;
-
-                // also force the gear ratio to be correct
-                cfg.config.Feedback.SensorToMechanismRatio = gear_ratio;
-
-                motors_[i].getConfigurator().apply(cfg.config);
-
-                motor_signals.add(motors_[i].getPosition());
-                motor_signals.add(motors_[i].getVelocity());
-            } else {
-                // make the rest of the motors followers
-                motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
-            }
-
-            motor_signals.add(motors_[i].getMotorVoltage());
-            motor_signals.add(motors_[i].getSupplyCurrent());
-            motor_signals.add(motors_[i].getDeviceTemp());
-            // motor_signals.add(motors_[i].getSupplyVoltage()); // skip refreshing voltage
-            // to keep bandwidth low
-
-            // Optimize bus usage to the signals we want
-            for (BaseStatusSignal s : motor_signals) {
-                s.setUpdateFrequency(50); // 50 Hz update rate
-            }
-            motors_[i].optimizeBusUtilization();
-
-            // keep a master list of signals for refreshing later
-            all_signals_list.addAll(motor_signals);
-        }
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
+        ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio, (cfg) -> {
+            // Configure the motor for position & velocity control with gravity compensation
+            cfg.config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+            cfg.config.Slot1.GravityType = GravityTypeValue.Arm_Cosine;
+            cfg.config.Slot2.GravityType = GravityTypeValue.Arm_Cosine;
+
+            return cfg;
+        });
+        motors_ = configured_motors.motors;
+
         // convert the list to an array for easy access
-        signals_ = new BaseStatusSignal[all_signals_list.size()];
-        signals_ = all_signals_list.toArray(signals_);
+        signals_ = new BaseStatusSignal[configured_motors.all_signals_list.size()];
+        signals_ = configured_motors.all_signals_list.toArray(signals_);
 
         this.gear_ratio_ = gear_ratio;
         this.use_motion_magic_ = motor_configs.get(0).use_motion_magic;
@@ -141,28 +102,28 @@ public class ArmMech extends MechBase {
         //////////////////////////
 
         DCMotor motor_type;
-        if(motor_configs.get(0).motor_type == FxMotorType.X60){
+        if (motor_configs.get(0).motor_type == FxMotorType.X60) {
             motor_type = DCMotor.getKrakenX60(motor_configs.size());
         } else {
             throw new IllegalArgumentException("Unsupported motor type for ArmMech");
         }
 
         arm_sim_ = new SingleJointedArmSim(
-            motor_type, // Motor type
-            gear_ratio,
-            SingleJointedArmSim.estimateMOI(length, mass_kg),
-            length, // Length of the arm (meters)
-            min_angle, // Minimum angle (radians)
-            max_angle,  // Maximum angle (radians)
-            true, // Simulate gravity
-            0 // Starting angle (radians)
+                motor_type, // Motor type
+                gear_ratio,
+                SingleJointedArmSim.estimateMOI(length, mass_kg),
+                length, // Length of the arm (meters)
+                min_angle, // Minimum angle (radians)
+                max_angle, // Maximum angle (radians)
+                true, // Simulate gravity
+                0 // Starting angle (radians)
         );
     }
 
     protected void configSlot(int slot, SlotConfigs config) {
-        if(slot == 0){
+        if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
-        } else if(slot == 1){
+        } else if (slot == 1) {
             motors_[0].getConfigurator().apply(Slot1Configs.from(config));
         } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");
@@ -191,14 +152,15 @@ public class ArmMech extends MechBase {
             bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
         }
 
-         // run the simulation update step here if we are simulating
-            if (IS_SIM) {
-                // Provide a battery voltage to the TalonFX sim so controller output is meaningful
-                for (int i = 0; i < motors_.length; i++) {
-                     motors_[i].getSimState().setSupplyVoltage(12.0);
-                }
+        // run the simulation update step here if we are simulating
+        if (IS_SIM) {
+            // Provide a battery voltage to the TalonFX sim so controller output is
+            // meaningful
+            for (int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setSupplyVoltage(12.0);
+            }
 
-                // Set input voltage from motor controller to simulation
+            // Set input voltage from motor controller to simulation
             arm_sim_.setInput(motors_[0].getSimState().getMotorVoltage());
 
             // Update simulation by 20ms
@@ -206,7 +168,8 @@ public class ArmMech extends MechBase {
 
             // Convert meters to motor rotations
             double motorPosition = Radians.of(arm_sim_.getAngleRads() * gear_ratio_).in(Rotations);
-            double motorVelocity = RadiansPerSecond.of(arm_sim_.getVelocityRadPerSec() * gear_ratio_).in(RotationsPerSecond);
+            double motorVelocity = RadiansPerSecond.of(arm_sim_.getVelocityRadPerSec() * gear_ratio_)
+                    .in(RotationsPerSecond);
 
             motors_[0].getSimState().setRawRotorPosition(motorPosition);
             motors_[0].getSimState().setRotorVelocity(motorVelocity);
@@ -215,7 +178,7 @@ public class ArmMech extends MechBase {
 
     @Override
     public void writeOutputs(double timestamp) {
-        switch(control_mode_){
+        switch (control_mode_) {
             case MOTION_MAGIC_POSITION:
                 motors_[0].setControl(motion_magic_position_request_);
                 break;
@@ -229,20 +192,20 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             default:
-            throw new IllegalStateException("Unexpected control mode: " + control_mode_);
+                throw new IllegalStateException("Unexpected control mode: " + control_mode_);
         }
 
     }
 
-    public void setCurrentPosition(double position_rad){
+    public void setCurrentPosition(double position_rad) {
         motors_[0].setPosition(Units.radiansToRotations(position_rad));
     }
 
-    public double getCurrentPosition(){
+    public double getCurrentPosition() {
         return position_;
     }
 
-    public double getCurrentVelocity(){
+    public double getCurrentVelocity() {
         return velocity_;
     }
 
@@ -250,7 +213,7 @@ public class ArmMech extends MechBase {
         return current_draw_[0];
     }
 
-    public void setTargetPosition(double position_rad){
+    public void setTargetPosition(double position_rad) {
         position_target_ = position_rad;
         if (use_motion_magic_) {
             control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
@@ -261,13 +224,13 @@ public class ArmMech extends MechBase {
         }
     }
 
-    public void setTargetVelocity(double velocity_rad_per_sec){
+    public void setTargetVelocity(double velocity_rad_per_sec) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }
 
-    public void setTargetDutyCycle(double duty_cycle){
+    public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
@@ -279,7 +242,7 @@ public class ArmMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
         DogLog.log(getLoggingKey() + "control/position/target", position_target_);
         DogLog.log(getLoggingKey() + "control/position/actual", position_);
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_); 
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
 
