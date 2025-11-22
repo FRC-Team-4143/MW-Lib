@@ -15,7 +15,7 @@ public abstract class MechBase implements SubsystemIoBase {
 
     public class ConstructedMotors {
         public TalonFX motors[];
-        public ArrayList<BaseStatusSignal> all_signals_list = new ArrayList<>();
+        public BaseStatusSignal signals[];
     }
 
     private final String mech_name_;
@@ -55,6 +55,7 @@ public abstract class MechBase implements SubsystemIoBase {
             throw new IllegalArgumentException("Motor configs is null or empty");
         }
         ConstructedMotors constructed = new ConstructedMotors();
+        List<BaseStatusSignal> all_signals_list = new ArrayList<>();
         constructed.motors = new TalonFX[motor_configs.size()];
         for (int i = 0; i < motor_configs.size(); i++) {
             FxMotorConfig cfg = motor_configs.get(i);
@@ -97,8 +98,12 @@ public abstract class MechBase implements SubsystemIoBase {
             constructed.motors[i].optimizeBusUtilization();
 
             // keep a master list of signals for refreshing later
-            constructed.all_signals_list.addAll(motor_signals);
+            all_signals_list.addAll(motor_signals);
         }
+
+        // convert the list to an array for easy access
+        constructed.signals = new BaseStatusSignal[all_signals_list.size()];
+        constructed.signals = all_signals_list.toArray(constructed.signals);
 
         return constructed;
     }

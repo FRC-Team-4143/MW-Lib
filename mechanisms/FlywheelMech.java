@@ -27,7 +27,7 @@ public class FlywheelMech extends MechBase{
     // control and status
     private final VelocityVoltage velocity_request_;
     private final DutyCycleOut duty_cycle_request_;
-    protected BaseStatusSignal[] signals_;
+    protected final BaseStatusSignal[] signals_;
 
     protected final FlywheelSim flywheel_sim_;
     protected final double gear_ratio_;
@@ -50,10 +50,7 @@ public class FlywheelMech extends MechBase{
             return cfg;
         });
         motors_ = configured_motors.motors;
-
-        // convert the list to an array for easy access
-        signals_ = new BaseStatusSignal[configured_motors.all_signals_list.size()];
-        signals_ = configured_motors.all_signals_list.toArray(signals_);
+        signals_ = configured_motors.signals;
 
         // set the system constants
         this.gear_ratio_ = gear_ratio;

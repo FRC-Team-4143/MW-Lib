@@ -46,7 +46,7 @@ public class ArmMech extends MechBase {
     protected final boolean use_motion_magic_;
     private final VelocityVoltage velocity_request_;
     private final DutyCycleOut duty_cycle_request_;
-    protected BaseStatusSignal[] signals_;
+    protected final BaseStatusSignal[] signals_;
 
     // Simulation
     private final SingleJointedArmSim arm_sim_;
@@ -81,10 +81,7 @@ public class ArmMech extends MechBase {
             return cfg;
         });
         motors_ = configured_motors.motors;
-
-        // convert the list to an array for easy access
-        signals_ = new BaseStatusSignal[configured_motors.all_signals_list.size()];
-        signals_ = configured_motors.all_signals_list.toArray(signals_);
+        signals_ = configured_motors.signals;
 
         this.gear_ratio_ = gear_ratio;
         this.use_motion_magic_ = motor_configs.get(0).use_motion_magic;
