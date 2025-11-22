@@ -94,9 +94,9 @@ public class ArmMech extends MechBase {
         motor_temp_c_ = new double[motors_.length];
         bus_voltage_ = new double[motors_.length];
 
-        //////////////////////////
+        ////////////////////////
         /// SIMULATION SETUP ///
-        //////////////////////////
+        ////////////////////////
 
         DCMotor motor_type;
         if (motor_configs.get(0).motor_type == FxMotorType.X60) {
@@ -191,7 +191,6 @@ public class ArmMech extends MechBase {
             default:
                 throw new IllegalStateException("Unexpected control mode: " + control_mode_);
         }
-
     }
 
     public void setCurrentPosition(double position_rad) {
