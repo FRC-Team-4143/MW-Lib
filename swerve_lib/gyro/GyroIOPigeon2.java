@@ -23,7 +23,8 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import frc.robot.subsystems.swerve.PhoenixOdometryThread;
+import frc.mw_lib.mechanisms.PhoenixOdometryThread;
+
 import java.util.Queue;
 
 /** IO implementation for Pigeon 2. */
