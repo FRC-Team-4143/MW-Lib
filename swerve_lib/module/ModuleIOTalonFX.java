@@ -22,6 +22,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.wpilibj.AnalogEncoder;
 
 public abstract class ModuleIOTalonFX implements ModuleIO {
   protected final SwerveModuleConstants<
@@ -30,7 +31,8 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
 
   protected final TalonFX driveTalon;
   protected final TalonFX turnTalon;
-  protected final CANcoder cancoder;
+  // protected final CANcoder cancoder;
+  protected final AnalogEncoder encoder;
 
   protected final VoltageOut voltageRequest = new VoltageOut(0);
   protected final PositionVoltage positionVoltageRequest = new PositionVoltage(0.0);
@@ -67,7 +69,8 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
 
     driveTalon = new TalonFX(constants.DriveMotorId, can_bus_name);
     turnTalon = new TalonFX(constants.SteerMotorId, can_bus_name);
-    cancoder = new CANcoder(constants.EncoderId, can_bus_name);
+    // cancoder = new CANcoder(constants.EncoderId, can_bus_name);
+
 
     // Configure drive motor
     var driveConfig = constants.DriveMotorInitialConfigs;
@@ -91,16 +94,17 @@ public abstract class ModuleIOTalonFX implements ModuleIO {
     turnConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     turnConfig.Slot0 = constants.SteerMotorGains;
 
-    turnConfig.Feedback.FeedbackRemoteSensorID = constants.EncoderId;
-    turnConfig.Feedback.FeedbackSensorSource =
-        switch (constants.FeedbackSource) {
-          case RemoteCANcoder -> FeedbackSensorSourceValue.RemoteCANcoder;
-          case FusedCANcoder -> FeedbackSensorSourceValue.FusedCANcoder;
-          case SyncCANcoder -> FeedbackSensorSourceValue.SyncCANcoder;
-          default -> throw new RuntimeException(
-              "You are using an unsupported swerve configuration, which this template does not support without manual customization. \n"
-                  + "The 2025 release of Phoenix supports some swerve configurations which were not available during 2025 beta testing, preventing any development and support from the AdvantageKit developers.");
-        };
+    // turnConfig.Feedback.FeedbackRemoteSensorID = constants.EncoderId;
+    // turnConfig.Feedback.FeedbackSensorSource =
+    //     switch (constants.FeedbackSource) {
+    //       case RemoteCANcoder -> FeedbackSensorSourceValue.RemoteCANcoder;
+    //       case FusedCANcoder -> FeedbackSensorSourceValue.FusedCANcoder;
+    //       case SyncCANcoder -> FeedbackSensorSourceValue.SyncCANcoder;
+    //       default -> throw new RuntimeException(
+    //           "You are using an unsupported swerve configuration, which this template does not support without manual customization. \n"
+    //               + "The 2025 release of Phoenix supports some swerve configurations which were not available during 2025 beta testing, preventing any development and support from the AdvantageKit developers.");
+    //     };
+    turnConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
     turnConfig.Feedback.RotorToSensorRatio = constants.SteerMotorGearRatio;
     turnConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0 / constants.SteerMotorGearRatio;
     turnConfig.MotionMagic.MotionMagicAcceleration =
