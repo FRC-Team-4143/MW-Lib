@@ -27,6 +27,7 @@ public abstract class MwSubsystem<
 
     subsystem_name_ = name;
 
+    // set initial states
     system_state_ = default_state;
     wanted_state_ = default_state;
   }
