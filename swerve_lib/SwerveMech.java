@@ -14,7 +14,6 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import frc.mw_lib.mechanisms.MechBase;
-import frc.mw_lib.mechanisms.PhoenixOdometryThread;
 import frc.mw_lib.swerve_lib.ChassisRequest.ChassisRequestParameters;
 import frc.mw_lib.swerve_lib.gyro.Gyro;
 import frc.mw_lib.swerve_lib.gyro.GyroPigeon2;
@@ -49,10 +48,10 @@ public class SwerveMech extends MechBase {
 
   public SwerveMech(SwerveDriveConfig config, SwerveDriveSimulation swerve_sim) {
     swerve_sim_ = swerve_sim;
-    modules_[0] = new ModuleTalonFX(config.FL_MODULE_CONSTANTS, swerve_sim_.getModules()[0]);
-    modules_[1] = new ModuleTalonFX(config.FR_MODULE_CONSTANTS, swerve_sim_.getModules()[1]);
-    modules_[2] = new ModuleTalonFX(config.BL_MODULE_CONSTANTS, swerve_sim_.getModules()[2]);
-    modules_[3] = new ModuleTalonFX(config.BR_MODULE_CONSTANTS, swerve_sim_.getModules()[3]);
+    modules_[0] = new ModuleTalonFX(0, config.FL_MODULE_CONSTANTS, swerve_sim_.getModules()[0]);
+    modules_[1] = new ModuleTalonFX(1, config.FR_MODULE_CONSTANTS, swerve_sim_.getModules()[1]);
+    modules_[2] = new ModuleTalonFX(2, config.BL_MODULE_CONSTANTS, swerve_sim_.getModules()[2]);
+    modules_[3] = new ModuleTalonFX(3, config.BR_MODULE_CONSTANTS, swerve_sim_.getModules()[3]);
 
     gyro_ = new GyroPigeon2(config.PIGEON2_ID, config.PIGEON2_CANBUS_NAME,
         swerve_sim_.getGyroSimulation());
@@ -64,17 +63,15 @@ public class SwerveMech extends MechBase {
     pose_estimator_ = new SwerveDrivePoseEstimator(kinematics_, new Rotation2d(), module_positions, Pose2d.kZero);
 
     // Start odometry thread
-    PhoenixOdometryThread.getInstance().start();
+    PhoenixOdometryThread.getInstance(config.FL_MODULE_CONSTANTS.drive_motor_config.canbus_name).start();
   }
 
   @Override
   public void readInputs(double timestamp) {
-    PhoenixOdometryThread.getInstance().getOdometryLock().lock(); // Prevents odometry updates while reading data
     for (var module : modules_) {
       module.readInputs(timestamp);
     }
     gyro_.readInputs(timestamp);
-    PhoenixOdometryThread.getInstance().getOdometryLock().unlock();
 
     // Stop moving when disabled
     if (DriverStation.isDisabled()) {

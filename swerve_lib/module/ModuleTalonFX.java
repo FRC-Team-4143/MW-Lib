@@ -4,6 +4,7 @@ import static edu.wpi.first.units.Units.Radians;
 import static frc.mw_lib.util.PhoenixUtil.tryUntilOk;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -69,8 +70,8 @@ public class ModuleTalonFX extends Module {
   protected final StatusSignal<Voltage> turn_applied_volts_sig_;
   protected final StatusSignal<Current> turn_current_sig_;
 
-  public ModuleTalonFX(SwerveModuleConfig config, SwerveModuleSimulation simulation) {
-    super(config, simulation);
+  public ModuleTalonFX(int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+    super(index, config, simulation);
 
     drive_talonfx_ = new TalonFX(config_.drive_motor_config.can_id, config_.drive_motor_config.canbus_name);
     turn_talonfx_ = new TalonFX(config_.steer_motor_config.can_id, config_.steer_motor_config.canbus_name);
@@ -93,18 +94,18 @@ public class ModuleTalonFX extends Module {
     turnConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
 
     // config the encoder offset for the steer motor
-    if (config_.encoder_type == SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
-      // Use analog encoder
-      // TODO CJT implement for analog encoder
-      throw new UnsupportedOperation("Analog encoder not yet supported in ModuleTalonFX");
-    } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
-      // Use remote CANCoder
-      // TODO CJT implement for cancoder
-      throw new UnsupportedOperation("CANCoder not yet supported in ModuleTalonFX");
-    } else {
-      throw new IllegalArgumentException("Unsupported encoder type for ModuleTalonFX");
-    }
-    
+    // if (config_.encoder_type == SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
+    //   // Use analog encoder
+    //   // TODO CJT implement for analog encoder
+    //   throw new UnsupportedOperation("Analog encoder not yet supported in ModuleTalonFX");
+    // } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
+    //   // Use remote CANCoder
+    //   // TODO CJT implement for cancoder
+    //   throw new UnsupportedOperation("CANCoder not yet supported in ModuleTalonFX");
+    // } else {
+    //   throw new IllegalArgumentException("Unsupported encoder type for ModuleTalonFX");
+    // }
+
     turnConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0 / config_.module_type.steerRatio;
     turnConfig.MotionMagic.MotionMagicAcceleration = turnConfig.MotionMagic.MotionMagicCruiseVelocity / 0.100;
     turnConfig.MotionMagic.MotionMagicExpo_kV = 0.12 * config_.module_type.steerRatio;
@@ -142,9 +143,8 @@ public class ModuleTalonFX extends Module {
     ParentDevice.optimizeBusUtilizationForAll(drive_talonfx_, turn_talonfx_);
 
     if (!IS_SIM) {
-      this.timestampQueue = PhoenixOdometryThread.getInstance().makeTimestampQueue();
-      this.drivePositionQueue = PhoenixOdometryThread.getInstance().registerSignal(drive_position_sig_);
-      this.turnPositionQueue = PhoenixOdometryThread.getInstance().registerSignal(turn_absolute_position_sig_);
+      PhoenixOdometryThread.getInstance(config.drive_motor_config.canbus_name).registerModule(module_index_,
+          turn_absolute_position_sig_, drive_position_sig_);
     } else {
       simulation.useDriveMotorController(new PhoenixUtil.TalonFXMotorControllerSim(drive_talonfx_));
       simulation.useSteerMotorController(new PhoenixUtil.TalonFXMotorControllerSim(turn_talonfx_));
@@ -172,20 +172,16 @@ public class ModuleTalonFX extends Module {
     turn_current_amps_ = turn_current_sig_.getValueAsDouble();
 
     // Update odometry inputs
-    if (!IS_SIM) {
-      odometry_timestamps_ = timestampQueue.stream().mapToDouble((Double value) -> value).toArray();
-      odometry_drive_positions_rad_ = drivePositionQueue.stream().mapToDouble(Units::rotationsToRadians).toArray();
-      odometry_turn_positions_ = turnPositionQueue.stream().map(Rotation2d::fromRotations)
-          .toArray(Rotation2d[]::new);
-      timestampQueue.clear();
-      drivePositionQueue.clear();
-      turnPositionQueue.clear();
-    } else {
-      odometry_timestamps_ = PhoenixUtil.getSimulationOdometryTimeStamps();
-      odometry_drive_positions_rad_ = Arrays.stream(simulation.getCachedDriveWheelFinalPositions())
+    if (IS_SIM) {
+      double[] odometry_timestamps = PhoenixUtil.getSimulationOdometryTimeStamps();
+      double[] odometry_drive_positions_rad = Arrays.stream(simulation.getCachedDriveWheelFinalPositions())
           .mapToDouble(angle -> angle.in(Radians))
           .toArray();
-      odometry_turn_positions_ = simulation.getCachedSteerAbsolutePositions();
+      Rotation2d[] odometry_turn_positions = simulation.getCachedSteerAbsolutePositions();
+
+      PhoenixOdometryThread.getInstance(config_.drive_motor_config.canbus_name)
+          .enqueueModuleSamples(module_index_, odometry_timestamps, odometry_turn_positions,
+              odometry_drive_positions_rad);
     }
 
     // Update alerts
@@ -250,7 +246,7 @@ public class ModuleTalonFX extends Module {
     DogLog.log(getLoggingKey() + "Drive/PositionRad", drive_position_rad_);
     DogLog.log(getLoggingKey() + "Drive/VelocityRadPerSec", drive_velocity_rad_per_sec_);
     DogLog.log(getLoggingKey() + "Drive/AppliedVolts", drive_applied_volts_);
-    DogLog.log(getLoggingKey() + "Drive/CurrentAmps", drive_current_amps_); 
+    DogLog.log(getLoggingKey() + "Drive/CurrentAmps", drive_current_amps_);
     DogLog.log(getLoggingKey() + "Turn/AbsolutePosition", turn_absolute_position_);
     DogLog.log(getLoggingKey() + "Turn/VelocityRadPerSec", turn_velocity_rad_per_sec_);
     DogLog.log(getLoggingKey() + "Turn/AppliedVolts", turn_applied_volts_);

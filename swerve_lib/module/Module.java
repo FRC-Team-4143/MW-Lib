@@ -13,6 +13,8 @@
 
 package frc.mw_lib.swerve_lib.module;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
@@ -28,6 +30,8 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import frc.mw_lib.mechanisms.MechBase;
+import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
+import frc.mw_lib.swerve_lib.SwerveMeasurments.ModuleMeasurement;
 
 public abstract class Module extends MechBase {
 
@@ -41,6 +45,7 @@ public abstract class Module extends MechBase {
   }
 
   protected final SwerveModuleConfig config_;
+  protected final int module_index_;
 
   protected double drive_position_rad_ = 0.0;
   protected double drive_velocity_rad_per_sec_ = 0.0;
@@ -51,13 +56,7 @@ public abstract class Module extends MechBase {
   protected double turn_velocity_rad_per_sec_ = 0.0;
   protected double turn_applied_volts_ = 0.0;
   protected double turn_current_amps_ = 0.0;
-
-  protected double[] odometry_timestamps_ = new double[] {};
-  protected double[] odometry_drive_positions_rad_ = new double[] {};
-  protected Rotation2d[] odometry_turn_positions_ = new Rotation2d[] {};
-
-  protected SwerveModulePosition[] odometry_positions_ = new SwerveModulePosition[] {};
-
+  
   // Connection debouncers
   protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
   protected final Debouncer turn_conn_deb_ = new Debouncer(0.5);
@@ -68,15 +67,11 @@ public abstract class Module extends MechBase {
   protected final Alert turn_disconnected_alert_;
   protected final Alert turn_encoder_disconnected_alert_;
 
-  // Queues for odometry readings
-  protected ConcurrentLinkedQueue<Double> timestampQueue;
-  protected ConcurrentLinkedQueue<Double> drivePositionQueue;
-  protected ConcurrentLinkedQueue<Double> turnPositionQueue;
-
   // SIM objects
   protected final SwerveModuleSimulation simulation;
 
-  public Module(SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+  public Module(int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+    this.module_index_ = index;
     this.config_ = config;
     this.simulation = simulation;
 
@@ -88,17 +83,6 @@ public abstract class Module extends MechBase {
     turn_encoder_disconnected_alert_ = new Alert(
         "Disconnected turn encoder on module " + Integer.toString(config_.encoder_id) + ".",
         AlertType.kError);
-  }
-
-  public void readInputs(double timestamp) {
-    // Calculate positions for odometry
-    int sampleCount = odometry_timestamps_.length; // All signals are sampled together
-    odometry_positions_ = new SwerveModulePosition[sampleCount];
-    for (int i = 0; i < sampleCount; i++) {
-      double positionMeters = odometry_drive_positions_rad_[i] * config_.wheel_radius_m;
-      Rotation2d angle = odometry_turn_positions_[i];
-      odometry_positions_[i] = new SwerveModulePosition(positionMeters, angle);
-    }
   }
 
   /**
@@ -163,13 +147,8 @@ public abstract class Module extends MechBase {
   }
 
   /** Returns the module positions received this cycle. */
-  public SwerveModulePosition[] getOdometryPositions() {
-    return odometry_positions_;
-  }
-
-  /** Returns the timestamps of the samples received this cycle. */
-  public double[] getOdometryTimestamps() {
-    return odometry_timestamps_;
+  public List<ModuleMeasurement> getOdometrySamples() {
+    return PhoenixOdometryThread.getInstance(config_.drive_motor_config.canbus_name).getModuleSamples(module_index_);
   }
 
   /** Returns the module position in radians. */
@@ -192,14 +171,14 @@ public abstract class Module extends MechBase {
   }
 
   /** Run the drive motor at the specified open loop value. */
-  abstract void setDriveOpenLoop(double output);
+  public abstract void setDriveOpenLoop(double output);
 
   /** Run the turn motor at the specified open loop value. */
-  abstract void setTurnOpenLoop(double output);
+  public abstract void setTurnOpenLoop(double output);
 
   /** Run the drive motor at the specified velocity. */
-  abstract void setDriveVelocity(double velocityRadPerSec);
+  public abstract void setDriveVelocity(double velocityRadPerSec);
 
   /** Run the turn motor to the specified rotation. */
-  abstract void setTurnPosition(Rotation2d rotation);
+  public abstract void setTurnPosition(Rotation2d rotation);
 }

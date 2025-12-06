@@ -23,7 +23,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import frc.mw_lib.mechanisms.PhoenixOdometryThread;
+import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
 import frc.mw_lib.util.PhoenixUtil;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
@@ -38,8 +38,6 @@ public class GyroPigeon2 extends Gyro {
   // real pigeon members
   private Pigeon2 pigeon;
   private StatusSignal<Angle> yaw;
-  private Queue<Double> yawPositionQueue;
-  private Queue<Double> yawTimestampQueue;
   private StatusSignal<AngularVelocity> yawVelocity;
 
   // sim pigeon members
@@ -58,8 +56,9 @@ public class GyroPigeon2 extends Gyro {
       yaw.setUpdateFrequency(new CANBus(can_bus_name).isNetworkFD() ? 250.0 : 100.0);
       yawVelocity.setUpdateFrequency(50.0);
       pigeon.optimizeBusUtilization();
-      yawTimestampQueue = PhoenixOdometryThread.getInstance().makeTimestampQueue();
-      yawPositionQueue = PhoenixOdometryThread.getInstance().registerSignal(pigeon.getYaw());
+
+      // Register to the odometry thread
+      PhoenixOdometryThread.getInstance(can_bus_name).registerGyro(yaw);
     } else {
       this.gyroSimulation = gyroSimulation;
     }
@@ -71,21 +70,13 @@ public class GyroPigeon2 extends Gyro {
       connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
       yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
       yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
-
-      odometryYawTimestamps = yawTimestampQueue.stream().mapToDouble((Double value) -> value).toArray();
-      odometryYawPositions = yawPositionQueue.stream()
-          .map((Double value) -> Rotation2d.fromDegrees(value))
-          .toArray(Rotation2d[]::new);
-      yawTimestampQueue.clear();
-      yawPositionQueue.clear();
     } else {
+      PhoenixOdometryThread.getInstance(pigeon.getNetwork()).enqueueGyroSamples(PhoenixUtil.getSimulationOdometryTimeStamps(), gyroSimulation.getCachedGyroReadings());
+
       connected = true;
       yawPosition = gyroSimulation.getGyroReading();
       yawVelocityRadPerSec = Units
           .degreesToRadians(gyroSimulation.getMeasuredAngularVelocity().in(RadiansPerSecond));
-
-      odometryYawTimestamps = PhoenixUtil.getSimulationOdometryTimeStamps();
-      odometryYawPositions = gyroSimulation.getCachedGyroReadings();
     }
   }
 }

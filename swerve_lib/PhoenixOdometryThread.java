@@ -18,9 +18,18 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.fasterxml.jackson.databind.JsonSerializable.Base;
 
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotController;
+import frc.mw_lib.swerve_lib.SwerveMeasurments.GyroMeasurement;
+import frc.mw_lib.swerve_lib.SwerveMeasurments.ModuleMeasurement;
+import frc.robot.subsystems.swerve.Swerve;
+
+import static edu.wpi.first.units.Units.Radians;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -43,65 +52,59 @@ import java.util.function.DoubleSupplier;
  * time synchronization.
  */
 public class PhoenixOdometryThread extends Thread {
-
-  // Basic structure to hold an odometry measurement
-  public class OdometryMeasurement {
-    public double timestamp;
-    public double[] turn_positions_rad;
-    public double[] drive_positions_rad;
-    public double gyro_yaw_rad;
-
-    public OdometryMeasurement(double timestamp, Angle value) {
-      this.timestamp = timestamp;
-      this.turn_positions_rad = new double[4];
-      this.drive_positions_rad = new double[4];
-    }
-  }
-
-  private List<StatusSignal<Double>> turn_signals_ = new ArrayList<>(4);
-  private List<StatusSignal<Double>> drive_signals_ = new ArrayList<>(4);
-  private StatusSignal<Double> gyro_signal_;
+  private List<StatusSignal<Angle>> turn_signals_ = new ArrayList<>(4);
+  private List<StatusSignal<Angle>> drive_signals_ = new ArrayList<>(4);
+  private StatusSignal<Angle> gyro_signal_;
 
   private BaseStatusSignal[] all_signals_ = new BaseStatusSignal[0];
 
-  private final Queue<OdometryMeasurement> odometry_queue_;
+  private final List<Queue<ModuleMeasurement>> module_queues_;
+  private final Queue<GyroMeasurement> gyro_queue_;
 
   // Locking for signals and odometry queue
   private final Lock signals_lock_ = new ReentrantLock();
   private final Lock odometry_lock_ = new ReentrantLock();
 
   private final boolean IS_CANFD;
+  private final boolean IS_SIM = RobotBase.isSimulation();
   private final double ODOMETRY_FREQUENCY;
 
   private static PhoenixOdometryThread instance = null;
 
-  public static PhoenixOdometryThread getInstance(boolean is_canfd) {
+  public static PhoenixOdometryThread getInstance(String bus_name) {
     if (instance == null) {
-      instance = new PhoenixOdometryThread(is_canfd);
+      instance = new PhoenixOdometryThread(bus_name);
     }
     return instance;
   }
 
-  private PhoenixOdometryThread(boolean is_canfd) {
+  private PhoenixOdometryThread(String bus_name) {
     setName("PhoenixOdometryThread");
     setDaemon(true);
 
     // Determine if using CAN FD bus
-    IS_CANFD = is_canfd;
+    if (!IS_SIM) {
+      IS_CANFD = new CANBus(bus_name).isNetworkFD();
+    } else {
+      IS_CANFD = true; // assume CAN FD on sim robot
+    }
     ODOMETRY_FREQUENCY = IS_CANFD ? 250.0 : 100.0;
 
     // Queue of odometry measurements
-    odometry_queue_ = new ArrayBlockingQueue<>(100);
+    module_queues_ = new ArrayList<>(4);
+    gyro_queue_ = new ArrayBlockingQueue<>(100);
   }
 
   @Override
   public void start() {
-    if (RobotBase.isReal() && all_signals_.length > 0) {
+    if (!IS_SIM && all_signals_.length > 0) {
       super.start();
+    } else {
+      System.out.println("PhoenixOdometryThread not started - either in simulation or no signals registered.");
     }
   }
 
-  public void registerGyro(StatusSignal<Double> yaw_signal) {
+  public void registerGyro(StatusSignal<Angle> yaw_signal) {
     signals_lock_.lock();
     try {
       // Add the signal to the all_signals array
@@ -114,7 +117,7 @@ public class PhoenixOdometryThread extends Thread {
     }
   }
 
-  public void registerModule(int module_index, StatusSignal<Double> turn_signal, StatusSignal<Double> drive_signal) {
+  public void registerModule(int module_index, StatusSignal<Angle> turn_signal, StatusSignal<Angle> drive_signal) {
     if (module_index < 0 || module_index >= 4) {
       throw new IllegalArgumentException("Module index must be between 0 and 3");
     }
@@ -128,6 +131,9 @@ public class PhoenixOdometryThread extends Thread {
       // also add the signals to the respective lists
       turn_signals_.set(module_index, turn_signal);
       drive_signals_.set(module_index, drive_signal);
+
+      // create a new queue for the module
+      module_queues_.add(module_index, new ArrayBlockingQueue<>(100));
     } finally {
       signals_lock_.unlock();
     }
@@ -141,13 +147,13 @@ public class PhoenixOdometryThread extends Thread {
     all_signals_ = new_signals;
   }
 
-  public List<OdometryMeasurement> getOdometrySamples() {
+  public List<ModuleMeasurement> getModuleSamples(int index) {
     odometry_lock_.lock();
-    List<OdometryMeasurement> samples = new ArrayList<>(odometry_queue_.size());
+    List<ModuleMeasurement> samples = new ArrayList<>(module_queues_.get(index).size());
     try {
       // Empty the odometry queue into the samples list
-      OdometryMeasurement sample;
-      while ((sample = odometry_queue_.poll()) != null) {
+      ModuleMeasurement sample;
+      while ((sample = module_queues_.get(index).poll()) != null) {
         samples.add(sample);
       }
     } finally {
@@ -155,6 +161,73 @@ public class PhoenixOdometryThread extends Thread {
     }
 
     return samples;
+  }
+
+  public void enqueueModuleSamples(int index, double[] stamps, Rotation2d[] turn_positons, double[] drive_positions) {
+    if (!IS_SIM) {
+      DriverStation.reportWarning("Attempted to enqueue module measurement on real robot!", false);
+      return;
+    }
+
+    odometry_lock_.lock();
+    try {
+      for (int i = 0; i < stamps.length; i++) {
+        ModuleMeasurement sample = new ModuleMeasurement();
+        sample.timestamp = stamps[i];
+        sample.module_positions[index] = new SwerveModulePosition(drive_positions[i], turn_positons[i]);
+
+        // Add measurement to queue
+        Queue<ModuleMeasurement> module_queue = module_queues_.get(index);
+        if (!module_queue.offer(sample)) {
+          // If the queue is full, remove the oldest sample
+          module_queue.poll();
+          module_queue.offer(sample);
+        }
+      }
+    } finally {
+      odometry_lock_.unlock();
+    }
+  }
+
+  public List<GyroMeasurement> getGyroSamples() {
+    odometry_lock_.lock();
+    List<GyroMeasurement> samples = new ArrayList<>(gyro_queue_.size());
+    try {
+      // Empty the odometry queue into the samples list
+      GyroMeasurement sample;
+      while ((sample = gyro_queue_.poll()) != null) {
+        samples.add(sample);
+      }
+    } finally {
+      odometry_lock_.unlock();
+    }
+
+    return samples;
+  }
+
+  public void enqueueGyroSamples(double[] timestamps, Rotation2d[] samples) {
+    if (!IS_SIM) {
+      DriverStation.reportWarning("Attempted to enqueue gyro measurement on real robot!", false);
+      return;
+    }
+
+    odometry_lock_.lock();
+    try {
+      for (int i = 0; i < samples.length; i++) {
+        GyroMeasurement sample = new GyroMeasurement();
+        sample.timestamp = timestamps[i];
+        sample.gyro_yaw = samples[i];
+
+        // Add measurement to queue
+        if (!gyro_queue_.offer(sample)) {
+          // If the queue is full, remove the oldest sample
+          gyro_queue_.poll();
+          gyro_queue_.offer(sample);
+        }
+      }
+    } finally {
+      odometry_lock_.unlock();
+    }
   }
 
   @Override
@@ -194,21 +267,35 @@ public class PhoenixOdometryThread extends Thread {
           timestamp -= totalLatency / all_signals_.length;
         }
 
-        // Add new samples to queues
+        // Build a new module measurement for each module
+        for (int module_index = 0; module_index < 4; module_index++) {
+          ModuleMeasurement measurement = new ModuleMeasurement();
+          measurement.timestamp = timestamp;
+          measurement.module_positions[module_index] = new SwerveModulePosition(
+              drive_signals_.get(module_index).getValue().in(Radians),
+              Rotation2d.fromRadians(turn_signals_.get(module_index).getValue().in(Radians)));
 
-        OdometryMeasurement measurement = new OdometryMeasurement(timestamp, null);
-        measurement.gyro_yaw_rad = Math.toRadians(gyro_signal_.getValue());
-
-        for (int i = 0; i < 4; i++) {
-          measurement.turn_positions_rad[i] = Math.toRadians(turn_signals_.get(i).getValue());
-          measurement.drive_positions_rad[i] = Math.toRadians(drive_signals_.get(i).getValue());
+          // Add measurement to queue
+          Queue<ModuleMeasurement> module_queue = module_queues_.get(module_index);
+          if (!module_queue.offer(measurement)) {
+            // If the queue is full, remove the oldest sample
+            module_queue.poll();
+            module_queue.offer(measurement);
+          }
         }
 
-        // Add measurement to queue
-        if (!odometry_queue_.offer(measurement)) {
-          // If the queue is full, remove the oldest sample
-          odometry_queue_.poll();
-          odometry_queue_.offer(measurement);
+        // Build a new gyro measurement
+        if (gyro_signal_ != null) {
+          GyroMeasurement gyro_measurement = new GyroMeasurement();
+          gyro_measurement.timestamp = timestamp;
+          gyro_measurement.gyro_yaw = Rotation2d.fromRadians(gyro_signal_.getValue().in(Radians));
+
+          // Add measurement to queue
+          if (!gyro_queue_.offer(gyro_measurement)) {
+            // If the queue is full, remove the oldest sample
+            gyro_queue_.poll();
+            gyro_queue_.offer(gyro_measurement);
+          }
         }
 
       } finally {

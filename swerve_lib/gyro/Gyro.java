@@ -14,9 +14,6 @@ public abstract class Gyro extends MechBase {
   protected Rotation2d yawPosition = new Rotation2d();
   protected double yawVelocityRadPerSec = 0.0;
 
-  protected double[] odometryYawTimestamps = new double[] {};
-  protected Rotation2d[] odometryYawPositions = new Rotation2d[] {};
-
   public Gyro() {
     gyroDisconnectedAlert = new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   }
@@ -40,14 +37,6 @@ public abstract class Gyro extends MechBase {
   
   public double getYawVelocityRadPerSec() {
     return yawVelocityRadPerSec;
-  }
-  
-  public double[] getOdometryYawTimestamps() {
-    return odometryYawTimestamps;
-  }
-  
-  public Rotation2d[] getOdometryYawPositions() {
-    return odometryYawPositions;
   }
 
   @Override
