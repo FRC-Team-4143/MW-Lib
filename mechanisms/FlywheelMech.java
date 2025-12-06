@@ -20,7 +20,8 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
-import frc.mw_lib.mechanisms.FxMotorConfig.FxMotorType;
+import frc.mw_lib.util.FxMotorConfig;
+import frc.mw_lib.util.FxMotorConfig.FxMotorType;
 
 public class FlywheelMech extends MechBase {
 

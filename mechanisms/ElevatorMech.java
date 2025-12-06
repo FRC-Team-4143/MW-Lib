@@ -23,7 +23,8 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
-import frc.mw_lib.mechanisms.FxMotorConfig.FxMotorType;
+import frc.mw_lib.util.FxMotorConfig;
+import frc.mw_lib.util.FxMotorConfig.FxMotorType;
 
 public class ElevatorMech extends MechBase {
 

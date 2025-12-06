@@ -1,4 +1,6 @@
-package frc.mw_lib.mechanisms;
+package frc.mw_lib.swerve_lib;
+
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
@@ -11,16 +13,13 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
-import frc.mw_lib.swerve_lib.ChassisRequest;
+import frc.mw_lib.mechanisms.MechBase;
+import frc.mw_lib.mechanisms.PhoenixOdometryThread;
 import frc.mw_lib.swerve_lib.ChassisRequest.ChassisRequestParameters;
 import frc.mw_lib.swerve_lib.gyro.Gyro;
-import frc.mw_lib.swerve_lib.gyro.GyroIOPigeon2;
-import frc.mw_lib.swerve_lib.gyro.GyroIOSim;
+import frc.mw_lib.swerve_lib.gyro.GyroPigeon2;
 import frc.mw_lib.swerve_lib.module.Module;
-import frc.mw_lib.swerve_lib.module.ModuleIOTalonFXReal;
-import frc.mw_lib.swerve_lib.module.ModuleIOTalonFXSim;
-import frc.robot.Constants;
-import frc.robot.subsystems.swerve.SwerveConstants;
+import frc.mw_lib.swerve_lib.module.ModuleTalonFX;
 
 public class SwerveMech extends MechBase {
 
@@ -43,64 +42,26 @@ public class SwerveMech extends MechBase {
   private final Module[] modules_ = new Module[4]; // FL, FR, BL, BR
   private final Gyro gyro_;
 
+  private final SwerveDriveSimulation swerve_sim_;
+
   private final SwerveDrivePoseEstimator pose_estimator_;
   private final SwerveDriveKinematics kinematics_;
 
-  public SwerveMech(SwerveConstants constants) {
+  public SwerveMech(SwerveDriveConfig config, SwerveDriveSimulation swerve_sim) {
+    swerve_sim_ = swerve_sim;
+    modules_[0] = new ModuleTalonFX(config.FL_MODULE_CONSTANTS, swerve_sim_.getModules()[0]);
+    modules_[1] = new ModuleTalonFX(config.FR_MODULE_CONSTANTS, swerve_sim_.getModules()[1]);
+    modules_[2] = new ModuleTalonFX(config.BL_MODULE_CONSTANTS, swerve_sim_.getModules()[2]);
+    modules_[3] = new ModuleTalonFX(config.BR_MODULE_CONSTANTS, swerve_sim_.getModules()[3]);
+
+    gyro_ = new GyroPigeon2(config.PIGEON2_ID, config.PIGEON2_CANBUS_NAME,
+        swerve_sim_.getGyroSimulation());
+
     // configure the kinematics after the modules are created
     kinematics_ = new SwerveDriveKinematics(getModuleTranslations());
 
     // Finally configure the Pose Estimator
-    pose_estimator_ = new SwerveDrivePoseEstimator(
-        kinematics_, new Rotation2d(), module_positions, Pose2d.kZero);
-
-    if (IS_SIM) {
-      gyro_ = new Gyro(new GyroIOSim(Constants.SWERVE_SIMULATOR.getGyroSimulation()));
-      // Configure Modules
-      modules_[0] = new Module(
-          new ModuleIOTalonFXSim(
-              constants.SIM_FL_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME,
-              Constants.SWERVE_SIMULATOR.getModules()[0]),
-          0,
-          constants.SIM_FL_MODULE_CONSTANTS);
-      modules_[1] = new Module(
-          new ModuleIOTalonFXSim(
-              constants.SIM_FR_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME,
-              Constants.SWERVE_SIMULATOR.getModules()[1]),
-          1,
-          constants.SIM_FR_MODULE_CONSTANTS);
-      modules_[2] = new Module(
-          new ModuleIOTalonFXSim(
-              constants.SIM_BL_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME,
-              Constants.SWERVE_SIMULATOR.getModules()[2]),
-          2,
-          constants.SIM_BL_MODULE_CONSTANTS);
-      modules_[3] = new Module(
-          new ModuleIOTalonFXSim(
-              constants.SIM_BR_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME,
-              Constants.SWERVE_SIMULATOR.getModules()[3]),
-          3,
-          constants.SIM_BR_MODULE_CONSTANTS);
-    } else {
-      gyro_ = new Gyro(new GyroIOPigeon2(constants.PIGEON2_ID, constants.PIGEON2_CANBUS_NAME));
-      // Configure Modules
-      modules_[0] = new Module(
-          new ModuleIOTalonFXReal(constants.FL_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME),
-          0,
-          constants.FL_MODULE_CONSTANTS);
-      modules_[1] = new Module(
-          new ModuleIOTalonFXReal(constants.FR_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME),
-          1,
-          constants.FR_MODULE_CONSTANTS);
-      modules_[2] = new Module(
-          new ModuleIOTalonFXReal(constants.BL_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME),
-          2,
-          constants.BL_MODULE_CONSTANTS);
-      modules_[3] = new Module(
-          new ModuleIOTalonFXReal(constants.BR_MODULE_CONSTANTS, constants.MODULE_CANBUS_NAME),
-          3,
-          constants.BR_MODULE_CONSTANTS);
-    }
+    pose_estimator_ = new SwerveDrivePoseEstimator(kinematics_, new Rotation2d(), module_positions, Pose2d.kZero);
 
     // Start odometry thread
     PhoenixOdometryThread.getInstance().start();
@@ -110,9 +71,9 @@ public class SwerveMech extends MechBase {
   public void readInputs(double timestamp) {
     PhoenixOdometryThread.getInstance().getOdometryLock().lock(); // Prevents odometry updates while reading data
     for (var module : modules_) {
-      module.periodic();
+      module.readInputs(timestamp);
     }
-    gyro_.periodic();
+    gyro_.readInputs(timestamp);
     PhoenixOdometryThread.getInstance().getOdometryLock().unlock();
 
     // Stop moving when disabled
@@ -153,7 +114,7 @@ public class SwerveMech extends MechBase {
 
     if (IS_SIM) {
       DogLog.log(
-          "FieldSimulation/RobotPosition", Constants.SWERVE_SIMULATOR.getSimulatedDriveTrainPose());
+          "FieldSimulation/RobotPosition", swerve_sim_.getSimulatedDriveTrainPose());
     }
   }
 
@@ -180,7 +141,7 @@ public class SwerveMech extends MechBase {
     pose_estimator_.resetPosition(pose.getRotation(), new SwerveModulePosition[4], pose);
 
     if (IS_SIM) {
-      Constants.SWERVE_SIMULATOR.setSimulationWorldPose(pose);
+      swerve_sim_.setSimulationWorldPose(pose);
     }
   }
 

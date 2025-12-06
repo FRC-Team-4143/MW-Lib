@@ -10,6 +10,7 @@ import com.ctre.phoenix6.hardware.TalonFX;
 
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.mw_lib.subsystem.SubsystemIoBase;
+import frc.mw_lib.util.FxMotorConfig;
 
 public abstract class MechBase implements SubsystemIoBase {
 

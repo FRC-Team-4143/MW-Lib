@@ -1,43 +1,64 @@
 package frc.mw_lib.swerve_lib.gyro;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import frc.mw_lib.mechanisms.MechBase;
 
-public class Gyro {
+public abstract class Gyro extends MechBase {
 
-  private final GyroIO io;
-  private final GyroIO.GyroIOInputs inputs = new GyroIO.GyroIOInputs();
   private final Alert gyroDisconnectedAlert;
 
-  public Gyro(GyroIO io) {
-    this.io = io;
-    gyroDisconnectedAlert =
-        new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
+  protected boolean connected = false;
+  protected Rotation2d yawPosition = new Rotation2d();
+  protected double yawVelocityRadPerSec = 0.0;
+
+  protected double[] odometryYawTimestamps = new double[] {};
+  protected Rotation2d[] odometryYawPositions = new Rotation2d[] {};
+
+  public Gyro() {
+    gyroDisconnectedAlert = new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   }
 
-  public void periodic() {
-    io.updateInputs(inputs);
-    gyroDisconnectedAlert.set(!inputs.connected);
+  @Override
+  public void readInputs(double timestamp) {
+    readGyro();
+    gyroDisconnectedAlert.set(!connected);
   }
 
+  
+  public abstract void readGyro();
+  
   public boolean isConnected() {
-    return inputs.connected;
+    return connected;
   }
-
+  
   public Rotation2d getYawPosition() {
-    return inputs.yawPosition;
+    return yawPosition;
   }
-
+  
   public double getYawVelocityRadPerSec() {
-    return inputs.yawVelocityRadPerSec;
+    return yawVelocityRadPerSec;
   }
-
+  
   public double[] getOdometryYawTimestamps() {
-    return inputs.odometryYawTimestamps;
+    return odometryYawTimestamps;
+  }
+  
+  public Rotation2d[] getOdometryYawPositions() {
+    return odometryYawPositions;
   }
 
-  public Rotation2d[] getOdometryYawPositions() {
-    return inputs.odometryYawPositions;
+  @Override
+  public void logData() {
+    DogLog.log(getLoggingKey()+ "Connected", connected);
+    DogLog.log(getLoggingKey()+ "YawPositionDeg", yawPosition.getDegrees());
+    DogLog.log(getLoggingKey()+ "YawVelocityRadPerSec", yawVelocityRadPerSec);
+  }
+
+  @Override
+  public void writeOutputs(double timestamp) {
+    // no outputs to write
   }
 }

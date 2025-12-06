@@ -1,9 +1,7 @@
-package frc.mw_lib.mechanisms;
+package frc.mw_lib.util;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.signals.InvertedValue;
-
-import frc.mw_lib.util.ConstantsLoader;
 
 public class FxMotorConfig {
 
@@ -11,7 +9,8 @@ public class FxMotorConfig {
 
     public enum FxMotorType {
         X60,
-        X44
+        X44,
+        FALCON500
     }
 
     public String canbus_name = "rio";
