@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import org.ejml.simple.UnsupportedOperation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -35,7 +36,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.AnalogEncoder;
 import frc.mw_lib.mechanisms.MechBase;
-import frc.mw_lib.mechanisms.PhoenixOdometryThread;
+import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
 import frc.mw_lib.util.PhoenixUtil;
 
 public class ModuleTalonFX extends Module {
@@ -90,15 +91,20 @@ public class ModuleTalonFX extends Module {
     var turnConfig = config_.steer_motor_config.config;
     turnConfig.Feedback.RotorToSensorRatio = config_.module_type.steerRatio;
     turnConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
+
+    // config the encoder offset for the steer motor
     if (config_.encoder_type == SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
       // Use analog encoder
-
+      // TODO CJT implement for analog encoder
+      throw new UnsupportedOperation("Analog encoder not yet supported in ModuleTalonFX");
     } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
       // Use remote CANCoder
-
+      // TODO CJT implement for cancoder
+      throw new UnsupportedOperation("CANCoder not yet supported in ModuleTalonFX");
     } else {
       throw new IllegalArgumentException("Unsupported encoder type for ModuleTalonFX");
     }
+    
     turnConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0 / config_.module_type.steerRatio;
     turnConfig.MotionMagic.MotionMagicAcceleration = turnConfig.MotionMagic.MotionMagicCruiseVelocity / 0.100;
     turnConfig.MotionMagic.MotionMagicExpo_kV = 0.12 * config_.module_type.steerRatio;
@@ -116,7 +122,7 @@ public class ModuleTalonFX extends Module {
     drive_current_sig_ = drive_talonfx_.getStatorCurrent();
 
     // Create turn status signals
-    turn_absolute_position_sig_ = cancoder.getAbsolutePosition();
+    turn_absolute_position_sig_ = turn_talonfx_.getPosition();
     turn_velocity_sig_ = turn_talonfx_.getVelocity();
     turn_applied_volts_sig_ = turn_talonfx_.getMotorVoltage();
     turn_current_sig_ = turn_talonfx_.getStatorCurrent();

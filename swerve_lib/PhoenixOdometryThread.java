@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-package frc.mw_lib.mechanisms;
+package frc.mw_lib.swerve_lib;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -36,11 +36,26 @@ import java.util.function.DoubleSupplier;
  * time synchronization.
  */
 public class PhoenixOdometryThread extends Thread {
+
+  // Basic structure to hold an odometry measurement
+  public class OdometryMeasurement {
+    public double timestamp;
+    public double[] turn_positions_rad;
+    public double[] drive_positions_rad;
+    public double gyro_yaw_rad;
+
+    public OdometryMeasurement(double timestamp, Angle value) {
+      this.timestamp = timestamp;
+      this.turn_positions_rad = new double[4];
+      this.drive_positions_rad = new double[4];
+    }
+  }
+
   private final Lock signalsLock =
       new ReentrantLock(); // Prevents conflicts when registering signals
   private BaseStatusSignal[] phoenixSignals = new BaseStatusSignal[0];
   private final List<DoubleSupplier> genericSignals = new ArrayList<>();
-  private final List<Queue<Double>> phoenixQueues = new ArrayList<>();
+  private final List<Queue<Double>> turn_position_signals_ = new ArrayList<>();
   private final List<Queue<Double>> genericQueues = new ArrayList<>();
   private final List<Queue<Double>> timestampQueues = new ArrayList<>();
   private final Lock odometry_lock_ = new ReentrantLock();
