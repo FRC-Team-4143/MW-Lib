@@ -73,13 +73,6 @@ public class SwerveMech extends MechBase {
     }
     gyro_.readInputs(timestamp);
 
-    // Stop moving when disabled
-    if (DriverStation.isDisabled()) {
-      for (var module : modules_) {
-        module.stop();
-      }
-    }
-
     // Update odometry
     double[] sample_timestamps = modules_[0].getOdometryTimestamps(); // All signals are sampled together
     int sample_count = sample_timestamps.length;
@@ -116,9 +109,16 @@ public class SwerveMech extends MechBase {
   }
 
   public void writeOutputs(double timestamp) {
-    current_request_parameters.kinematics = kinematics_;
-    current_request_parameters.moduleLocations = getModuleTranslations();
-    current_request.apply(current_request_parameters, modules_);
+    // Stop moving when disabled
+    if (DriverStation.isDisabled()) {
+      for (var module : modules_) {
+        module.stop();
+      }
+    } else {
+      current_request_parameters.kinematics = kinematics_;
+      current_request_parameters.moduleLocations = getModuleTranslations();
+      current_request.apply(current_request_parameters, modules_);
+    }
   }
 
   /** Logs data to DogLog. */

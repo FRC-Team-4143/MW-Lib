@@ -28,8 +28,6 @@ import frc.mw_lib.util.PhoenixUtil;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
-import java.util.Queue;
-
 import org.ironmaple.simulation.drivesims.GyroSimulation;
 
 /** IO implementation for Pigeon 2. */
