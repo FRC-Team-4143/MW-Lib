@@ -25,6 +25,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import frc.mw_lib.util.FxMotorConfig;
 import frc.mw_lib.util.FxMotorConfig.FxMotorType;
+import frc.mw_lib.util.TunablePid;
 
 public class ElevatorMech extends MechBase {
 
@@ -63,16 +64,37 @@ public class ElevatorMech extends MechBase {
     protected double[] motor_temp_c_;
     protected double[] bus_voltage_;
 
-    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
+    /**
+     * Constructs a new ElevatorMech (assumes vertical elevator)
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO drum
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     */
+    public ElevatorMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
             double carriage_mass_kg,
             double max_extension, double rigging_ratio) {
-        this(motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, rigging_ratio, true);
+        this(logging_prefix, motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, rigging_ratio, true);
     }
 
-    public ElevatorMech(List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
+    /**
+     * Constructs a new ElevatorMech
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO drum
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     * @param is_vertical Whether the elevator is vertical (affects gravity compensation in simulation)
+     */
+    public ElevatorMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio, double drum_radius,
             double carriage_mass_kg,
             double max_extension, double rigging_ratio, boolean is_vertical) {
-        super();
+        super(logging_prefix);
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
@@ -97,7 +119,6 @@ public class ElevatorMech extends MechBase {
         });
         motors_ = configured_motors.motors;
         signals_ = configured_motors.signals;
-        
 
         this.gear_ratio_ = gear_ratio;
         this.drum_radius_ = drum_radius;
@@ -136,24 +157,11 @@ public class ElevatorMech extends MechBase {
                 0 // Starting height (m)
         );
 
-    }
-
-    protected void configSlot(int slot, SlotConfigs config) {
-        if (slot == 0) {
-            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
-        } else if (slot == 1) {
-            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
-        } else {
-            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
-        }
-    }
-
-    public void setPositionSlot(SlotConfigs config) {
-        configSlot(0, config);
-    }
-
-    public void setVelocitySlot(SlotConfigs config) {
-        configSlot(1, config);
+        // Setup tunable PIDs
+        TunablePid.create(getLoggingKey() + "PositionGains", this::configPositionSlot, SlotConfigs.from(motor_configs.get(0).config.Slot0));
+        DogLog.tunable(getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
+        TunablePid.create(getLoggingKey() + "VelocityGains", this::configVelocitySlot, SlotConfigs.from(motor_configs.get(0).config.Slot1));
+        DogLog.tunable(getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
     }
 
     @Override
@@ -204,6 +212,24 @@ public class ElevatorMech extends MechBase {
                 break;
             default:
                 throw new IllegalStateException("Unexpected control mode: " + control_mode_);
+        }
+    }
+
+    public void configPositionSlot(SlotConfigs config) {
+        configSlot(0, config);
+    }
+
+    public void configVelocitySlot(SlotConfigs config) {
+        configSlot(1, config);
+    }
+
+    private void configSlot(int slot, SlotConfigs config) {
+        if (slot == 0) {
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+        } else if (slot == 1) {
+            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+        } else {
+            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
         }
     }
 

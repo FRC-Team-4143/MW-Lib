@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 
+import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 
 import edu.wpi.first.math.filter.Debouncer;
@@ -56,7 +57,7 @@ public abstract class Module extends MechBase {
   protected double turn_velocity_rad_per_sec_ = 0.0;
   protected double turn_applied_volts_ = 0.0;
   protected double turn_current_amps_ = 0.0;
-  
+
   // Connection debouncers
   protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
   protected final Debouncer turn_conn_deb_ = new Debouncer(0.5);
@@ -70,7 +71,9 @@ public abstract class Module extends MechBase {
   // SIM objects
   protected final SwerveModuleSimulation simulation;
 
-  public Module(int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+  public Module(String logging_prefix, int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+    super(logging_prefix + "/Module" + Integer.toString(index));
+
     this.module_index_ = index;
     this.config_ = config;
     this.simulation = simulation;
@@ -148,7 +151,7 @@ public abstract class Module extends MechBase {
 
   /** Returns the module positions received this cycle. */
   public List<ModuleMeasurement> getOdometrySamples() {
-    return PhoenixOdometryThread.getInstance(config_.drive_motor_config.canbus_name).getModuleSamples(module_index_);
+    return PhoenixOdometryThread.getInstance().getModuleSamples(module_index_);
   }
 
   /** Returns the module position in radians. */
@@ -181,4 +184,10 @@ public abstract class Module extends MechBase {
 
   /** Run the turn motor to the specified rotation. */
   public abstract void setTurnPosition(Rotation2d rotation);
+
+  /** Set the gains for the module drive motors to the given slot */
+  public abstract void setDriveGains(int slot, SlotConfigs gains);
+
+  /** Set the gains for the module steer motors to the given slot */
+  public abstract void setSteerGains(SlotConfigs gains);
 }

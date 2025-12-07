@@ -26,9 +26,9 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotController;
 import frc.mw_lib.swerve_lib.SwerveMeasurments.GyroMeasurement;
 import frc.mw_lib.swerve_lib.SwerveMeasurments.ModuleMeasurement;
-import frc.robot.subsystems.swerve.Swerve;
 
 import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.Rotations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +36,6 @@ import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.DoubleSupplier;
 
 /**
  * Provides an interface for asynchronously reading high-frequency measurements
@@ -68,23 +67,41 @@ public class PhoenixOdometryThread extends Thread {
   private final boolean IS_CANFD;
   private final boolean IS_SIM = RobotBase.isSimulation();
   private final double ODOMETRY_FREQUENCY;
+  private final String bus_name_;
+  private final double wheel_circumference_m_;
 
   private static PhoenixOdometryThread instance = null;
 
-  public static PhoenixOdometryThread getInstance(String bus_name) {
+  /**
+   * Configures the PhoenixOdometryThread singleton.
+   * @param bus_name The CAN bus name the Phoenix devices are on
+   * @param wheel_radius_m The wheel radius in meters
+   */
+  public static void configure(String bus_name, double wheel_radius_m) {
+    if (instance != null) {
+      DriverStation.reportWarning("PhoenixOdometryThread already configured!", false);
+    }
+    instance = new PhoenixOdometryThread(bus_name, wheel_radius_m);
+  }
+
+  public static PhoenixOdometryThread getInstance() {
     if (instance == null) {
-      instance = new PhoenixOdometryThread(bus_name);
+      throw new IllegalStateException(
+          "PhoenixOdometryThread not yet configured. Call configure() before getInstance().");
     }
     return instance;
   }
 
-  private PhoenixOdometryThread(String bus_name) {
+  private PhoenixOdometryThread(String bus_name, double wheel_radius_m) {
     setName("PhoenixOdometryThread");
     setDaemon(true);
 
+    bus_name_ = bus_name;
+    wheel_circumference_m_ = 2.0 * Math.PI * wheel_radius_m;
+
     // Determine if using CAN FD bus
     if (!IS_SIM) {
-      IS_CANFD = new CANBus(bus_name).isNetworkFD();
+      IS_CANFD = new CANBus(bus_name_).isNetworkFD();
     } else {
       IS_CANFD = true; // assume CAN FD on sim robot
     }
@@ -272,7 +289,7 @@ public class PhoenixOdometryThread extends Thread {
           ModuleMeasurement measurement = new ModuleMeasurement();
           measurement.timestamp = timestamp;
           measurement.module_positions[module_index] = new SwerveModulePosition(
-              drive_signals_.get(module_index).getValue().in(Radians),
+              drive_signals_.get(module_index).getValue().in(Rotations) * wheel_circumference_m_,
               Rotation2d.fromRadians(turn_signals_.get(module_index).getValue().in(Radians)));
 
           // Add measurement to queue

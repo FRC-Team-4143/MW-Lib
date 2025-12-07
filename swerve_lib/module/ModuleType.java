@@ -49,7 +49,18 @@ public class ModuleType {
     new ModuleType("MK4-L1", 12.8, 8.14, false),
     new ModuleType("MK4-L2", 12.8, 6.75, false),
     new ModuleType("MK4-L3", 12.8, 6.12, false),
-    new ModuleType("MK4-L4", 12.8, 5.14, false)
+    new ModuleType("MK4-L4", 12.8, 5.14, false),
+
+
+    // TSN
+    new ModuleType("TSN-P12-S18", 24, 6.74, true),
+    new ModuleType("TSN-P13-S18", 24, 6.23, true),
+    new ModuleType("TSN-P14-S18", 24, 5.79, true),
+    new ModuleType("TSN-P12-S16", 24, 6.00, true),
+    new ModuleType("TSN-P13-S16", 24, 5.54, true),
+    new ModuleType("TSN-P14-S16", 24, 5.14, true),
+
+
   };
 
   public static Hashtable<String, ModuleType> ALL_MODULE_TYPES = new Hashtable<>();

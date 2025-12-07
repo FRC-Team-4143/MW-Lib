@@ -26,6 +26,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import frc.mw_lib.util.FxMotorConfig;
 import frc.mw_lib.util.FxMotorConfig.FxMotorType;
+import frc.mw_lib.util.TunablePid;
 
 public class RollerMech extends MechBase {
 
@@ -55,17 +56,28 @@ public class RollerMech extends MechBase {
     protected double motor_temp_c_ = 0;
     protected double bus_voltage_ = 0;
 
+    // System parameters
+    private final double gear_ratio_ = 1.0;
+    private final double roller_inertia_ = 0.00001;
+
     // Simulation
+    private final DCMotor motor_type_;
     private final DCMotorSim roller_sim_;
 
-    public RollerMech(FxMotorConfig motor_config) {
-        super();
+    /**
+     * Constructs a new RollerMech     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_config Configuration for the roller motor
+     */
+    public RollerMech(String logging_prefix, FxMotorConfig motor_config) {
+        super(logging_prefix);
 
         List<FxMotorConfig> motor_configs = new ArrayList<>();
         motor_configs.add(motor_config);
 
-        ConstructedMotors configured_motors = configMotors(motor_configs, 1.0);
+        ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio_);
 
+        // Store system parameters
         position_request_ = new PositionVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
@@ -86,34 +98,21 @@ public class RollerMech extends MechBase {
         /// SIMULATION SETUP ///
         //////////////////////////
 
-        DCMotor motor_type;
         if (motor_config.motor_type == FxMotorType.X60) {
-            motor_type = DCMotor.getKrakenX60(1);
+            motor_type_ = DCMotor.getKrakenX60(1);
         } else {
             throw new IllegalArgumentException("Unsupported motor type for ArmMech");
         }
 
         roller_sim_ = new DCMotorSim(
-            LinearSystemId.createDCMotorSystem(DCMotor.getKrakenX60Foc(1), 0.001, 1.0),
-            motor_type);
-    }
+            LinearSystemId.createDCMotorSystem(motor_type_, roller_inertia_, gear_ratio_),
+            motor_type_);
 
-    protected void configSlot(int slot, SlotConfigs config) {
-        if (slot == 0) {
-            motor_.getConfigurator().apply(Slot0Configs.from(config));
-        } else if (slot == 1) {
-            motor_.getConfigurator().apply(Slot1Configs.from(config));
-        } else {
-            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
-        }
-    }
-
-    public void setPositionSlot(SlotConfigs config) {
-        configSlot(0, config);
-    }
-
-    public void setVelocitySlot(SlotConfigs config) {
-        configSlot(1, config);
+        // Setup tunable PIDs
+        TunablePid.create(getLoggingKey() + "PositionGains", this::configPositionSlot, SlotConfigs.from(motor_configs.get(0).config.Slot0));
+        DogLog.tunable(getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
+        TunablePid.create(getLoggingKey() + "VelocityGains", this::configVelocitySlot, SlotConfigs.from(motor_configs.get(0).config.Slot1));
+        DogLog.tunable(getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
     }
 
     @Override
@@ -168,6 +167,24 @@ public class RollerMech extends MechBase {
 
     }
 
+    public void configPositionSlot(SlotConfigs config) {
+        configSlot(0, config);
+    }
+
+    public void configVelocitySlot(SlotConfigs config) {
+        configSlot(1, config);
+    }
+
+    private void configSlot(int slot, SlotConfigs config) {
+        if (slot == 0) {
+            motor_.getConfigurator().apply(Slot0Configs.from(config));
+        } else if (slot == 1) {
+            motor_.getConfigurator().apply(Slot1Configs.from(config));
+        } else {
+            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+        }
+    }
+
     public void setCurrentPosition(double position_rad) {
         motor_.setPosition(Units.radiansToRotations(position_rad));
     }
@@ -200,6 +217,24 @@ public class RollerMech extends MechBase {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
+    }
+
+    /**
+     * Applies a load torque to the roller mechanism for simulation purposes.
+     * @param torque_nm The load torque in Newton-meters (Nm). Positive values oppose motion.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        double current_torque = motor_type_.KtNMPerAmp * current_draw_;
+        current_torque -= torque_nm;
+
+        // Calculate the new angular velocity based on the net torque
+        double angular_acceleration = current_torque / roller_inertia_;
+        double new_velocity = velocity_ + angular_acceleration * 0.020; // assuming 20ms timestep
+
+        // Apply the calculated velocity to simulation
+        if (IS_SIM) {
+            roller_sim_.setAngularVelocity(new_velocity);
+        }
     }
 
     @Override

@@ -41,7 +41,8 @@ public class GyroPigeon2 extends Gyro {
   // sim pigeon members
   private GyroSimulation gyroSimulation;
 
-  public GyroPigeon2(int id, String can_bus_name, GyroSimulation gyroSimulation) {
+  public GyroPigeon2(String logging_prefix, int id, String can_bus_name, GyroSimulation gyroSimulation) {
+    super(logging_prefix + "/GyroPigeon2");
     if (!IS_SIM) {
       // Create Pigeon
       pigeon = new Pigeon2(id, can_bus_name);
@@ -56,7 +57,7 @@ public class GyroPigeon2 extends Gyro {
       pigeon.optimizeBusUtilization();
 
       // Register to the odometry thread
-      PhoenixOdometryThread.getInstance(can_bus_name).registerGyro(yaw);
+      PhoenixOdometryThread.getInstance().registerGyro(yaw);
     } else {
       this.gyroSimulation = gyroSimulation;
     }
@@ -69,7 +70,7 @@ public class GyroPigeon2 extends Gyro {
       yawPosition = Rotation2d.fromDegrees(yaw.getValueAsDouble());
       yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
     } else {
-      PhoenixOdometryThread.getInstance(pigeon.getNetwork()).enqueueGyroSamples(PhoenixUtil.getSimulationOdometryTimeStamps(), gyroSimulation.getCachedGyroReadings());
+      PhoenixOdometryThread.getInstance().enqueueGyroSamples(PhoenixUtil.getSimulationOdometryTimeStamps(), gyroSimulation.getCachedGyroReadings());
 
       connected = true;
       yawPosition = gyroSimulation.getGyroReading();

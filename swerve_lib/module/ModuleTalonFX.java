@@ -15,6 +15,9 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.Slot1Configs;
+import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.*;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -70,8 +73,8 @@ public class ModuleTalonFX extends Module {
   protected final StatusSignal<Voltage> turn_applied_volts_sig_;
   protected final StatusSignal<Current> turn_current_sig_;
 
-  public ModuleTalonFX(int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
-    super(index, config, simulation);
+  public ModuleTalonFX(String logging_prefix, int index, SwerveModuleConfig config, SwerveModuleSimulation simulation) {
+    super(logging_prefix, index, config, simulation);
 
     drive_talonfx_ = new TalonFX(config_.drive_motor_config.can_id, config_.drive_motor_config.canbus_name);
     turn_talonfx_ = new TalonFX(config_.steer_motor_config.can_id, config_.steer_motor_config.canbus_name);
@@ -143,7 +146,7 @@ public class ModuleTalonFX extends Module {
     ParentDevice.optimizeBusUtilizationForAll(drive_talonfx_, turn_talonfx_);
 
     if (!IS_SIM) {
-      PhoenixOdometryThread.getInstance(config.drive_motor_config.canbus_name).registerModule(module_index_,
+      PhoenixOdometryThread.getInstance().registerModule(module_index_,
           turn_absolute_position_sig_, drive_position_sig_);
     } else {
       simulation.useDriveMotorController(new PhoenixUtil.TalonFXMotorControllerSim(drive_talonfx_));
@@ -179,7 +182,7 @@ public class ModuleTalonFX extends Module {
           .toArray();
       Rotation2d[] odometry_turn_positions = simulation.getCachedSteerAbsolutePositions();
 
-      PhoenixOdometryThread.getInstance(config_.drive_motor_config.canbus_name)
+      PhoenixOdometryThread.getInstance()
           .enqueueModuleSamples(module_index_, odometry_timestamps, odometry_turn_positions,
               odometry_drive_positions_rad);
     }
@@ -233,6 +236,22 @@ public class ModuleTalonFX extends Module {
       req = position_voltage_req_.withPosition(rotation.getRotations());
     }
     turn_talonfx_.setControl(req);
+  }
+
+  @Override
+  public void setDriveGains(int slot, SlotConfigs gains) {
+    if(slot == 0){
+      drive_talonfx_.getConfigurator().apply(Slot0Configs.from(gains));
+    }else if(slot == 1){
+      drive_talonfx_.getConfigurator().apply(Slot1Configs.from(gains));
+    } else {
+      throw new IllegalArgumentException("Slot must be 0 or 1 for drive motor");
+    }
+  }
+
+  @Override
+  public void setSteerGains(SlotConfigs gains) {
+    turn_talonfx_.getConfigurator().apply(Slot0Configs.from(gains));
   }
 
   @Override

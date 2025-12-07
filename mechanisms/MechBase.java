@@ -24,7 +24,7 @@ public abstract class MechBase implements SubsystemIoBase {
 
     protected final boolean IS_SIM;
 
-    public MechBase() {
+    public MechBase(String logging_prefix) {
         // Identify the mecahnism name
         String name = this.getClass().getSimpleName();
         name = name.substring(name.lastIndexOf('.') + 1);
@@ -35,6 +35,7 @@ public abstract class MechBase implements SubsystemIoBase {
 
         // identiy if we are in simulation
         IS_SIM = RobotBase.isSimulation();
+        setLoggingPrefix(logging_prefix);
     }
 
     public void setLoggingPrefix(String subsystem_name) {

@@ -14,7 +14,8 @@ public abstract class Gyro extends MechBase {
   protected Rotation2d yawPosition = new Rotation2d();
   protected double yawVelocityRadPerSec = 0.0;
 
-  public Gyro() {
+  public Gyro(String logging_prefix) {
+    super(logging_prefix);
     gyroDisconnectedAlert = new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
   }
 
@@ -24,17 +25,16 @@ public abstract class Gyro extends MechBase {
     gyroDisconnectedAlert.set(!connected);
   }
 
-  
   public abstract void readGyro();
-  
+
   public boolean isConnected() {
     return connected;
   }
-  
+
   public Rotation2d getYawPosition() {
     return yawPosition;
   }
-  
+
   public double getYawVelocityRadPerSec() {
     return yawVelocityRadPerSec;
   }
