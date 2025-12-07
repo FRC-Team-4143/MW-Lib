@@ -26,6 +26,4 @@ public class SwerveDriveConfig {
         PIGEON2_ID = pigeon2_id;
         PIGEON2_CANBUS_NAME = pigeon2_canbus_name;
     }
-
-    public SwerveDriveConfig() {}
 }

@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.Seconds;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.sim.CANcoderSimState;
 import com.ctre.phoenix6.sim.TalonFXSimState;
 import edu.wpi.first.units.measure.Angle;
@@ -24,6 +25,10 @@ public class PhoenixUtil {
       var error = command.get();
       if (error.isOK()) break;
     }
+  }
+
+  public static InvertedValue toInvertedValue(boolean isInverted) {
+    return isInverted ? InvertedValue.Clockwise_Positive : InvertedValue.CounterClockwise_Positive;
   }
 
   public static class TalonFXMotorControllerSim implements SimulatedMotorController {
