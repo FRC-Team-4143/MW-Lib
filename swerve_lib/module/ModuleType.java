@@ -51,7 +51,6 @@ public class ModuleType {
     new ModuleType("MK4-L3", 12.8, 6.12, false),
     new ModuleType("MK4-L4", 12.8, 5.14, false),
 
-
     // TSN
     new ModuleType("TSN-P12-S18", 24, 6.74, true),
     new ModuleType("TSN-P13-S18", 24, 6.23, true),
@@ -76,8 +75,8 @@ public class ModuleType {
    * @return ModuleType to be load the gear ratio constants from
    */
   public static ModuleType getModuleTypeFromJSON(String position) {
-    String type = LOADER.getStringValue("drive", position, "MODULE_TYPE");
-    String gearing = LOADER.getStringValue("drive", position, "MODULE_GEARING");
+    String type = LOADER.getStringValue("swerve", position, "module_type");
+    String gearing = LOADER.getStringValue("swerve", position, "module_gearing");
     return getModuleType(type + "-" + gearing);
   }
 

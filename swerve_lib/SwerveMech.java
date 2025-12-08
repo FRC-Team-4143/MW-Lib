@@ -54,6 +54,10 @@ public class SwerveMech extends MechBase {
   public SwerveMech(String logging_prefix, SwerveDriveConfig config, DriveTrainSimulationConfig sim_config) {
     super(logging_prefix);
 
+    // Configure the odom thread
+    PhoenixOdometryThread.configure(config.FL_MODULE_CONSTANTS.drive_motor_config.canbus_name,
+        config.FL_MODULE_CONSTANTS.wheel_radius_m);
+
     swerve_sim_ = new SwerveDriveSimulation(sim_config, Pose2d.kZero);
 
     modules_[0] = new ModuleTalonFX(logging_prefix, 0, config.FL_MODULE_CONSTANTS, swerve_sim_.getModules()[0]);
@@ -71,8 +75,6 @@ public class SwerveMech extends MechBase {
     pose_estimator_ = new SwerveDrivePoseEstimator(kinematics_, new Rotation2d(), module_positions, Pose2d.kZero);
 
     // Start odometry thread
-    PhoenixOdometryThread.configure(config.FL_MODULE_CONSTANTS.drive_motor_config.canbus_name,
-        config.FL_MODULE_CONSTANTS.wheel_radius_m);
     PhoenixOdometryThread.getInstance().start();
 
     // TODO: Load the default gains from config
@@ -100,6 +102,7 @@ public class SwerveMech extends MechBase {
     // Update gyro angle
     if (gyro_.isConnected()) {
       // Use the real gyro angle
+      
       raw_gyro_rotation = gyro_.getYawPosition();
     } else {
       // Use the angle delta from the kinematics and module deltas

@@ -16,7 +16,6 @@ package frc.mw_lib.swerve_lib;
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
-import com.fasterxml.jackson.databind.JsonSerializable.Base;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
@@ -31,6 +30,7 @@ import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.Rotations;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -51,8 +51,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * time synchronization.
  */
 public class PhoenixOdometryThread extends Thread {
-  private List<StatusSignal<Angle>> turn_signals_ = new ArrayList<>(4);
-  private List<StatusSignal<Angle>> drive_signals_ = new ArrayList<>(4);
+  private List<StatusSignal<Angle>> turn_signals_ = new ArrayList<>(Arrays.asList(null, null, null, null));
+  private List<StatusSignal<Angle>> drive_signals_ = new ArrayList<>(Arrays.asList(null, null, null, null));
   private StatusSignal<Angle> gyro_signal_;
 
   private BaseStatusSignal[] all_signals_ = new BaseStatusSignal[0];

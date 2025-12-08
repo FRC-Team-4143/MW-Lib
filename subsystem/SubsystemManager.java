@@ -39,7 +39,7 @@ public abstract class SubsystemManager {
       DogLog.setOptions(new DogLogOptions().withNtPublish(true).withCaptureDs(true));
     } else {
       DogLog.setOptions(new DogLogOptions().withCaptureNt(true).withCaptureDs(true));
-      DogLog.setPdh(new PowerDistribution());
+      DogLog.setPdh(null);
     }
     DogLog.setEnabled(true);
 
