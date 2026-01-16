@@ -47,7 +47,7 @@ ext.addTaskToCopyAllOutputs = { task ->
     copyAllOutputs.from task.archiveFile
 }
 
-def artifactGroupId = 'com.github.frc-team-4143'
+def artifactGroupId = 'com.marswars.frc'
 def baseArtifactId = 'MWLib'
 def javaBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-java_CLS"
 def driverBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-driver_CLS"
