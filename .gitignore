@@ -23,5 +23,24 @@
 hs_err_pid*
 replay_pid*
 
-build
-.gradle
+# Gradle
+build/
+.gradle/
+gradle.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
