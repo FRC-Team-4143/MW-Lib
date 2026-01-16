@@ -33,7 +33,7 @@ jobs:
           distribution: 'temurin'
           
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
         
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -48,7 +48,7 @@ jobs:
         run: ./gradlew vendordepJson
         
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
@@ -75,7 +75,7 @@ jobs:
           distribution: 'temurin'
           
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
         
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
