@@ -52,8 +52,8 @@ def baseArtifactId = 'MW-Lib'
 def javaBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-java_CLS"
 def driverBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-driver_CLS"
 
-// Create driver package for native dependencies
-// This packages the native libraries that your Java dependencies require
+// Driver package disabled - Java-only library
+/*
 task driverZip(type: Zip) {
     destinationDirectory = outputsFolder
     archiveBaseName = driverBaseName
@@ -70,6 +70,7 @@ task driverZip(type: Zip) {
         rename { 'driver-readme.md' }
     }
 }
+*/
 
 // Dynamically determine GitHub username and repo from git remote
 def getGitHubInfo = {
@@ -161,20 +162,20 @@ artifacts {
         dependsOn(outputJar)
         dependsOn(outputSourcesJar)
         dependsOn(outputJavadocJar)
-        dependsOn(driverZip)
+        // dependsOn(driverZip)  // Disabled
     }
 }
 
 addTaskToCopyAllOutputs(outputSourcesJar)
 addTaskToCopyAllOutputs(outputJavadocJar) 
 addTaskToCopyAllOutputs(outputJar)
-addTaskToCopyAllOutputs(driverZip)
+// addTaskToCopyAllOutputs(driverZip)  // Disabled
 addTaskToCopyAllOutputs(vendordepJsonZip)
 
 build.dependsOn outputSourcesJar
 build.dependsOn outputJavadocJar
 build.dependsOn outputJar
-build.dependsOn driverZip
+// build.dependsOn driverZip  // Disabled
 build.dependsOn vendordepJsonZip
 
 libraryBuild.dependsOn build
