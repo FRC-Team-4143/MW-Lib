@@ -1,8 +1,6 @@
 name: Build and Publish
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
   release:
@@ -59,7 +57,7 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
     permissions:
       contents: read
       packages: write
@@ -93,8 +91,7 @@ jobs:
             VERSION=${{ github.event.release.tag_name }}
             echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
           else
-            VERSION="2026.0.0"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "version=manual-build" >> $GITHUB_OUTPUT
           fi
           
       - name: Update version in publish.gradle
