@@ -121,7 +121,7 @@ This library depends on:
 - WPILib 2026+
 - Phoenix 6 (CTRE)
 - Jackson (JSON processing)
-- Various vendor libraries (RevRobotics, Playing With Fusion, etc.)
+- Various vendor libraries (Maplesim, Playing With Fusion, etc.)
 
 ## License
 
