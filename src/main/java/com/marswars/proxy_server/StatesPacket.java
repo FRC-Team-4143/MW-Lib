@@ -1,4 +1,4 @@
-package frc.mw_lib.proxy_server;
+package com.marswars.proxy_server;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;

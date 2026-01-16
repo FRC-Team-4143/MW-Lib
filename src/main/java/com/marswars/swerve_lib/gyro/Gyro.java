@@ -1,10 +1,10 @@
-package frc.mw_lib.swerve_lib.gyro;
+package com.marswars.swerve_lib.gyro;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import frc.mw_lib.mechanisms.MechBase;
+import com.marswars.mechanisms.MechBase;
 
 public abstract class Gyro extends MechBase {
 

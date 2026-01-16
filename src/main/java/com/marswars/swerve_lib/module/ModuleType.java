@@ -1,7 +1,7 @@
-package frc.mw_lib.swerve_lib.module;
+package com.marswars.swerve_lib.module;
 
 import edu.wpi.first.wpilibj.DataLogManager;
-import frc.mw_lib.util.ConstantsLoader;
+import com.marswars.util.ConstantsLoader;
 import java.util.Hashtable;
 
 public class ModuleType {

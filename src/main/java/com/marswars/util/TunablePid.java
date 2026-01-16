@@ -1,4 +1,4 @@
-package frc.mw_lib.util;
+package com.marswars.util;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
 

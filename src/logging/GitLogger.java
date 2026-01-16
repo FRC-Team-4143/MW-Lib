@@ -1,4 +1,4 @@
-package frc.mw_lib.logging;
+package com.marswars.logging;
 
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;

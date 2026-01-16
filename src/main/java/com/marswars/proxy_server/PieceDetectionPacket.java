@@ -1,4 +1,4 @@
-package frc.mw_lib.proxy_server;
+package com.marswars.proxy_server;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

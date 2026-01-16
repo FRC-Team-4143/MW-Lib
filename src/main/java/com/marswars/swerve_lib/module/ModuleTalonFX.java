@@ -1,7 +1,7 @@
-package frc.mw_lib.swerve_lib.module;
+package com.marswars.swerve_lib.module;
 
 import static edu.wpi.first.units.Units.Radians;
-import static frc.mw_lib.util.PhoenixUtil.tryUntilOk;
+import static com.marswars.util.PhoenixUtil.tryUntilOk;
 
 import java.util.Arrays;
 import java.util.List;
@@ -39,9 +39,9 @@ import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.AnalogEncoder;
-import frc.mw_lib.mechanisms.MechBase;
-import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
-import frc.mw_lib.util.PhoenixUtil;
+import com.marswars.mechanisms.MechBase;
+import com.marswars.swerve_lib.PhoenixOdometryThread;
+import com.marswars.util.PhoenixUtil;
 
 public class ModuleTalonFX extends Module {
   protected final TalonFX drive_talonfx_;

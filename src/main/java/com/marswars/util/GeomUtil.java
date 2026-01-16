@@ -1,4 +1,4 @@
-package frc.mw_lib.util;
+package com.marswars.util;
 
 // Copyright (c) 2025 FRC 6328
 // http://github.com/Mechanical-Advantage

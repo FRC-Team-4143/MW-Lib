@@ -1,4 +1,4 @@
-package frc.mw_lib.mechanisms;
+package com.marswars.mechanisms;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
@@ -24,9 +24,9 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
-import frc.mw_lib.util.FxMotorConfig;
-import frc.mw_lib.util.FxMotorConfig.FxMotorType;
-import frc.mw_lib.util.TunablePid;
+import com.marswars.util.FxMotorConfig;
+import com.marswars.util.FxMotorConfig.FxMotorType;
+import com.marswars.util.TunablePid;
 
 public class RollerMech extends MechBase {
 

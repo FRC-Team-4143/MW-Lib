@@ -1,4 +1,4 @@
-package frc.mw_lib.swerve_lib;
+package com.marswars.swerve_lib;
 
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
@@ -17,13 +17,13 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
-import frc.mw_lib.mechanisms.MechBase;
-import frc.mw_lib.swerve_lib.ChassisRequest.ChassisRequestParameters;
-import frc.mw_lib.swerve_lib.gyro.Gyro;
-import frc.mw_lib.swerve_lib.gyro.GyroPigeon2;
-import frc.mw_lib.swerve_lib.module.Module;
-import frc.mw_lib.swerve_lib.module.ModuleTalonFX;
-import frc.mw_lib.util.TunablePid;
+import com.marswars.mechanisms.MechBase;
+import com.marswars.swerve_lib.ChassisRequest.ChassisRequestParameters;
+import com.marswars.swerve_lib.gyro.Gyro;
+import com.marswars.swerve_lib.gyro.GyroPigeon2;
+import com.marswars.swerve_lib.module.Module;
+import com.marswars.swerve_lib.module.ModuleTalonFX;
+import com.marswars.util.TunablePid;
 
 public class SwerveMech extends MechBase {
 

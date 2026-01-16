@@ -1,4 +1,4 @@
-package frc.mw_lib.util;
+package com.marswars.util;
 
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonProcessingException;

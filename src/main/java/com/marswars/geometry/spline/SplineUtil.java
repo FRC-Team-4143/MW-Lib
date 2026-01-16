@@ -1,4 +1,4 @@
-package frc.mw_lib.geometry.spline;
+package com.marswars.geometry.spline;
 
 import edu.wpi.first.math.geometry.Translation3d;
 import java.util.ArrayList;

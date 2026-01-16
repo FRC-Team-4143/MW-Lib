@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-package frc.mw_lib.swerve_lib.module;
+package com.marswars.swerve_lib.module;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,9 +30,9 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import frc.mw_lib.mechanisms.MechBase;
-import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
-import frc.mw_lib.swerve_lib.SwerveMeasurments.ModuleMeasurement;
+import com.marswars.mechanisms.MechBase;
+import com.marswars.swerve_lib.PhoenixOdometryThread;
+import com.marswars.swerve_lib.SwerveMeasurments.ModuleMeasurement;
 
 public abstract class Module extends MechBase {
 

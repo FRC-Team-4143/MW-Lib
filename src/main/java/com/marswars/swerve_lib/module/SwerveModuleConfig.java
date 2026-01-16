@@ -1,6 +1,6 @@
-package frc.mw_lib.swerve_lib.module;
+package com.marswars.swerve_lib.module;
 
-import frc.mw_lib.util.FxMotorConfig;
+import com.marswars.util.FxMotorConfig;
 
 public class SwerveModuleConfig {
     public enum EncoderType {

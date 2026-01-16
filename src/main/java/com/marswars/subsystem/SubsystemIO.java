@@ -1,4 +1,4 @@
-package frc.mw_lib.subsystem;
+package com.marswars.subsystem;
 
 public abstract class SubsystemIO<ConstantsType extends MwConstants> implements SubsystemIoBase {
   protected final ConstantsType CONSTANTS;

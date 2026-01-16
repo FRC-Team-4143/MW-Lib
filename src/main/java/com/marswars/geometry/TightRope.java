@@ -1,4 +1,4 @@
-package frc.mw_lib.geometry;
+package com.marswars.geometry;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;

@@ -1,4 +1,4 @@
-package frc.mw_lib.swerve_lib;
+package com.marswars.swerve_lib;
 
 import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
@@ -10,7 +10,7 @@ import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import frc.mw_lib.swerve_lib.module.Module;
+import com.marswars.swerve_lib.module.Module;
 
 /**
  * Container for all the Swerve Requests. Use this to find all applicable swerve drive requests.

@@ -1,4 +1,4 @@
-package frc.mw_lib.util;
+package com.marswars.util;
 
 import static edu.wpi.first.units.Units.*;
 import static edu.wpi.first.units.Units.Seconds;

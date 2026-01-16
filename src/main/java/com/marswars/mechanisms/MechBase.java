@@ -1,4 +1,4 @@
-package frc.mw_lib.mechanisms;
+package com.marswars.mechanisms;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,8 +9,8 @@ import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.hardware.TalonFX;
 
 import edu.wpi.first.wpilibj.RobotBase;
-import frc.mw_lib.subsystem.SubsystemIoBase;
-import frc.mw_lib.util.FxMotorConfig;
+import com.marswars.subsystem.SubsystemIoBase;
+import com.marswars.util.FxMotorConfig;
 
 public abstract class MechBase implements SubsystemIoBase {
 

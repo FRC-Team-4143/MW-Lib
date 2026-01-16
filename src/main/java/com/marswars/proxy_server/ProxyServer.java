@@ -1,4 +1,4 @@
-package frc.mw_lib.proxy_server;
+package com.marswars.proxy_server;
 
 import edu.wpi.first.hal.SimBoolean;
 import edu.wpi.first.hal.SimDevice;
@@ -9,9 +9,9 @@ import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import frc.mw_lib.proxy_server.PieceDetectionPacket.PieceDetection;
-import frc.mw_lib.proxy_server.TagSolutionPacket.TagSolution;
-import frc.mw_lib.util.NumUtil;
+import com.marswars.proxy_server.PieceDetectionPacket.PieceDetection;
+import com.marswars.proxy_server.TagSolutionPacket.TagSolution;
+import com.marswars.util.NumUtil;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;

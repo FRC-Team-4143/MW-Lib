@@ -1,4 +1,4 @@
-package frc.mw_lib.swerve_lib;
+package com.marswars.swerve_lib;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;

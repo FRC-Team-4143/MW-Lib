@@ -1,8 +1,8 @@
-package frc.mw_lib.subsystem;
+package com.marswars.subsystem;
 
 import edu.wpi.first.wpilibj.DataLogManager;
-import frc.mw_lib.util.ConstantsLoader;
-import frc.mw_lib.util.MWPreferences;
+import com.marswars.util.ConstantsLoader;
+import com.marswars.util.MWPreferences;
 
 public class MwConstants {
   private final String system_name;

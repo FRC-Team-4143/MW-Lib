@@ -1,6 +1,6 @@
-package frc.mw_lib.swerve_lib;
+package com.marswars.swerve_lib;
 
-import frc.mw_lib.swerve_lib.module.SwerveModuleConfig;
+import com.marswars.swerve_lib.module.SwerveModuleConfig;
 
 public class SwerveDriveConfig {
     public SwerveModuleConfig FL_MODULE_CONSTANTS;

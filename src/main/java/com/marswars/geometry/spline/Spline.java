@@ -1,4 +1,4 @@
-package frc.mw_lib.geometry.spline;
+package com.marswars.geometry.spline;
 
 public class Spline {
   private double p0, p1, p2, p3;

@@ -1,4 +1,4 @@
-package frc.mw_lib.proxy_server;
+package com.marswars.proxy_server;
 
 public interface Packet {
   // Timestamp class to store packet timestamp and preform operations

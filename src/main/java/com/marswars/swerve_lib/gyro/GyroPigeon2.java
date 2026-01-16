@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-package frc.mw_lib.swerve_lib.gyro;
+package com.marswars.swerve_lib.gyro;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -23,8 +23,8 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
-import frc.mw_lib.swerve_lib.PhoenixOdometryThread;
-import frc.mw_lib.util.PhoenixUtil;
+import com.marswars.swerve_lib.PhoenixOdometryThread;
+import com.marswars.util.PhoenixUtil;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 

@@ -1,4 +1,4 @@
-package frc.mw_lib.subsystem;
+package com.marswars.subsystem;
 
 import dev.doglog.DogLog;
 import dev.doglog.DogLogOptions;
@@ -9,8 +9,8 @@ import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.PowerDistribution;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
-import frc.mw_lib.logging.GitLogger;
-import frc.mw_lib.util.ConstantsLoader;
+import com.marswars.logging.GitLogger;
+import com.marswars.util.ConstantsLoader;
 import java.util.ArrayList;
 import java.util.List;
 
