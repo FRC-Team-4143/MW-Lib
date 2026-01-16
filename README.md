@@ -1,4 +1,4 @@
-# MW-Lib - Mars Wars FRC Library
+# MW-Lib - MARS/WARS Robotics Program FRC Library
 
 A Java library for FRC (FIRST Robotics Competition) teams, providing utilities for swerve drive, mechanisms, geometry, and more.
 
