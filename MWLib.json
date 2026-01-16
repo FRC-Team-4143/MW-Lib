@@ -14,23 +14,14 @@
             "artifactId": "${artifactId}-java",
             "version": "${version}"
         }
-    ],
-    "jniDependencies": [
+    "javaDependencies": [
         {
             "groupId": "${groupId}",
-            "artifactId": "${artifactId}-driver",
-            "version": "${version}",
-            "skipInvalidPlatforms": true,
-            "isJar": false,
-            "validPlatforms": [
-                "windowsx86-64",
-                "linuxarm64",
-                "linuxx86-64",
-                "linuxathena",
-                "linuxarm32",
-                "osxuniversal"
-            ]
+            "artifactId": "${artifactId}-java",
+            "version": "${version}"
         }
+    ],
+    "jniDependencies": [
     ],
     "cppDependencies": []
 }
