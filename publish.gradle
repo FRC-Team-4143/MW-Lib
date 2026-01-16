@@ -50,27 +50,9 @@ ext.addTaskToCopyAllOutputs = { task ->
 def artifactGroupId = 'io.github.frc-team-4143'
 def baseArtifactId = 'MW-Lib'
 def javaBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-java_CLS"
-def driverBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-driver_CLS"
+// driverBaseName removed - no driver package
 
-// Driver package disabled - Java-only library
-/*
-task driverZip(type: Zip) {
-    destinationDirectory = outputsFolder
-    archiveBaseName = driverBaseName
-    
-    from(licenseFile) {
-        into '/'
-    }
-    
-    // For FRC libraries, the driver package typically contains native libs from dependencies
-    // Since this is a pure Java library that depends on WPILib/Phoenix native components,
-    // we include minimal metadata but let consuming projects handle the native dependencies
-    from('README.md') {
-        into '/'
-        rename { 'driver-readme.md' }
-    }
-}
-*/
+// Driver package removed - Java-only library
 
 // Dynamically determine GitHub username and repo from git remote
 def getGitHubInfo = {
@@ -162,20 +144,18 @@ artifacts {
         dependsOn(outputJar)
         dependsOn(outputSourcesJar)
         dependsOn(outputJavadocJar)
-        // dependsOn(driverZip)  // Disabled
+
     }
 }
 
 addTaskToCopyAllOutputs(outputSourcesJar)
 addTaskToCopyAllOutputs(outputJavadocJar) 
 addTaskToCopyAllOutputs(outputJar)
-// addTaskToCopyAllOutputs(driverZip)  // Disabled
 addTaskToCopyAllOutputs(vendordepJsonZip)
 
 build.dependsOn outputSourcesJar
 build.dependsOn outputJavadocJar
 build.dependsOn outputJar
-// build.dependsOn driverZip  // Disabled
 build.dependsOn vendordepJsonZip
 
 libraryBuild.dependsOn build
@@ -208,18 +188,6 @@ publishing {
             groupId = artifactGroupId
             version = pubVersion
         }
-
-        // driver publication removed - Java-only library
-        // Uncomment when native dependencies are added:
-        /*
-        driver(MavenPublication) {
-            artifact driverZip
-
-            artifactId = "${baseArtifactId}-driver"
-            groupId = artifactGroupId
-            version = pubVersion
-        }
-        */
 
         vendordep(MavenPublication) {
             artifact vendordepJsonZip
