@@ -7,7 +7,7 @@ ext.licenseFile = files("$rootDir/LICENSE.txt")
 
 def templateVendorFile = "MWLib.json"
 
-def pubVersion = '1.0.0'
+def pubVersion = '2026.0.0'
 
 def outputsFolder = file("$buildDir/outputs")
 
@@ -73,14 +73,19 @@ task driverZip(type: Zip) {
 def getGitHubInfo = {
     try {
         def remoteUrl = 'git config --get remote.origin.url'.execute().text.trim()
+        println "Remote URL detected: $remoteUrl"
         def matcher = remoteUrl =~ /github\.com[\/:]([^\/]+)\/(.+?)(\.git)?$/
         if (matcher.find()) {
-            return [username: matcher[0][1], repo: matcher[0][2]]
+            def result = [username: matcher[0][1], repo: matcher[0][2]]
+            println "GitHub info detected: $result"
+            return result
         }
     } catch (Exception e) {
-        // Fallback if git command fails
+        println "Failed to detect GitHub info: $e"
     }
-    return [username: "YOUR_GITHUB_USERNAME", repo: "MW-Lib"]
+    def fallback = [username: "FRC-Team-4143", repo: "MW-Lib"]
+    println "Using fallback GitHub info: $fallback"
+    return fallback
 }
 
 def githubInfo = getGitHubInfo()
@@ -180,8 +185,8 @@ publishing {
             name = "GitHubPackages"
             url = githubPackagesUrl
             credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
             }
         }
         maven {

@@ -59,12 +59,18 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
     permissions:
       contents: read
       packages: write
       
     steps:
+      - name: Debug publish conditions
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Should publish: true"
+          
       - name: Checkout code
         uses: actions/checkout@v4
         
@@ -87,7 +93,7 @@ jobs:
             VERSION=${{ github.event.release.tag_name }}
             echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
           else
-            VERSION="1.0.0-SNAPSHOT"
+            VERSION="2026.0.0"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
           
@@ -98,8 +104,8 @@ jobs:
       - name: Build and publish to GitHub Packages
         run: ./gradlew build publish --info
         env:
-          USERNAME: ${{ github.actor }}
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Upload vendor dependency to release
         if: github.event_name == 'release'
