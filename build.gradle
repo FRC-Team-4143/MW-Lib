@@ -1,0 +1,129 @@
+// import edu.wpi.first.toolchain.*  // Disabled - Java only build
+
+plugins {
+  // id 'cpp'  // Disabled - Java only build
+  id 'java'
+  // id 'google-test'  // Disabled - Java only build
+  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2025.0'
+  // id 'edu.wpi.first.NativeUtils' version '2026.0.1'  // Disabled - Java only build
+  // id 'edu.wpi.first.GradleJni' version '1.1.0'  // Disabled - Java only build
+  id 'edu.wpi.first.GradleVsCode' version '2.1.0'
+}
+
+// WPILib Version
+ext.wpilibVersion = "2026.+"
+
+repositories {
+  mavenCentral()
+  maven {
+    url = "https://maven.ctr-electronics.com/release/"
+  }
+  maven {
+    url = "https://doglog.dev/doglog-maven/"
+  }
+  maven {
+    url = "https://jitpack.io"
+  }
+  maven {
+    url = "https://maven.revrobotics.com/"
+  }
+  maven {
+    url = "https://shenzhen-robotics-alliance.github.io/maple-sim/vendordep/repos/releases"
+  }
+  maven {
+    url = "https://www.playingwithfusion.com/frc/maven/"
+  }
+}
+if (project.hasProperty('releaseMode')) {
+  wpilibRepositories.addAllReleaseRepositories(project)
+} else {
+  wpilibRepositories.addAllDevelopmentRepositories(project)
+}
+
+java {
+  sourceCompatibility = JavaVersion.VERSION_17
+  targetCompatibility = JavaVersion.VERSION_17
+}
+var javaVersion = "17"
+
+// Configure source sets to include all src subdirectories
+sourceSets {
+  main {
+    java {
+      srcDirs = ['src/main/java']
+    }
+  }
+  test {
+    java {
+      srcDirs = ['src/test/java']
+    }
+  }
+}
+
+// Apply C++ configuration - Disabled for Java only build
+// apply from: 'config.gradle'
+
+// Apply Java configuration
+dependencies {
+    implementation "edu.wpi.first.cscore:cscore-java:$wpilibVersion"
+    implementation "edu.wpi.first.cameraserver:cameraserver-java:$wpilibVersion"
+    implementation "edu.wpi.first.ntcore:ntcore-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpilibj:wpilibj-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpiutil:wpiutil-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpimath:wpimath-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpiunits:wpiunits-java:$wpilibVersion"
+    implementation "edu.wpi.first.hal:hal-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpilibNewCommands:wpilibNewCommands-java:$wpilibVersion"
+    implementation "edu.wpi.first.apriltag:apriltag-java:$wpilibVersion"
+    implementation "org.ejml:ejml-simple:0.44.0"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.19.2"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.19.2"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.19.2"
+    implementation 'edu.wpi.first.thirdparty.frc2025.opencv:opencv-java:4.10.0-2'
+    
+    // Vendor dependencies
+    implementation "com.ctre.phoenix6:wpiapi-java:26.0.0-beta-1"
+    implementation "com.github.jonahsnider:doglog:2026.3.0"
+    implementation "org.ironmaple:maplesim-java:0.3.14"
+    implementation "org.dyn4j:dyn4j:5.0.2"
+    implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.1.12"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'
+}
+
+// Set up java tests
+test {
+    useJUnitPlatform()
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    testLogging {
+        events "failed"
+        exceptionFormat = "full"
+    }
+}
+
+if (project.hasProperty('onlylinuxathena') || project.hasProperty('onlylinuxarm32') || project.hasProperty('onlylinuxarm64') || project.hasProperty('onlywindowsarm64') || project.hasProperty('onlylinuxsystemcore')) {
+    test.enabled = false
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add '-XDstringConcat=inline'
+    options.encoding = 'UTF-8'
+}
+
+// Setup Javadocs to link back to WPILib docs
+javadoc {
+    options {
+        links "https://docs.oracle.com/en/java/javase/$javaVersion/docs/api/", 'https://github.wpilib.org/allwpilib/docs/release/java/'
+    }
+}
+
+// Disable C++ builds - Java only project
+
+// Disable publish.gradle - requires native components
+// apply from: 'publish.gradle'
+
+wrapper {
+  gradleVersion = '8.14.3'
+}
