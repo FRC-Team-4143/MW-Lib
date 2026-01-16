@@ -1,0 +1,36 @@
+{
+    "fileName": "MWLib.json",
+    "name": "MWLib",
+    "version": "${version}",
+    "frcYear": "2026",
+    "uuid": "a7c8ef9f-6b4d-4e5a-8f9e-7c6b5a4d3e2f",
+    "mavenUrls": [
+        "https://maven.pkg.github.com/${githubUsername}/${githubRepo}"
+    ],
+    "jsonUrl": "https://github.com/${githubUsername}/${githubRepo}/releases/latest/download/MWLib.json",
+    "javaDependencies": [
+        {
+            "groupId": "${groupId}",
+            "artifactId": "${artifactId}-java",
+            "version": "${version}"
+        }
+    ],
+    "jniDependencies": [
+        {
+            "groupId": "${groupId}",
+            "artifactId": "${artifactId}-driver",
+            "version": "${version}",
+            "skipInvalidPlatforms": true,
+            "isJar": false,
+            "validPlatforms": [
+                "windowsx86-64",
+                "linuxarm64",
+                "linuxx86-64",
+                "linuxathena",
+                "linuxarm32",
+                "osxuniversal"
+            ]
+        }
+    ],
+    "cppDependencies": []
+}

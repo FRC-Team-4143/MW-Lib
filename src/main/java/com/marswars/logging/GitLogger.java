@@ -2,7 +2,6 @@ package frc.mw_lib.logging;
 
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
-import frc.robot.BuildConstants;
 
 public abstract class GitLogger {
 
@@ -19,22 +18,28 @@ public abstract class GitLogger {
   private static StringPublisher dirty =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
-  public static void logGitData() {
-    project_name.set(BuildConstants.MAVEN_NAME);
-    git_sha.set(BuildConstants.GIT_SHA);
-    git_date.set(BuildConstants.GIT_DATE);
-    git_branch.set(BuildConstants.GIT_BRANCH);
-    build_date.set(BuildConstants.BUILD_DATE);
-    switch (BuildConstants.DIRTY) {
-      case 0:
-        dirty.set("All changes committed");
-        break;
-      case 1:
-        dirty.set("Uncommitted changes");
-        break;
-      default:
-        dirty.set("Unknown");
-        break;
+  public static void logGitData(Object buildConstants) {
+    try {
+      var clazz = buildConstants.getClass();
+      project_name.set((String) clazz.getField("MAVEN_NAME").get(null));
+      git_sha.set((String) clazz.getField("GIT_SHA").get(null));
+      git_date.set((String) clazz.getField("GIT_DATE").get(null));
+      git_branch.set((String) clazz.getField("GIT_BRANCH").get(null));
+      build_date.set((String) clazz.getField("BUILD_DATE").get(null));
+      int dirtyFlag = (int) clazz.getField("DIRTY").get(null);
+      switch (dirtyFlag) {
+        case 0:
+          dirty.set("All changes committed");
+          break;
+        case 1:
+          dirty.set("Uncommitted changes");
+          break;
+        default:
+          dirty.set("Unknown");
+          break;
+      }
+    } catch (Exception e) {
+      System.err.println("Failed to log git data: " + e.getMessage());
     }
   }
 }

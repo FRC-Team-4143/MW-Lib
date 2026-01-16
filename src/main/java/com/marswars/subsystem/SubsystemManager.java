@@ -44,7 +44,8 @@ public abstract class SubsystemManager {
     DogLog.setEnabled(true);
 
     // Log robot metadata
-    GitLogger.logGitData();
+    // Note: GitLogger requires build constants from robot project
+    // Call GitLogger.logGitData(mavenName, gitSha, gitDate, gitBranch, buildDate, dirtyFlag);
     robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
 
     // Handle disabling subsystems
