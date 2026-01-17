@@ -1,6 +1,7 @@
 package com.marswars.sensors.gyro;
 
 import dev.doglog.DogLog;
+import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -11,11 +12,13 @@ import com.marswars.subsystem.SubsystemIoBase;
 public abstract class Gyro implements SubsystemIoBase {
 
     private final Alert gyroDisconnectedAlert;
+    private final Debouncer connection_debouncer_ = new Debouncer(0.5);
 
     private final String gyro_name_;
     private String logging_prefix_;
 
     protected boolean connected = false;
+    private boolean connected_debounced_ = false;
     protected Rotation2d yawPosition = new Rotation2d();
     protected double yawVelocityRadPerSec = 0.0;
 
@@ -54,13 +57,14 @@ public abstract class Gyro implements SubsystemIoBase {
     @Override
     public void readInputs(double timestamp) {
         readGyro();
-        gyroDisconnectedAlert.set(!connected);
+        connected_debounced_ = connection_debouncer_.calculate(connected);
+        gyroDisconnectedAlert.set(!connected_debounced_);
     }
 
     public abstract void readGyro();
 
     public boolean isConnected() {
-        return connected;
+        return connected_debounced_;
     }
 
     public void setYaw(Rotation2d yaw) {}
@@ -75,7 +79,7 @@ public abstract class Gyro implements SubsystemIoBase {
 
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "Connected", connected);
+        DogLog.log(getLoggingKey() + "Connected", connected_debounced_);
         DogLog.log(getLoggingKey() + "YawPositionDeg", yawPosition.getDegrees());
         DogLog.log(getLoggingKey() + "YawVelocityRadPerSec", yawVelocityRadPerSec);
     }
