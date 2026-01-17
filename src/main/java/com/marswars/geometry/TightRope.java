@@ -47,7 +47,7 @@ public class TightRope {
      *
      * @return the name of the tightrope
      */
-    public String getName_() {
+    public String getName() {
         return name_;
     }
 }
