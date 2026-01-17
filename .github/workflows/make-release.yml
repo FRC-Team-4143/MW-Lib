@@ -56,7 +56,8 @@ jobs:
       
       - name: Run tests
         if: ${{ !inputs.skip_tests }}
-        run: ./gradlew test --continue || echo "Warning: Some tests failed, but continuing..."
+        run: |
+          ./gradlew test --continue || echo "Warning: Some tests failed, but continuing..."
         continue-on-error: true
       
       - name: Build library
