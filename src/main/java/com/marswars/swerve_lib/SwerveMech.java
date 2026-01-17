@@ -24,7 +24,14 @@ import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 
 public class SwerveMech extends MechBase {
 
-    private SwerveModuleState[] module_states =
+    private SwerveModuleState[] current_module_states =
+            new SwerveModuleState[] {
+                new SwerveModuleState(),
+                new SwerveModuleState(),
+                new SwerveModuleState(),
+                new SwerveModuleState()
+            };
+    private SwerveModuleState[] setpoint_module_states =
             new SwerveModuleState[] {
                 new SwerveModuleState(),
                 new SwerveModuleState(),
@@ -130,7 +137,8 @@ public class SwerveMech extends MechBase {
         gyro_.logData();
 
         for (int i = 0; i < modules_.length; i++) {
-            module_states[i] = modules_[i].getState();
+            current_module_states[i] = modules_[i].getCurrentState();
+            setpoint_module_states[i] = modules_[i].getSetpointState();
             module_positions[i] = modules_[i].getPosition();
             module_deltas[i] =
                     new SwerveModulePosition(
@@ -139,7 +147,7 @@ public class SwerveMech extends MechBase {
                             module_positions[i].angle);
             last_module_positions[i] = module_positions[i];
         }
-        chassis_speeds = kinematics_.toChassisSpeeds(module_states);
+        chassis_speeds = kinematics_.toChassisSpeeds(current_module_states);
 
         // Update gyro angle
         if (gyro_.isConnected()) {
@@ -174,7 +182,8 @@ public class SwerveMech extends MechBase {
     /** Logs data to DogLog. */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "ModuleStates", module_states);
+        DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states);
+        DogLog.log(getLoggingKey() + "SetpointModuleStates", setpoint_module_states);
         DogLog.log(getLoggingKey() + "ModulePositions", module_positions);
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
         DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions);
@@ -258,7 +267,7 @@ public class SwerveMech extends MechBase {
      * @return SwerveModuleState[] array of module states
      */
     public SwerveModuleState[] getModuleStates() {
-        return module_states;
+        return current_module_states;
     }
 
     /**

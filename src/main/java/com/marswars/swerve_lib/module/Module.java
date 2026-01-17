@@ -39,6 +39,8 @@ public abstract class Module extends MechBase {
     protected final SwerveModuleConfig config_;
     protected final int module_index_;
 
+    protected SwerveModuleState setpoint_ = new SwerveModuleState();
+
     protected double drive_position_rad_ = 0.0;
     protected double drive_velocity_rad_per_sec_ = 0.0;
     protected double drive_applied_volts_ = 0.0;
@@ -99,6 +101,7 @@ public abstract class Module extends MechBase {
         // Optimize velocity setpoint
         state.optimize(getAngle());
         state.cosineScale(steer_absolute_position_);
+        setpoint_ = state;
 
         // Apply setpoints
         switch (DriveMode) {
@@ -146,8 +149,13 @@ public abstract class Module extends MechBase {
     }
 
     /** Returns the module state (turn angle and drive velocity). */
-    public SwerveModuleState getState() {
+    public SwerveModuleState getCurrentState() {
         return new SwerveModuleState(getVelocityMetersPerSec(), getAngle());
+    }
+
+    /** Returns the module setpoint state (turn angle and drive velocity). */
+    public SwerveModuleState getSetpointState() {
+        return setpoint_;
     }
 
     /** Returns the module position in radians. */
