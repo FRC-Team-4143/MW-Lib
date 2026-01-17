@@ -3,13 +3,13 @@ package com.marswars.swerve_lib;
 import com.marswars.swerve_lib.module.SwerveModuleConfig;
 
 public class SwerveDriveConfig {
-    public SwerveModuleConfig FL_MODULE_CONSTANTS;
-    public SwerveModuleConfig FR_MODULE_CONSTANTS;
-    public SwerveModuleConfig BL_MODULE_CONSTANTS;
-    public SwerveModuleConfig BR_MODULE_CONSTANTS;
+    public final SwerveModuleConfig FL_MODULE_CONSTANTS;
+    public final SwerveModuleConfig FR_MODULE_CONSTANTS;
+    public final SwerveModuleConfig BL_MODULE_CONSTANTS;
+    public final SwerveModuleConfig BR_MODULE_CONSTANTS;
 
-    public int PIGEON2_ID;
-    public String PIGEON2_CANBUS_NAME;
+    public final int PIGEON2_ID;
+    public final String PIGEON2_CANBUS_NAME;
 
     public SwerveDriveConfig(
             SwerveModuleConfig fl_module_constants,
