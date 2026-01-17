@@ -7,14 +7,16 @@ import edu.wpi.first.wpilibj.Filesystem;
 import java.io.IOException;
 
 public abstract class TagLayouts {
-  public static AprilTagFieldLayout getTagLayoutFromPath(String path) {
-    AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeWelded);
-    try {
-      layout = new AprilTagFieldLayout(Filesystem.getDeployDirectory().toPath().resolve(path));
-    } catch (IOException E) {
-      DriverStation.reportWarning(
-          "Unable to find path to aprilTagFeild, k2025ReefscapeWelded used", false);
+    public static AprilTagFieldLayout getTagLayoutFromPath(String path) {
+        AprilTagFieldLayout layout =
+                AprilTagFieldLayout.loadField(AprilTagFields.k2025ReefscapeWelded);
+        try {
+            layout =
+                    new AprilTagFieldLayout(Filesystem.getDeployDirectory().toPath().resolve(path));
+        } catch (IOException E) {
+            DriverStation.reportWarning(
+                    "Unable to find path to aprilTagFeild, k2025ReefscapeWelded used", false);
+        }
+        return layout;
     }
-    return layout;
-  }
 }

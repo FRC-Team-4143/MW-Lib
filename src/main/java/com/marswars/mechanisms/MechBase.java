@@ -1,16 +1,14 @@
 package com.marswars.mechanisms;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
-
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.hardware.TalonFX;
-
 import edu.wpi.first.wpilibj.RobotBase;
 import com.marswars.subsystem.SubsystemIoBase;
 import com.marswars.util.FxMotorConfig;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
 
 public abstract class MechBase implements SubsystemIoBase {
 
@@ -42,15 +40,35 @@ public abstract class MechBase implements SubsystemIoBase {
         logging_prefix_ = subsystem_name;
     }
 
+    /**
+     * Get the logging key for this mechanism
+     *
+     * @return the logging key
+     */
     public String getLoggingKey() {
         return logging_prefix_ + mech_name_ + "/";
     }
 
+    /**
+     * Get the name of the mechanism
+     *
+     * @return the name of the mechanism
+     */
     public String getMechName() {
         return mech_name_;
     }
 
-    public ConstructedMotors configMotors(List<FxMotorConfig> motor_configs, double sensor_to_mech_ratio,
+    /**
+     * Configures the motors based on the given motor configs
+     *
+     * @param motor_configs the list of motor configs
+     * @param sensor_to_mech_ratio the sensor to mechanism ratio
+     * @param configMaster a function to modify the master motor config before applying it
+     * @return the constructed motors and their signals
+     */
+    public ConstructedMotors configMotors(
+            List<FxMotorConfig> motor_configs,
+            double sensor_to_mech_ratio,
             Function<FxMotorConfig, FxMotorConfig> configMaster) {
         // throw a fit if we don't have any motors
         if (motor_configs == null || motor_configs.size() == 0) {
@@ -83,7 +101,8 @@ public abstract class MechBase implements SubsystemIoBase {
                 motor_signals.add(constructed.motors[i].getVelocity());
             } else {
                 // make the rest of the motors followers
-                constructed.motors[i].setControl(new StrictFollower(constructed.motors[0].getDeviceID()));
+                constructed.motors[i].setControl(
+                        new StrictFollower(constructed.motors[0].getDeviceID()));
             }
 
             motor_signals.add(constructed.motors[i].getMotorVoltage());
@@ -110,8 +129,15 @@ public abstract class MechBase implements SubsystemIoBase {
         return constructed;
     }
 
-    public ConstructedMotors configMotors(List<FxMotorConfig> motor_configs, double sensor_to_mech_ratio) {
+    /**
+     * Configures the motors based on the given motor configs
+     *
+     * @param motor_configs the list of motor configs
+     * @param sensor_to_mech_ratio the sensor to mechanism ratio
+     * @return the constructed motors and their signals
+     */
+    public ConstructedMotors configMotors(
+            List<FxMotorConfig> motor_configs, double sensor_to_mech_ratio) {
         return configMotors(motor_configs, sensor_to_mech_ratio, null);
-    }   
-
+    }
 }

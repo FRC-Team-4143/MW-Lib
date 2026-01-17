@@ -18,6 +18,12 @@ public abstract class GitLogger {
   private static StringPublisher dirty =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
+  /**
+   * Logs Git and build metadata to NetworkTables using reflection.
+   * Extracts and publishes project name, Git SHA, date, branch, build date, and dirty status.
+   * 
+   * @param buildConstants an object containing build constants with Git metadata fields
+   */
   public static void logGitData(Object buildConstants) {
     try {
       var clazz = buildConstants.getClass();
