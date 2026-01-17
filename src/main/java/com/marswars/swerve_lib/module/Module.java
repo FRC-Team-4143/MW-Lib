@@ -14,6 +14,8 @@
 package com.marswars.swerve_lib.module;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -38,6 +40,7 @@ public abstract class Module extends MechBase {
 
     protected final SwerveModuleConfig config_;
     protected final int module_index_;
+    protected NeutralModeValue neutral_mode_ = NeutralModeValue.Brake;
 
     protected SwerveModuleState setpoint_ = new SwerveModuleState();
 
@@ -195,6 +198,10 @@ public abstract class Module extends MechBase {
     /** Set the gains for the module steer motors to the given slot */
     public abstract void setSteerGains(SlotConfigs gains);
 
-    /** Stores the current encoder reading as an offset */
+    /** Stores the current encoder reading as an offset */  
     public void setModuleOffset() {}
+
+    /** Sets the neutral mode for both motors */
+    public void setNeutralMode(NeutralModeValue mode) {}
+
 }

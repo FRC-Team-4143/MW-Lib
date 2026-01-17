@@ -1,6 +1,8 @@
 package com.marswars.swerve_lib;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -11,7 +13,11 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
+
 import com.marswars.mechanisms.MechBase;
 import com.marswars.sensors.gyro.Gyro;
 import com.marswars.sensors.gyro.Pigeon2Gyro;
@@ -73,6 +79,9 @@ public class SwerveMech extends MechBase {
 
     private final SwerveDriveKinematics kinematics_;
 
+    private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
+    private final Trigger ds_enabled_trigger_ = new Trigger(DriverStation::isEnabled);
+
     public SwerveMech(
             String logging_prefix,
             SwerveDriveConfig config,
@@ -125,6 +134,9 @@ public class SwerveMech extends MechBase {
                 getLoggingKey() + "Steer/PositionGains",
                 this::setSteerGains,
                 SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.config.Slot0));
+
+        user_button_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Coast)).ignoringDisable(true));
+        ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
     }
 
     @Override
@@ -152,7 +164,6 @@ public class SwerveMech extends MechBase {
         // Update gyro angle
         if (gyro_.isConnected()) {
             // Use the real gyro angle
-
             raw_gyro_rotation = gyro_.getYawPosition();
         } else {
             // Use the angle delta from the kinematics and module deltas
@@ -230,6 +241,12 @@ public class SwerveMech extends MechBase {
     public void setModuleOffsets() {
         for (var module : modules_) {
             module.setModuleOffset();
+        }
+    }
+
+    public void setNeutralMode(NeutralModeValue mode) {
+        for (var module : modules_) {
+            module.setNeutralMode(mode);
         }
     }
 

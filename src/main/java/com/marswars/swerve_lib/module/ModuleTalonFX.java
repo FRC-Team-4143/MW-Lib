@@ -15,6 +15,8 @@ import com.ctre.phoenix6.hardware.ParentDevice;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
@@ -106,7 +108,8 @@ public class ModuleTalonFX extends Module {
                     Rotation2d.fromRotations(
                             MWPreferences.getInstance()
                                     .getPreferenceDouble("Encoder" + index + "Offset", 0.0));
-            steer_talonfx_.setPosition(encoder_value.rotateBy(encoder_offset).getRotations() % 1.0);
+            Rotation2d zero_position = encoder_value.minus(encoder_offset);
+            steer_talonfx_.setPosition(zero_position.getRotations());
         } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
             // Use remote CANCoder
             // TODO CJT implement for cancoder
@@ -288,6 +291,13 @@ public class ModuleTalonFX extends Module {
                         "Encoder" + encoder.getChannel() + "Offset",
                         steer_absolute_position_.getRotations());
         steer_talonfx_.setPosition(0.0);
+    }
+
+    @Override
+    public void setNeutralMode(NeutralModeValue mode) {
+        steer_talonfx_.setNeutralMode(mode);
+        drive_talonfx_.setNeutralMode(mode);
+        DogLog.log(getLoggingKey() + "SetNeutralMode", mode);
     }
 
     @Override
