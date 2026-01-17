@@ -189,6 +189,34 @@ publishing {
             artifactId = "${baseArtifactId}-java"
             groupId = artifactGroupId
             version = pubVersion
+            
+            pom {
+                name = 'MW-Lib Java'
+                description = 'Mars Wars FRC Team 4143 Library - Java Package'
+                url = "https://github.com/${githubInfo.username}/${githubInfo.repo}"
+                
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = "https://github.com/${githubInfo.username}/${githubInfo.repo}/blob/main/LICENSE.txt"
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'frc-team-4143'
+                        name = 'FRC Team 4143 Mars Wars'
+                        organization = 'FRC Team 4143'
+                        organizationUrl = "https://github.com/${githubInfo.username}"
+                    }
+                }
+                
+                scm {
+                    connection = "scm:git:git://github.com/${githubInfo.username}/${githubInfo.repo}.git"
+                    developerConnection = "scm:git:ssh://github.com/${githubInfo.username}/${githubInfo.repo}.git"
+                    url = "https://github.com/${githubInfo.username}/${githubInfo.repo}"
+                }
+            }
         }
 
         vendordep(MavenPublication) {
@@ -197,6 +225,34 @@ publishing {
             artifactId = "${baseArtifactId}-vendordep"
             groupId = artifactGroupId
             version = pubVersion
+            
+            pom {
+                name = 'MW-Lib Vendordep'
+                description = 'Mars Wars FRC Team 4143 Library - WPILib Vendor Dependency'
+                url = "https://github.com/${githubInfo.username}/${githubInfo.repo}"
+                
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = "https://github.com/${githubInfo.username}/${githubInfo.repo}/blob/main/LICENSE.txt"
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'frc-team-4143'
+                        name = 'FRC Team 4143 Mars Wars'
+                        organization = 'FRC Team 4143'
+                        organizationUrl = "https://github.com/${githubInfo.username}"
+                    }
+                }
+                
+                scm {
+                    connection = "scm:git:git://github.com/${githubInfo.username}/${githubInfo.repo}.git"
+                    developerConnection = "scm:git:ssh://github.com/${githubInfo.username}/${githubInfo.repo}.git"
+                    url = "https://github.com/${githubInfo.username}/${githubInfo.repo}"
+                }
+            }
         }
     }
 }
