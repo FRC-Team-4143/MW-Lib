@@ -86,15 +86,27 @@ jobs:
           body: |
             ## MW-Lib v${{ inputs.version }}
             
-            Release published to GitHub Packages.
+            ### Installation Options
             
-            ### Installation
+            #### Option 1: Download JARs Directly (No Authentication Required)
+            Download the JARs from the Assets section below and add them to your project's `libs` folder.
+            
+            #### Option 2: Use WPILib Vendordep
+            Download `MWLib.json` from Assets and place it in your project's `vendordeps` folder.
+            
+            #### Option 3: GitHub Packages Maven (Authentication Required)
+            > ⚠️ **Note:** GitHub Packages requires authentication even for public repositories.
+            
             Add the following to your `build.gradle`:
             
             ```gradle
             repositories {
                 maven {
                     url = uri('https://maven.pkg.github.com/${{ github.repository }}')
+                    credentials {
+                        username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+                        password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+                    }
                 }
             }
             
@@ -103,7 +115,7 @@ jobs:
             }
             ```
             
-            > **Note:** Since this is a public repository, no authentication is required to download packages.
+            You'll need a GitHub Personal Access Token with `read:packages` scope.
           files: |
             build/libs/*.jar
             build/outputs/*
@@ -122,17 +134,24 @@ jobs:
           echo "## Package Location" >> $GITHUB_STEP_SUMMARY
           echo "https://github.com/${{ github.repository }}/packages" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Usage in other projects" >> $GITHUB_STEP_SUMMARY
+          echo "## Installation Options" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Option 1:** Download JARs directly from [GitHub Releases](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}) (no auth required)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Option 2:** Use GitHub Packages Maven (requires authentication):" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`gradle" >> $GITHUB_STEP_SUMMARY
           echo "repositories {" >> $GITHUB_STEP_SUMMARY
           echo "    maven {" >> $GITHUB_STEP_SUMMARY
           echo "        url = uri('https://maven.pkg.github.com/${{ github.repository }}')" >> $GITHUB_STEP_SUMMARY
+          echo "        credentials {" >> $GITHUB_STEP_SUMMARY
+          echo "            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')" >> $GITHUB_STEP_SUMMARY
+          echo "            password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')" >> $GITHUB_STEP_SUMMARY
+          echo "        }" >> $GITHUB_STEP_SUMMARY
           echo "    }" >> $GITHUB_STEP_SUMMARY
           echo "}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "dependencies {" >> $GITHUB_STEP_SUMMARY
           echo "    implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'" >> $GITHUB_STEP_SUMMARY
           echo "}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_No authentication required - public repository_" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ _GitHub Packages requires authentication even for public repositories_" >> $GITHUB_STEP_SUMMARY
