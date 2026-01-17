@@ -9,12 +9,11 @@ import org.ironmaple.simulation.SimulatedArena;
 /**
  *
  *
- * <h1>The playing field for the 2025 FRC Game: Reefscape</h1>
+ * <h1>The Evergreen playing field</h1>
  *
- * <p>This class represents the playing field for the 2025 FRC game, Reefscape.
+ * <p>This class represents the playing field following the Evergreen Model.
  *
- * <p>It extends {@link SimulatedArena} and includes specific details of the Reefscape game
- * environment.
+ * <p>It extends {@link SimulatedArena} as just a border-only field with no game pieces.
  */
 public class ArenaEvergreen extends SimulatedArena {
     public static final class EvergreenObstacleMap extends FieldMap {
