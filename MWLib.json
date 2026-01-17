@@ -14,12 +14,6 @@
             "artifactId": "${artifactId}-java",
             "version": "${version}"
         }
-    "javaDependencies": [
-        {
-            "groupId": "${groupId}",
-            "artifactId": "${artifactId}-java",
-            "version": "${version}"
-        }
     ],
     "jniDependencies": [
     ],

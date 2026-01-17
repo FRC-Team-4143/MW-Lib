@@ -47,8 +47,8 @@ ext.addTaskToCopyAllOutputs = { task ->
     copyAllOutputs.from task.archiveFile
 }
 
-def artifactGroupId = 'io.github.frc-team-4143'
-def baseArtifactId = 'MW-Lib'
+def artifactGroupId = 'com.github.frc-team-4143'
+def baseArtifactId = 'mw-lib'
 def javaBaseName = "_GROUP_com_marswars_frc_ID_${baseArtifactId}-java_CLS"
 // driverBaseName removed - no driver package
 
@@ -116,14 +116,16 @@ task vendordepJson() {
     group = 'Build'
     outputs.file("$buildDir/repos/$templateVendorFile")
 
-    copy {
-        from templateVendorFile
-        into "$buildDir/repos/"
-        expand(version: pubVersion,
-                groupId: artifactGroupId,
-                artifactId: baseArtifactId,
-                githubUsername: githubInfo.username,
-                githubRepo: githubInfo.repo)
+    doLast {
+        copy {
+            from templateVendorFile
+            into "$buildDir/repos/"
+            expand(version: pubVersion,
+                    groupId: artifactGroupId,
+                    artifactId: baseArtifactId,
+                    githubUsername: githubInfo.username,
+                    githubRepo: githubInfo.repo)
+        }
     }
 }
 

@@ -1,0 +1,14 @@
+# MW-Lib Publishing Configuration
+# Copy this file to .publish-config and fill in your credentials
+# 
+# IMPORTANT: .publish-config is in .gitignore and will not be committed
+
+# Your GitHub username
+GITHUB_ACTOR=
+
+# Your GitHub Personal Access Token (needs write:packages and read:packages permissions)
+# Create one at: https://github.com/settings/tokens
+GITHUB_TOKEN=
+
+# Default version to use when not specified (optional)
+# DEFAULT_VERSION=1.0.0-dev
