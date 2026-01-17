@@ -1,10 +1,25 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - develop
+      java_version:
+        description: 'Java version to test'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - '17'
+          - '21'
+          - both
 
 jobs:
   build:
@@ -12,11 +27,16 @@ jobs:
     
     strategy:
       matrix:
-        java: [17, 21]
+        java: ${{ 
+          inputs.java_version == 'both' && fromJson('[17, 21]') ||
+          fromJson(format('[{0}]', inputs.java_version))
+        }}
         
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
         
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
