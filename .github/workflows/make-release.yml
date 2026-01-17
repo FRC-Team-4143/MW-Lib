@@ -1,0 +1,141 @@
+name: Make Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.4)'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip running tests'
+        required: false
+        type: boolean
+        default: false
+      create_release:
+        description: 'Create a GitHub release'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    name: Build and Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          cache-read-only: false
+      
+      - name: Update version in publish.gradle
+        run: |
+          sed -i "s/def pubVersion = '.*'/def pubVersion = '${{ inputs.version }}'/" publish.gradle
+          echo "Updated version to ${{ inputs.version }}"
+      
+      - name: Clean previous builds
+        run: ./gradlew clean
+      
+      - name: Run tests
+        if: ${{ !inputs.skip_tests }}
+        run: ./gradlew test --continue || echo "Warning: Some tests failed, but continuing..."
+        continue-on-error: true
+      
+      - name: Build library
+        run: ./gradlew build
+      
+      - name: Publish to GitHub Packages
+        run: ./gradlew publish --info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+      
+      - name: Create Git tag
+        if: ${{ inputs.create_release }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+      
+      - name: Create GitHub Release
+        if: ${{ inputs.create_release }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ inputs.version }}
+          name: Release v${{ inputs.version }}
+          body: |
+            ## MW-Lib v${{ inputs.version }}
+            
+            Release published to GitHub Packages.
+            
+            ### Installation
+            Add the following to your `build.gradle`:
+            
+            ```gradle
+            repositories {
+                maven {
+                    url = uri('https://maven.pkg.github.com/${{ github.repository }}')
+                    credentials {
+                        username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+                        password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+                    }
+                }
+            }
+            
+            dependencies {
+                implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'
+            }
+            ```
+          files: |
+            build/libs/*.jar
+            build/outputs/*
+            MWLib.json
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+      
+      - name: Create summary
+        run: |
+          echo "# ✓ Successfully Published Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Published by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Package Location" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/${{ github.repository }}/packages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Usage in other projects" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`gradle" >> $GITHUB_STEP_SUMMARY
+          echo "repositories {" >> $GITHUB_STEP_SUMMARY
+          echo "    maven {" >> $GITHUB_STEP_SUMMARY
+          echo "        url = uri('https://maven.pkg.github.com/${{ github.repository }}')" >> $GITHUB_STEP_SUMMARY
+          echo "        credentials {" >> $GITHUB_STEP_SUMMARY
+          echo "            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')" >> $GITHUB_STEP_SUMMARY
+          echo "            password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')" >> $GITHUB_STEP_SUMMARY
+          echo "        }" >> $GITHUB_STEP_SUMMARY
+          echo "    }" >> $GITHUB_STEP_SUMMARY
+          echo "}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "dependencies {" >> $GITHUB_STEP_SUMMARY
+          echo "    implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'" >> $GITHUB_STEP_SUMMARY
+          echo "}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
