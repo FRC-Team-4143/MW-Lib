@@ -13,6 +13,7 @@
 
 package com.marswars.sensors.gyro;
 
+import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -68,9 +69,7 @@ public class Pigeon2Gyro extends Gyro {
     public void readGyro() {
         if (!IS_SIM) {
             connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
-            yawPosition =
-                    Rotation2d.fromRadians(
-                            MathUtil.angleModulus(Units.degreesToRadians(yaw.getValueAsDouble())));
+            yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
             yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
         } else {
             PhoenixOdometryThread.getInstance()
