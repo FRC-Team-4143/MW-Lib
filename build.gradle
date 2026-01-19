@@ -87,7 +87,7 @@ dependencies {
     // Vendor dependencies
     implementation "com.ctre.phoenix6:wpiapi-java:26.0.0-beta-1"
     implementation "com.github.jonahsnider:doglog:2026.3.0"
-    implementation "org.ironmaple:maplesim-java:0.3.14"
+    implementation "org.ironmaple:maplesim-java:0.4.0-beta"
     implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.1.12"
     implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"
