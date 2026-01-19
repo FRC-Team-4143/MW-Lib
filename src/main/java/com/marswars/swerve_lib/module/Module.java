@@ -14,6 +14,8 @@
 package com.marswars.swerve_lib.module;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -38,6 +40,9 @@ public abstract class Module extends MechBase {
 
     protected final SwerveModuleConfig config_;
     protected final int module_index_;
+    protected NeutralModeValue neutral_mode_ = NeutralModeValue.Brake;
+
+    protected SwerveModuleState setpoint_ = new SwerveModuleState();
 
     protected double drive_position_rad_ = 0.0;
     protected double drive_velocity_rad_per_sec_ = 0.0;
@@ -99,6 +104,7 @@ public abstract class Module extends MechBase {
         // Optimize velocity setpoint
         state.optimize(getAngle());
         state.cosineScale(steer_absolute_position_);
+        setpoint_ = state;
 
         // Apply setpoints
         switch (DriveMode) {
@@ -146,8 +152,13 @@ public abstract class Module extends MechBase {
     }
 
     /** Returns the module state (turn angle and drive velocity). */
-    public SwerveModuleState getState() {
+    public SwerveModuleState getCurrentState() {
         return new SwerveModuleState(getVelocityMetersPerSec(), getAngle());
+    }
+
+    /** Returns the module setpoint state (turn angle and drive velocity). */
+    public SwerveModuleState getSetpointState() {
+        return setpoint_;
     }
 
     /** Returns the module position in radians. */
@@ -187,6 +198,10 @@ public abstract class Module extends MechBase {
     /** Set the gains for the module steer motors to the given slot */
     public abstract void setSteerGains(SlotConfigs gains);
 
-    /** Stores the current encoder reading as an offset */
+    /** Stores the current encoder reading as an offset */  
     public void setModuleOffset() {}
+
+    /** Sets the neutral mode for both motors */
+    public void setNeutralMode(NeutralModeValue mode) {}
+
 }

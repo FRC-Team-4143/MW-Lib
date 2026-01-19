@@ -1,6 +1,8 @@
 package com.marswars.swerve_lib;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -11,7 +13,11 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
+
 import com.marswars.mechanisms.MechBase;
 import com.marswars.sensors.gyro.Gyro;
 import com.marswars.sensors.gyro.Pigeon2Gyro;
@@ -24,7 +30,14 @@ import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 
 public class SwerveMech extends MechBase {
 
-    private SwerveModuleState[] module_states =
+    private SwerveModuleState[] current_module_states =
+            new SwerveModuleState[] {
+                new SwerveModuleState(),
+                new SwerveModuleState(),
+                new SwerveModuleState(),
+                new SwerveModuleState()
+            };
+    private SwerveModuleState[] setpoint_module_states =
             new SwerveModuleState[] {
                 new SwerveModuleState(),
                 new SwerveModuleState(),
@@ -65,6 +78,9 @@ public class SwerveMech extends MechBase {
     private final SwerveDriveSimulation swerve_sim_;
 
     private final SwerveDriveKinematics kinematics_;
+
+    private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
+    private final Trigger ds_enabled_trigger_ = new Trigger(DriverStation::isEnabled);
 
     public SwerveMech(
             String logging_prefix,
@@ -118,6 +134,9 @@ public class SwerveMech extends MechBase {
                 getLoggingKey() + "Steer/PositionGains",
                 this::setSteerGains,
                 SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.config.Slot0));
+
+        user_button_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Coast)).ignoringDisable(true));
+        ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
     }
 
     @Override
@@ -130,7 +149,8 @@ public class SwerveMech extends MechBase {
         gyro_.logData();
 
         for (int i = 0; i < modules_.length; i++) {
-            module_states[i] = modules_[i].getState();
+            current_module_states[i] = modules_[i].getCurrentState();
+            setpoint_module_states[i] = modules_[i].getSetpointState();
             module_positions[i] = modules_[i].getPosition();
             module_deltas[i] =
                     new SwerveModulePosition(
@@ -139,12 +159,11 @@ public class SwerveMech extends MechBase {
                             module_positions[i].angle);
             last_module_positions[i] = module_positions[i];
         }
-        chassis_speeds = kinematics_.toChassisSpeeds(module_states);
+        chassis_speeds = kinematics_.toChassisSpeeds(current_module_states);
 
         // Update gyro angle
         if (gyro_.isConnected()) {
             // Use the real gyro angle
-
             raw_gyro_rotation = gyro_.getYawPosition();
         } else {
             // Use the angle delta from the kinematics and module deltas
@@ -174,7 +193,8 @@ public class SwerveMech extends MechBase {
     /** Logs data to DogLog. */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "ModuleStates", module_states);
+        DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states);
+        DogLog.log(getLoggingKey() + "SetpointModuleStates", setpoint_module_states);
         DogLog.log(getLoggingKey() + "ModulePositions", module_positions);
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
         DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions);
@@ -224,6 +244,12 @@ public class SwerveMech extends MechBase {
         }
     }
 
+    public void setNeutralMode(NeutralModeValue mode) {
+        for (var module : modules_) {
+            module.setNeutralMode(mode);
+        }
+    }
+
     /** Returns the current estimated robot pose. */
     public Module[] getModules() {
         return modules_;
@@ -258,7 +284,7 @@ public class SwerveMech extends MechBase {
      * @return SwerveModuleState[] array of module states
      */
     public SwerveModuleState[] getModuleStates() {
-        return module_states;
+        return current_module_states;
     }
 
     /**
@@ -286,6 +312,62 @@ public class SwerveMech extends MechBase {
      */
     public SwerveDriveSimulation getSwerveSimulation() {
         return swerve_sim_;
+    }
+
+    /**
+     * Applies simple direct pose control to the robot in simulation based on joystick inputs.
+     * This bypasses all swerve drive mathematics, directly updates the robot's pose,
+     * and fakes the chassis speeds to match the movement for realistic feedback.
+     * This method should only be called in simulation mode.
+     *
+     * @param joystick_twist Twist2d representing the desired movement (dx, dy, dtheta)
+     * @param translation_scale Scale factor for translation movement (meters per cycle)
+     * @param rotation_scale Scale factor for rotational movement (radians per cycle)
+     */
+    public void applySimpleSimulationControl(Twist2d joystick_twist, double translation_scale, double rotation_scale) {
+        if (swerve_sim_ != null) {
+            Pose2d current_pose = swerve_sim_.getSimulatedDriveTrainPose();
+            
+            // Calculate movement based on joystick inputs
+            double delta_x = joystick_twist.dx * translation_scale;
+            double delta_y = joystick_twist.dy * translation_scale;
+            double delta_theta = joystick_twist.dtheta * rotation_scale;
+            
+            // Calculate new pose
+            double new_x = current_pose.getX() + delta_x;
+            double new_y = current_pose.getY() + delta_y;
+            double new_rotation = current_pose.getRotation().getRadians() + delta_theta;
+            
+            Pose2d new_pose = new Pose2d(new_x, new_y, new Rotation2d(new_rotation));
+            
+            // Set the new pose directly in simulation
+            swerve_sim_.setSimulationWorldPose(new_pose);
+            
+            // Update the gyro rotation for odometry
+            raw_gyro_rotation = new_pose.getRotation();
+            
+            // Always fake the chassis speeds to match the joystick inputs
+            double loop_time = 0.02; // seconds (50 Hz)
+            
+            // Calculate chassis speeds based on actual movement per cycle
+            ChassisSpeeds target_speeds = new ChassisSpeeds(
+                (joystick_twist.dx * translation_scale) / loop_time,  // vx in m/s
+                (joystick_twist.dy * translation_scale) / loop_time,  // vy in m/s
+                (joystick_twist.dtheta * rotation_scale) / loop_time  // omega in rad/s
+            );
+            
+            // Apply light smoothing for more realistic velocity changes
+            double smooth_factor = 0.1; // Light smoothing
+            if (smooth_factor > 0.0) {
+                chassis_speeds = new ChassisSpeeds(
+                    chassis_speeds.vxMetersPerSecond * smooth_factor + target_speeds.vxMetersPerSecond * (1.0 - smooth_factor),
+                    chassis_speeds.vyMetersPerSecond * smooth_factor + target_speeds.vyMetersPerSecond * (1.0 - smooth_factor),
+                    chassis_speeds.omegaRadiansPerSecond * smooth_factor + target_speeds.omegaRadiansPerSecond * (1.0 - smooth_factor)
+                );
+            } else {
+                chassis_speeds = target_speeds;
+            }
+        }
     }
 
     /**
