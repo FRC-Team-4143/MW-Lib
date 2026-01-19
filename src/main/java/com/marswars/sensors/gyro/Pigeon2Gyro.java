@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-package com.marswars.swerve_lib.gyro;
+package com.marswars.sensors.gyro;
 
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 
@@ -31,7 +31,7 @@ import com.marswars.util.PhoenixUtil;
 import org.ironmaple.simulation.drivesims.GyroSimulation;
 
 /** IO implementation for Pigeon 2. */
-public class GyroPigeon2 extends Gyro {
+public class Pigeon2Gyro extends Gyro {
 
     // real pigeon members
     private Pigeon2 pigeon;
@@ -41,7 +41,7 @@ public class GyroPigeon2 extends Gyro {
     // sim pigeon members
     private GyroSimulation gyroSimulation;
 
-    public GyroPigeon2(
+    public Pigeon2Gyro(
             String logging_prefix, int id, String can_bus_name, GyroSimulation gyroSimulation) {
         super(logging_prefix);
         if (!IS_SIM) {

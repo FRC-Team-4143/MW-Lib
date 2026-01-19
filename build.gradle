@@ -33,6 +33,9 @@ repositories {
   maven {
     url = "https://www.playingwithfusion.com/frc/maven/"
   }
+  maven {
+    url = "https://storage.googleapis.com/grapple-frc-maven"
+  }
 }
 if (project.hasProperty('releaseMode')) {
   wpilibRepositories.addAllReleaseRepositories(project)
@@ -87,6 +90,7 @@ dependencies {
     implementation "org.ironmaple:maplesim-java:0.3.14"
     implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.1.12"
+    implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

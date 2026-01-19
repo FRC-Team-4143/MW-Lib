@@ -13,9 +13,9 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import com.marswars.mechanisms.MechBase;
+import com.marswars.sensors.gyro.Gyro;
+import com.marswars.sensors.gyro.Pigeon2Gyro;
 import com.marswars.swerve_lib.ChassisRequest.ChassisRequestParameters;
-import com.marswars.swerve_lib.gyro.Gyro;
-import com.marswars.swerve_lib.gyro.GyroPigeon2;
 import com.marswars.swerve_lib.module.Module;
 import com.marswars.swerve_lib.module.ModuleTalonFX;
 import com.marswars.util.TunablePid;
@@ -93,7 +93,7 @@ public class SwerveMech extends MechBase {
                         logging_prefix, 3, config.BR_MODULE_CONSTANTS, swerve_sim_.getModules()[3]);
 
         gyro_ =
-                new GyroPigeon2(
+                new Pigeon2Gyro(
                         logging_prefix,
                         config.PIGEON2_ID,
                         config.PIGEON2_CANBUS_NAME,
