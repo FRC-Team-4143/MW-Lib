@@ -14,6 +14,7 @@ public class LaunchTrajectory {
     }
 
     private double height_;
+    private double launch_height_;
     private boolean highArc_;
     private Translation3d target_;
     private InterpolatingDoubleTreeMap range_to_velocity_;
@@ -28,6 +29,7 @@ public class LaunchTrajectory {
      */
     public LaunchTrajectory(Translation3d target, double launch_height, boolean highArc) {
         target_ = target;
+        launch_height_ = launch_height;
         height_ = target_.getZ() - launch_height; 
         range_to_velocity_ = new InterpolatingDoubleTreeMap();
         highArc_ = highArc;
@@ -136,6 +138,7 @@ public class LaunchTrajectory {
      */
     public void setTarget(Translation3d target) {
         target_ = target;
+        height_ = target.getZ() - launch_height_;
     }
     /**
      * Gives a valid shooter trajectory for a given robot position
