@@ -315,6 +315,62 @@ public class SwerveMech extends MechBase {
     }
 
     /**
+     * Applies simple direct pose control to the robot in simulation based on joystick inputs.
+     * This bypasses all swerve drive mathematics, directly updates the robot's pose,
+     * and fakes the chassis speeds to match the movement for realistic feedback.
+     * This method should only be called in simulation mode.
+     *
+     * @param joystick_twist Twist2d representing the desired movement (dx, dy, dtheta)
+     * @param translation_scale Scale factor for translation movement (meters per cycle)
+     * @param rotation_scale Scale factor for rotational movement (radians per cycle)
+     */
+    public void applySimpleSimulationControl(Twist2d joystick_twist, double translation_scale, double rotation_scale) {
+        if (swerve_sim_ != null) {
+            Pose2d current_pose = swerve_sim_.getSimulatedDriveTrainPose();
+            
+            // Calculate movement based on joystick inputs
+            double delta_x = joystick_twist.dx * translation_scale;
+            double delta_y = joystick_twist.dy * translation_scale;
+            double delta_theta = joystick_twist.dtheta * rotation_scale;
+            
+            // Calculate new pose
+            double new_x = current_pose.getX() + delta_x;
+            double new_y = current_pose.getY() + delta_y;
+            double new_rotation = current_pose.getRotation().getRadians() + delta_theta;
+            
+            Pose2d new_pose = new Pose2d(new_x, new_y, new Rotation2d(new_rotation));
+            
+            // Set the new pose directly in simulation
+            swerve_sim_.setSimulationWorldPose(new_pose);
+            
+            // Update the gyro rotation for odometry
+            raw_gyro_rotation = new_pose.getRotation();
+            
+            // Always fake the chassis speeds to match the joystick inputs
+            double loop_time = 0.02; // seconds (50 Hz)
+            
+            // Calculate chassis speeds based on actual movement per cycle
+            ChassisSpeeds target_speeds = new ChassisSpeeds(
+                (joystick_twist.dx * translation_scale) / loop_time,  // vx in m/s
+                (joystick_twist.dy * translation_scale) / loop_time,  // vy in m/s
+                (joystick_twist.dtheta * rotation_scale) / loop_time  // omega in rad/s
+            );
+            
+            // Apply light smoothing for more realistic velocity changes
+            double smooth_factor = 0.1; // Light smoothing
+            if (smooth_factor > 0.0) {
+                chassis_speeds = new ChassisSpeeds(
+                    chassis_speeds.vxMetersPerSecond * smooth_factor + target_speeds.vxMetersPerSecond * (1.0 - smooth_factor),
+                    chassis_speeds.vyMetersPerSecond * smooth_factor + target_speeds.vyMetersPerSecond * (1.0 - smooth_factor),
+                    chassis_speeds.omegaRadiansPerSecond * smooth_factor + target_speeds.omegaRadiansPerSecond * (1.0 - smooth_factor)
+                );
+            } else {
+                chassis_speeds = target_speeds;
+            }
+        }
+    }
+
+    /**
      * Returns the swerve drive kinematics instance
      *
      * @return SwerveDriveKinematics object representing the swerve drive
