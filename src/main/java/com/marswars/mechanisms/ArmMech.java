@@ -188,6 +188,8 @@ public class ArmMech extends MechBase {
                 SlotConfigs.from(motor_configs.get(0).config.Slot1));
         DogLog.tunable(
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
+        DogLog.tunable(
+                getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
     }
 
     @Override
