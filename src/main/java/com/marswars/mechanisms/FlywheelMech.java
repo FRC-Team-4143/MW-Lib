@@ -103,14 +103,17 @@ public class FlywheelMech extends MechBase {
         ////////////////////////
         /// SIMULATION SETUP ///
         ////////////////////////
+        
         if (motor_configs.get(0).motor_type == FxMotorType.X60) {
             motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
         } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
             motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
         } else {
-            throw new IllegalArgumentException("Unsupported motor type for FlywheelMech");
+            throw new IllegalArgumentException("Unsupported motor type");
         }
-
+        
         flywheel_sim_ =
                 new FlywheelSim(
                         LinearSystemId.createFlywheelSystem(
@@ -159,8 +162,10 @@ public class FlywheelMech extends MechBase {
                             .in(RotationsPerSecond);
             position_ += motorVelocity * 0.020;
 
-            motors_[0].getSimState().setRawRotorPosition(position_);
-            motors_[0].getSimState().setRotorVelocity(motorVelocity);
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(position_);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+            }
         }
     }
 
@@ -185,6 +190,7 @@ public class FlywheelMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {

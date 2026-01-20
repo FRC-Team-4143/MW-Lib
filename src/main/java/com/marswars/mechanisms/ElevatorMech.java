@@ -172,9 +172,10 @@ public class ElevatorMech extends MechBase {
             motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
         } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
             motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
         } else {
             throw new IllegalArgumentException("Unsupported motor type");
-            // motor_type = DCMotor.getKr(motor_configs.size());
         }
 
         // construct the simulation object
@@ -236,8 +237,10 @@ public class ElevatorMech extends MechBase {
                             * position_to_rotations_
                             * gear_ratio_;
 
-            motors_[0].getSimState().setRawRotorPosition(motorPosition);
-            motors_[0].getSimState().setRotorVelocity(motorVelocity);
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(motorPosition);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+            }
         }
     }
 

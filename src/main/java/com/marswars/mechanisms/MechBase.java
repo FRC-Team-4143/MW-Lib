@@ -17,27 +17,41 @@ public abstract class MechBase implements SubsystemIoBase {
         public BaseStatusSignal signals[];
     }
 
-    private final String mech_name_;
+    private String mech_name_;
     private String logging_prefix_ = "Subsystem/Unknown/";
 
     protected final boolean IS_SIM;
 
+    /**
+     * Creates a new mechanism base
+     * @param logging_prefix the logging prefix for this mechanism
+     */
     public MechBase(String logging_prefix) {
+        this(logging_prefix, null);
+    }
+
+    /**
+     * Creates a new mechanism base with a specified mechanism name
+     * @param logging_prefix the logging prefix for this mechanism
+     * @param mech_name the name of the mechanism (used for mutliple instances of the same mech)
+     */
+    public MechBase(String logging_prefix, String mech_name) {
         // Identify the mecahnism name
-        String name = this.getClass().getSimpleName();
-        name = name.substring(name.lastIndexOf('.') + 1);
-        if (name.endsWith("Mech")) {
-            name = name.substring(0, name.length() - "Mech".length());
+        if(mech_name == null){
+            String name = this.getClass().getSimpleName();
+            name = name.substring(name.lastIndexOf('.') + 1);
+            if (name.endsWith("Mech")) {
+                name = name.substring(0, name.length() - "Mech".length());
+            }
+            mech_name_ = name;
+        } else {
+            mech_name_ = mech_name;
         }
-        mech_name_ = name;
+        
 
         // identiy if we are in simulation
         IS_SIM = RobotBase.isSimulation();
-        setLoggingPrefix(logging_prefix);
-    }
-
-    public void setLoggingPrefix(String subsystem_name) {
-        logging_prefix_ = subsystem_name;
+        logging_prefix_ = logging_prefix;
     }
 
     /**
