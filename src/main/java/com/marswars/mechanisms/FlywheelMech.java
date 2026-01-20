@@ -162,8 +162,10 @@ public class FlywheelMech extends MechBase {
                             .in(RotationsPerSecond);
             position_ += motorVelocity * 0.020;
 
-            motors_[0].getSimState().setRawRotorPosition(position_);
-            motors_[0].getSimState().setRotorVelocity(motorVelocity);
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(position_);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+            }
         }
     }
 
@@ -188,6 +190,7 @@ public class FlywheelMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {

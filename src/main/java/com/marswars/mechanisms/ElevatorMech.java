@@ -237,8 +237,10 @@ public class ElevatorMech extends MechBase {
                             * position_to_rotations_
                             * gear_ratio_;
 
-            motors_[0].getSimState().setRawRotorPosition(motorPosition);
-            motors_[0].getSimState().setRotorVelocity(motorVelocity);
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(motorPosition);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+            }
         }
     }
 
