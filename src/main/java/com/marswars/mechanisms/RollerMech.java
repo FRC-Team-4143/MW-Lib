@@ -207,6 +207,7 @@ public class RollerMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0);
 
         DogLog.log(getLoggingKey() + "motor/applied_voltage", applied_voltage_);
         DogLog.log(getLoggingKey() + "motor/current_draw", current_draw_);

@@ -273,6 +273,7 @@ public class ElevatorMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
