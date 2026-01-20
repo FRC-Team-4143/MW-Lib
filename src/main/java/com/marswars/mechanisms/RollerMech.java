@@ -24,7 +24,6 @@ import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import com.marswars.util.FxMotorConfig;
 import com.marswars.util.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
-import java.util.ArrayList;
 import java.util.List;
 
 public class RollerMech extends MechBase {
@@ -66,17 +65,44 @@ public class RollerMech extends MechBase {
     private final DCMotorSim roller_sim_;
 
     public RollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio) {
-        this(logging_prefix, motor_configs, gear_ratio, 0.00001);
+        this(logging_prefix, null, motor_configs, gear_ratio, 0.00001);
     }
 
     /**
-     * Constructs a new RollerMech *
+     * Constructs a new RollerMech
      *
      * @param logging_prefix String prefix for logging
-     * @param motor_config Configuration for the roller motor
+     * @param mech_name Name of the mechanism
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio from motor TO roller
+     */
+    public RollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio) {
+        this(logging_prefix, mech_name, motor_configs, gear_ratio, 0.00001);
+    }
+
+    /**
+     * Constructs a new RollerMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio from motor TO roller
+     * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
      */
     public RollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
-        super(logging_prefix);
+        this(logging_prefix, null, motor_configs, gear_ratio, roller_inertia);
+    }
+
+    /**
+     * Constructs a new RollerMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio from motor TO roller
+     * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
+     */
+    public RollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
+        super(logging_prefix, mech_name);
 
         gear_ratio_ = gear_ratio;
         roller_inertia_ = roller_inertia;

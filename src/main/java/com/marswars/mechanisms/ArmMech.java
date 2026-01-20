@@ -85,7 +85,33 @@ public class ArmMech extends MechBase {
             double mass_kg,
             double min_angle,
             double max_angle) {
-        this(logging_prefix, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, true);
+        this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, true);
+    }
+
+    /**
+     * Constructs a new ArmMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO arm
+     * @param length Length of the arm in meters (Simulation only)
+     * @param mass_kg Mass of the arm in kg (Simulation only)
+     * @param min_angle Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle Maximum angle of the arm in radians (Simulation only)
+     *
+     * @apiNote This constructor enables gravity compensation by default
+     */
+    public ArmMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double length,
+            double mass_kg,
+            double min_angle,
+            double max_angle) {
+        this(logging_prefix, mech_name, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, true);
     }
 
     /**
@@ -109,7 +135,34 @@ public class ArmMech extends MechBase {
             double min_angle,
             double max_angle,
             boolean gravity_compensate) {
-        super(logging_prefix);
+            this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, gravity_compensate);
+
+        }
+
+    /**
+     * Constructs a new ArmMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO arm
+     * @param length Length of the arm in meters (Simulation only)
+     * @param mass_kg Mass of the arm in kg (Simulation only)
+     * @param min_angle Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle Maximum angle of the arm in radians (Simulation only)
+     * @param gravity_compensate true to enable gravity compensation, false otherwise
+     */
+    public ArmMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double length,
+            double mass_kg,
+            double min_angle,
+            double max_angle,
+            boolean gravity_compensate) {
+        super(logging_prefix, mech_name);
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);

@@ -72,6 +72,15 @@ public class ElevatorMech extends MechBase {
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO drum
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
      * @param rigging_ratio Rigging ratio of the elevator
      */
     public ElevatorMech(
@@ -84,6 +93,40 @@ public class ElevatorMech extends MechBase {
             double rigging_ratio) {
         this(
                 logging_prefix,
+                null,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                rigging_ratio,
+                true);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO drum
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     */
+    public ElevatorMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio) {
+        this(
+                logging_prefix,
+                mech_name,
                 motor_configs,
                 gear_ratio,
                 drum_radius,
@@ -115,7 +158,43 @@ public class ElevatorMech extends MechBase {
             double max_extension,
             double rigging_ratio,
             boolean is_vertical) {
-        super(logging_prefix);
+        this(
+                logging_prefix,
+                null,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                rigging_ratio,
+                is_vertical);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO drum
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     * @param is_vertical Whether the elevator is vertical (affects gravity compensation in
+     *     simulation)
+     */
+    public ElevatorMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio,
+            boolean is_vertical) {
+        super(logging_prefix, mech_name);
 
         position_request_ = new PositionVoltage(0).withSlot(0);
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);

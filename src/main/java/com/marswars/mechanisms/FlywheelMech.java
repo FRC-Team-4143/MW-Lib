@@ -73,7 +73,27 @@ public class FlywheelMech extends MechBase {
             double gear_ratio,
             double wheel_inertia,
             double wheel_radius) {
-        super(logging_prefix);
+        this(logging_prefix, null, motor_configs, gear_ratio, wheel_inertia, wheel_radius);
+    }
+
+    /**
+     * Constructs a new FlywheelMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio from motor TO wheel
+     * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
+     * @param wheel_radius Radius of the flywheel in meters (Simulation only)
+     */
+    public FlywheelMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double wheel_inertia,
+            double wheel_radius) {
+        super(logging_prefix, mech_name);
 
         // Create control requests
         this.velocity_request_ = new VelocityVoltage(0).withSlot(0);
