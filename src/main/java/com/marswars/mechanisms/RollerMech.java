@@ -113,8 +113,10 @@ public class RollerMech extends MechBase {
             motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
         } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
             motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
         } else {
-            throw new IllegalArgumentException("Unsupported motor type for RollerMech");
+            throw new IllegalArgumentException("Unsupported motor type");
         }
 
         roller_sim_ =

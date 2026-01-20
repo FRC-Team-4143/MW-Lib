@@ -103,14 +103,17 @@ public class FlywheelMech extends MechBase {
         ////////////////////////
         /// SIMULATION SETUP ///
         ////////////////////////
+        
         if (motor_configs.get(0).motor_type == FxMotorType.X60) {
             motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
         } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
             motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
         } else {
-            throw new IllegalArgumentException("Unsupported motor type for FlywheelMech");
+            throw new IllegalArgumentException("Unsupported motor type");
         }
-
+        
         flywheel_sim_ =
                 new FlywheelSim(
                         LinearSystemId.createFlywheelSystem(
