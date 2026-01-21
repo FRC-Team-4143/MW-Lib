@@ -96,7 +96,7 @@ public class FlywheelMech extends MechBase {
         super(logging_prefix, mech_name);
 
         // Create control requests
-        this.velocity_request_ = new VelocityVoltage(0).withSlot(0);
+        this.velocity_request_ = new VelocityVoltage(0).withSlot(1);
         this.duty_cycle_request_ = new DutyCycleOut(0);
 
         ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio);
