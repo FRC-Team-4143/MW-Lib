@@ -82,44 +82,17 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
-          name: Release v${{ inputs.version }}
-          body: |
-            ## MW-Lib v${{ inputs.version }}
-            
-            ### Installation Options
-            
-            #### Option 1: Download JARs Directly (No Authentication Required)
-            Download the JARs from the Assets section below and add them to your project's `libs` folder.
-            
-            #### Option 2: Use WPILib Vendordep
-            Download `MWLib.json` from Assets and place it in your project's `vendordeps` folder.
-            
-            #### Option 3: GitHub Packages Maven (Authentication Required)
-            > ⚠️ **Note:** GitHub Packages requires authentication even for public repositories.
-            
-            Add the following to your `build.gradle`:
-            
+          name: MW-Lib v${{ inputs.version }}
+          body: |            
+            ## Installation Options
+            Add or modify the following to your `build.gradle`:
             ```gradle
-            repositories {
-                maven {
-                    url = uri('https://maven.pkg.github.com/${{ github.repository }}')
-                    credentials {
-                        username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
-                        password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
-                    }
-                }
-            }
-            
             dependencies {
+                ...
                 implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'
+                ...
             }
             ```
-            
-            You'll need a GitHub Personal Access Token with `read:packages` scope.
-          files: |
-            build/libs/*.jar
-            build/outputs/*
-            MWLib.json
           draft: false
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: true
