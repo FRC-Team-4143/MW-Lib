@@ -2,6 +2,7 @@ package com.marswars.geometry;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class LaunchTrajectory {
@@ -173,5 +174,75 @@ public class LaunchTrajectory {
         solution.heading_angle = calculateHeadingAngle(position);
         
         return solution;
+    }
+
+    /**
+     * Generates a trajectory visualization as an array of Translation3d points
+     * @param solution TrajectorySol obtained from getSolution()
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @param maxPoints maximum number of points to calculate (recommended: 20-50 for good resolution)
+     * @return array of Translation3d points representing the trajectory, empty array if invalid
+     */
+    public Translation3d[] getTrajectoryVisualization(TrajectorySol solution, Pose2d position, int maxPoints) {
+        if (!solution.valid || maxPoints <= 0) {
+            return new Translation3d[0]; // Return empty array for invalid trajectory
+        }
+
+        // Calculate trajectory parameters
+        double cosHeading = Math.cos(solution.heading_angle);
+        double sinHeading = Math.sin(solution.heading_angle);
+        
+        // Use original launch velocity without robot velocity adjustment
+        double launchAngle = useFixedAngle_ ? fixedAngle_ : 
+            calculateLaunchAngle(position, solution.velocity);
+        
+        if (!Double.isFinite(launchAngle)) {
+            return new Translation3d[0];
+        }
+
+        // Calculate time of flight
+        double vx = solution.velocity * Math.cos(launchAngle);
+        double vy = solution.velocity * Math.sin(launchAngle);
+        
+        // Time when projectile hits target height: t = (vy + sqrt(vy^2 + 2*g*height_)) / g
+        double discriminant = vy * vy + 2 * g * height_;
+        if (discriminant < 0) {
+            return new Translation3d[0];
+        }
+        
+        double timeOfFlight = (vy + Math.sqrt(discriminant)) / g;
+        if (timeOfFlight <= 0) {
+            return new Translation3d[0];
+        }
+
+        // Calculate trajectory points efficiently
+        Translation3d[] trajectory = new Translation3d[maxPoints];
+        double timeStep = timeOfFlight / (maxPoints - 1);
+        
+        for (int i = 0; i < maxPoints; i++) {
+            double t = i * timeStep;
+            
+            // Calculate position at time t
+            double horizontalDistance = vx * t;
+            double verticalPosition = launch_height_ + vy * t - 0.5 * g * t * t;
+            
+            // Convert to world coordinates
+            double x = position.getX() + horizontalDistance * cosHeading;
+            double y = position.getY() + horizontalDistance * sinHeading;
+            
+            trajectory[i] = new Translation3d(x, y, verticalPosition);
+        }
+        
+        return trajectory;
+    }
+
+    /**
+     * Generates a trajectory visualization with default parameters
+     * @param solution TrajectorySol obtained from getSolution()
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @return array of Translation3d points representing the trajectory (30 points default)
+     */
+    public Translation3d[] getTrajectoryVisualization(TrajectorySol solution, Pose2d position) {
+        return getTrajectoryVisualization(solution, position, 30);
     }
 }
