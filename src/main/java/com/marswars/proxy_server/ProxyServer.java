@@ -8,6 +8,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import com.marswars.proxy_server.PieceDetectionPacket.PieceDetection;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolution;
@@ -22,12 +23,12 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.OptionalInt;
 
-public class ProxyServer {
+public class ProxyServer extends Thread{
 
     // Data Packets
     private static OdomPacket odom_packet_ = new OdomPacket();
     private static StatesPacket states_packet_ = new StatesPacket();
-    private static TagSolutionPacket tag_solution_packet_ = new TagSolutionPacket();
+    private static ArrayList<TagSolution> tag_solutions_ = new ArrayList<>();
     private static PieceDetectionPacket piece_detection_packet_ = new PieceDetectionPacket();
 
     // Socket Config
@@ -46,6 +47,20 @@ public class ProxyServer {
     private static SimDouble sim_ty_;
     private static SimBoolean sim_is_present_;
 
+    @Override
+    public void start(){
+        if(!(RobotBase.isSimulation())){
+            super.start();
+        }
+        else{
+            System.out.println("ProxyServerThread not started - in simulation");
+        }
+    }
+
+    @Override
+    public void run(){
+        updateData();
+    }
     /**
      * Binds the server socket to the set port to begin communication. This must be called once
      * before you can attempt to {@link #updateData()}.
@@ -119,7 +134,7 @@ public class ProxyServer {
                     states_packet_.updateData(buffer);
                     break;
                 case TagSolutionPacket.TYPE_ID:
-                    tag_solution_packet_.updateData(buffer);
+                    tag_solutions_.add(TagSolutionPacket.updateData(buffer));
                     break;
                 case PieceDetectionPacket.TYPE_ID:
                     piece_detection_packet_.updateData(buffer);
@@ -192,10 +207,11 @@ public class ProxyServer {
      *
      * @return {@link TagSolution} with latest Pose and ids used to determine pose.
      */
-    public static TagSolution getLatestTagSolution() {
-        return tag_solution_packet_.tag_solution_;
-    }
-
+    public static ArrayList<TagSolution> getLatestTagSolutions() {
+        ArrayList<TagSolution> temp_tag_solutions_ = tag_solutions_;
+        tag_solutions_.clear();
+        return temp_tag_solutions_;
+    }   
     /**
      * Gets the current array list of detected game pieces. Detections are updated by calling {@link
      * #updateData()}

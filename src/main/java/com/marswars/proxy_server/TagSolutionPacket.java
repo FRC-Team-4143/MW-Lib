@@ -5,11 +5,13 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
-public class TagSolutionPacket implements Packet {
 
-    public class TagSolution {
+public abstract class TagSolutionPacket implements Packet {
+
+    public static class TagSolution {
         public Pose2d pose_ = new Pose2d();
         public ArrayList<Integer> detected_ids_ = new ArrayList<>();
+        public Timestamp timestamp = new Timestamp(0,0);
     }
 
     // Byte index for detection solution packet data
@@ -22,8 +24,7 @@ public class TagSolutionPacket implements Packet {
 
     private static final double RESOLUTION = 1000.0;
 
-    public TagSolution tag_solution_ = new TagSolution();
-    private Timestamp timestamp_ = new Timestamp(0, 0);
+
 
     /**
      * Updates the tag solution packet data from a received byte buffer.
@@ -31,13 +32,13 @@ public class TagSolutionPacket implements Packet {
      * 
      * @param buffer the byte buffer containing the packet data
      */
-    public void updateData(byte[] buffer) {
+    public static TagSolution updateData(byte[] buffer) {
+        TagSolution tag_solution_ = new TagSolution();
         Timestamp timestamp =
                 new Timestamp(
                         ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
                         ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
-        if (timestamp.isLatest(timestamp_)) {
-            timestamp_ = timestamp;
+            tag_solution_.timestamp = timestamp;
             // Position data
             tag_solution_.pose_ =
                     new Pose2d(
@@ -53,7 +54,7 @@ public class TagSolutionPacket implements Packet {
             for (int i = 0; i < detected_tag_size; i++) {
                 tag_solution_.detected_ids_.add(
                         ByteBuffer.wrap(buffer, DETECTED_TAG_START + (i * 4), 4).getInt());
-            }
         }
+        return tag_solution_;
     }
 }

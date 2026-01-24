@@ -9,8 +9,8 @@ public interface Packet {
     public static final int TIME_NSEC_IDX = 5;
 
     public static class Timestamp {
-        public int seconds;
-        public int nanoseconds;
+        public int seconds = 0;
+        public int nanoseconds = 0;
 
         public Timestamp(int seconds, int nanoseconds) {
             this.seconds = seconds;
