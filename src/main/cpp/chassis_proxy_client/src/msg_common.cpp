@@ -30,6 +30,65 @@ BinIStream& BinIStream::operator>>(std::string& v){
     return *this;
 }
 
+// Fixed-width integer deserializers (network byte order -> host)
+BinIStream& BinIStream::operator>>(uint8_t& v) {
+    iss.read((char*)&v, sizeof(v));
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(int8_t& v) {
+    iss.read((char*)&v, sizeof(v));
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(uint16_t& v) {
+    uint16_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = ntohs(tmp);
+    v = tmp;
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(int16_t& v) {
+    uint16_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = ntohs(tmp);
+    v = static_cast<int16_t>(tmp);
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(uint32_t& v) {
+    uint32_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = ntohl(tmp);
+    v = tmp;
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(int32_t& v) {
+    uint32_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = ntohl(tmp);
+    v = static_cast<int32_t>(tmp);
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(uint64_t& v) {
+    uint64_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = be64toh(tmp);
+    v = tmp;
+    return *this;
+}
+
+BinIStream& BinIStream::operator>>(int64_t& v) {
+    uint64_t tmp;
+    iss.read((char*)&tmp, sizeof(tmp));
+    tmp = be64toh(tmp);
+    v = static_cast<int64_t>(tmp);
+    return *this;
+}
+
 BinOStream::BinOStream() : oss() {}
 
 BinOStream& BinOStream::operator<<(const double & v) {
@@ -44,6 +103,53 @@ BinOStream& BinOStream::operator<<(const std::string& v){
     for(char c : v){
         oss.write((char*)&c, sizeof(char));
     }
+    return *this;
+}
+
+// Fixed-width integer serializers (host -> network byte order)
+BinOStream& BinOStream::operator<<(const uint8_t& v) {
+    oss.write((char*)&v, sizeof(v));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const int8_t& v) {
+    oss.write((char*)&v, sizeof(v));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const uint16_t& v) {
+    uint16_t tmp = htons(v);
+    oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const int16_t& v) {
+    uint16_t tmp = htons(static_cast<uint16_t>(v));
+    oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const uint32_t& v) {
+    uint32_t tmp = htonl(v);
+    oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const int32_t& v) {
+    uint32_t tmp = htonl(static_cast<uint32_t>(v));
+    oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const uint64_t& v) {
+    uint64_t tmp = htobe64(v);
+    oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const int64_t& v) {
+    uint64_t tmp = htobe64(static_cast<uint64_t>(v));
+    oss.write((char*)&tmp, sizeof(tmp));
     return *this;
 }
 

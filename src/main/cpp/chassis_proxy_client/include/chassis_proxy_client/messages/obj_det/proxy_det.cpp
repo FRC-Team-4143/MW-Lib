@@ -7,10 +7,10 @@ namespace proxy_client {
 std::vector<uint8_t> ProxyVisionDetection::serialize(const ProxyVisionDetection& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
-    buffer << htonl(msg.sec);
-    buffer << htonl(msg.nanosec);
-    buffer << htonl(msg.detection_count);
-    buffer << htonl(msg.detection_idx);
+    buffer << msg.sec;
+    buffer << msg.nanosec;
+    buffer << msg.detection_count;
+    buffer << msg.detection_idx;
     buffer << msg.class_id;
     buffer << msg.theta_x;
     buffer << msg.theta_y;
@@ -27,18 +27,14 @@ ProxyVisionDetection ProxyVisionDetection::deserialize(const std::vector<uint8_t
     BinIStream buffer(data);
     buffer >> msg.msg_id;
     buffer >> msg.sec;
-    msg.sec = ntohl(msg.sec);
     buffer >> msg.nanosec;
-    msg.nanosec = ntohl(msg.nanosec);
     buffer >> msg.detection_count;
-    msg.detection_count = ntohl(msg.detection_count);
-    buffer >> msg.detection_count;
-    msg.detection_count = ntohl(msg.detection_count);
+    buffer >> msg.detection_idx;
     buffer >> msg.class_id;
     buffer >> msg.theta_x;
     buffer >> msg.theta_y;
 
     return msg;
-}
+} 
 
 }  // namespace proxy_client

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <endian.h>
 
 #include <sstream>
 #include <stdexcept>
@@ -43,6 +44,16 @@ class BinIStream {
 
     BinIStream& operator>>(std::string& v);
 
+    // Fixed-width integer overloads use network byte order conversions
+    BinIStream& operator>>(uint8_t& v);
+    BinIStream& operator>>(int8_t& v);
+    BinIStream& operator>>(uint16_t& v);
+    BinIStream& operator>>(int16_t& v);
+    BinIStream& operator>>(uint32_t& v);
+    BinIStream& operator>>(int32_t& v);
+    BinIStream& operator>>(uint64_t& v);
+    BinIStream& operator>>(int64_t& v);
+
    protected:
     std::stringstream iss;
 };
@@ -67,6 +78,16 @@ class BinOStream {
     BinOStream& operator<<(const double& v);
 
     BinOStream& operator<<(const std::string& v);
+
+    // Fixed-width integer overloads use network byte order conversions
+    BinOStream& operator<<(const uint8_t& v);
+    BinOStream& operator<<(const int8_t& v);
+    BinOStream& operator<<(const uint16_t& v);
+    BinOStream& operator<<(const int16_t& v);
+    BinOStream& operator<<(const uint32_t& v);
+    BinOStream& operator<<(const int32_t& v);
+    BinOStream& operator<<(const uint64_t& v);
+    BinOStream& operator<<(const int64_t& v);
 
     std::vector<uint8_t> serialize() const;
 

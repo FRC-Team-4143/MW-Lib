@@ -7,11 +7,11 @@ namespace proxy_client {
 std::vector<uint8_t> SyncResponseMsg::serialize(const SyncResponseMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
-    buffer << htonl(msg.req_id);
-    buffer << htonl(msg.server_recv_sec);
-    buffer << htonl(msg.server_recv_nanosec);
-    buffer << htonl(msg.server_send_sec);
-    buffer << htonl(msg.server_send_nanosec);
+    buffer << msg.req_id;
+    buffer << msg.server_recv_sec;
+    buffer << msg.server_recv_nanosec;
+    buffer << msg.server_send_sec;
+    buffer << msg.server_send_nanosec;
 
     return buffer.serialize();
 }
@@ -26,17 +26,12 @@ SyncResponseMsg SyncResponseMsg::deserialize(const std::vector<uint8_t>& data) {
     BinIStream buffer(data);
     buffer >> msg.msg_id;
     buffer >> msg.req_id;
-    msg.req_id = ntohl(msg.req_id);
     buffer >> msg.server_recv_sec;
-    msg.server_recv_sec = ntohl(msg.server_recv_sec);
     buffer >> msg.server_recv_nanosec;
-    msg.server_recv_nanosec = ntohl(msg.server_recv_nanosec);
     buffer >> msg.server_send_sec;
-    msg.server_send_sec = ntohl(msg.server_send_sec);
     buffer >> msg.server_send_nanosec;
-    msg.server_send_nanosec = ntohl(msg.server_send_nanosec);
 
     return msg;
-}
+} 
 
 }  // namespace proxy_client

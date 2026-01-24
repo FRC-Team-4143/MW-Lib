@@ -7,8 +7,8 @@ namespace proxy_client {
 std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
-    buffer << htonl(msg.sec);
-    buffer << htonl(msg.nanosec);
+    buffer << msg.sec;
+    buffer << msg.nanosec;
 
     // pose
     buffer << msg.x_pos;
@@ -16,7 +16,7 @@ std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     buffer << msg.omega_pos;
 
     // tag ids
-    int32_t tag_count = htonl(static_cast<int32_t>(msg.tag_ids.size()));
+    int32_t tag_count = static_cast<int32_t>(msg.tag_ids.size());
     buffer << tag_count;
     for (const auto& tag_id : msg.tag_ids) {
         buffer << tag_id;
@@ -33,8 +33,23 @@ TagDetectionMsg TagDetectionMsg::deserialize(const std::vector<uint8_t>& data) {
         throw SerializationError("msg id mismatch ");
     }
 
+    buffer >> msg.msg_id;
+    buffer >> msg.sec;
+    buffer >> msg.nanosec;
 
+    // pose
+    buffer >> msg.x_pos;
+    buffer >> msg.y_pos;
+    buffer >> msg.omega_pos;
 
+    // tag ids
+    int32_t tag_count = 0;
+    buffer >> tag_count;
+    for (int32_t i = 0; i < tag_count; ++i) {
+        uint8_t tag_id;
+        buffer >> tag_id;
+        msg.tag_ids.push_back(tag_id);
+    }
 
     return msg;
 }
