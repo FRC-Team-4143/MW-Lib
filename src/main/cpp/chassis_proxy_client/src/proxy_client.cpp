@@ -21,17 +21,15 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
     cam_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
         params_->camera_info_topic, rclcpp::SystemDefaultsQoS(), std::bind(&ProxyClientNode::camInfoCb, this, _1));
 
-    tag_solution_sub_ = create_subscription<localization_msgs::msg::TagSolution>(params_->tag_solution_topic,
-        rclcpp::SystemDefaultsQoS(), std::bind(&ProxyClientNode::tagSolutionCb, this, _1));
-    
-        log_metadata_pub_ = create_publisher<logging_msgs::msg::LogMetadata>("/log/metadata", rclcpp::SystemDefaultsQoS());
+    tag_solution_sub_ = create_subscription<localization_msgs::msg::TagSolution>(
+        params_->tag_solution_topic, rclcpp::SystemDefaultsQoS(), std::bind(&ProxyClientNode::tagSolutionCb, this, _1));
+
+    log_metadata_pub_ = create_publisher<logging_msgs::msg::LogMetadata>("/log/metadata", rclcpp::SystemDefaultsQoS());
 
     // Setup the UDP server and register message types for receive
     udp_server_ = std::make_unique<UdpServer>(params_->client_port);
     udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
     udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
-
-    recv_timer_ = create_timer(10ms, std::bind(&ProxyClientNode::processRecievedPackets, this));
 
     tryConnectUdpServer();
 
@@ -40,7 +38,11 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
 
 void ProxyClientNode::onTick() {
     // Called periodically by the base class tick timer
-    // Currently no periodic work needed
+    try {
+        udp_server_->processPackets();
+    } catch (const std::runtime_error& e) {
+        RCLCPP_WARN_STREAM(get_logger(), "Failed to handle proxy packet with error: " << e.what());
+    }
 }
 
 void ProxyClientNode::shutdown() {
@@ -61,21 +63,9 @@ void ProxyClientNode::tryConnectUdpServer() {
     }
 }
 
-void ProxyClientNode::processRecievedPackets() {
-    for (size_t i = 0; i < 1000; i++) {
-        try {
-            if (udp_server_->processPackets() == 0) {
-                break;
-            }
-        } catch (const std::runtime_error& e) {
-            RCLCPP_WARN_STREAM(get_logger(), "Failed to handle proxy packet with error: " << e.what());
-        }
-    }
-}
-
 void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSharedPtr msg) {
     RCLCPP_INFO_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
-    
+
     TagDetectionMsg proxy_msg;
     proxy_msg.sec = msg->header.stamp.sec;
     proxy_msg.nanosec = msg->header.stamp.nanosec;
@@ -170,3 +160,12 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
     }
 }
 }  // namespace proxy_client
+
+int main(int argc, char** argv) {
+    rclcpp::init(argc, argv);
+
+    std::shared_ptr<proxy_client::ProxyClientNode> node = std::make_shared<proxy_client::ProxyClientNode>();
+    rclcpp::spin(node);
+
+    rclcpp::shutdown();
+}

@@ -26,17 +26,17 @@ file(GLOB_RECURSE MSG_SOURCES ${PROJECT_SOURCE_DIR}/include/chassis_proxy_client
 
 message("Discovered proxy msgs ${MSG_SOURCES} ")
 
-add_executable(status_sender src/status_sender.cpp src/udp_client.cpp src/proxy_client.cpp 
+add_executable(proxy_client src/udp_client.cpp src/proxy_client.cpp 
   src/udp_server.cpp src/msg_common.cpp ${MSG_SOURCES})
-target_include_directories(status_sender PUBLIC
+target_include_directories(proxy_client PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
-target_compile_features(status_sender PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-target_link_libraries(status_sender yaml-cpp::yaml-cpp)
-ament_target_dependencies(status_sender geometry_msgs nav_msgs rclcpp tf2
+target_compile_features(proxy_client PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_link_libraries(proxy_client yaml-cpp::yaml-cpp)
+ament_target_dependencies(proxy_client geometry_msgs nav_msgs rclcpp tf2
   tf2_geometry_msgs node_core vision_msgs sensor_msgs logging_msgs localization_msgs)
 
-install(TARGETS status_sender
+install(TARGETS proxy_client
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
