@@ -1,8 +1,10 @@
 package com.marswars.geometry;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 public class LaunchTrajectory {
 
@@ -21,58 +23,34 @@ public class LaunchTrajectory {
     private boolean useFixedAngle_;
     private double fixedAngle_;
     private static final double g = 9.81;
-    /**
-     * Constructor for LaunchTrajectory with variable angle
-     * @param target Where you want to shoot (X, Y and Z) in the form of a Translation3d
-     * @param launch_height The height of the launcher in meters
-     * @param highArc Whether you want the higher arc or the lower arc (true for higher)
-     */
+
     public LaunchTrajectory(Translation3d target, double launch_height, boolean highArc) {
         target_ = target;
         launch_height_ = launch_height;
-        height_ = target_.getZ() - launch_height; 
+        height_ = target_.getZ() - launch_height;
         range_to_velocity_ = new InterpolatingDoubleTreeMap();
         highArc_ = highArc;
         useFixedAngle_ = false;
         fixedAngle_ = 0.0;
     }
 
-    /**
-     * Constructor for LaunchTrajectory with fixed angle shooter
-     * @param target Where you want to shoot (X, Y and Z) in the form of a Translation3d
-     * @param launch_height The height of the launcher in meters
-     * @param fixedAngle The fixed exit angle of the shooter in radians
-     */
     public LaunchTrajectory(Translation3d target, double launch_height, double fixedAngle) {
         target_ = target;
-        height_ = target_.getZ() - launch_height; 
+        height_ = target_.getZ() - launch_height;
         range_to_velocity_ = new InterpolatingDoubleTreeMap();
         useFixedAngle_ = true;
         fixedAngle_ = fixedAngle;
-        highArc_ = false; // Not used in fixed angle mode
+        highArc_ = false;
     }
 
-    /**
-     * Adds points to the linear interpolation table
-     * @param range distance from target in meters
-     * @param velocity exit velocity for given distance in meters / second
-     */
     public void addVelocityPoint(double range, double velocity) {
         range_to_velocity_.put(range, velocity);
     }
 
-    /**
-     * Checks if this trajectory uses a fixed angle shooter
-     * @return true if using fixed angle, false if using variable angle
-     */
     public boolean isFixedAngle() {
         return useFixedAngle_;
     }
 
-    /**
-     * Gets the fixed angle (only valid if isFixedAngle() returns true)
-     * @return the fixed angle in radians
-     */
     public double getFixedAngle() {
         return fixedAngle_;
     }
@@ -91,87 +69,92 @@ public class LaunchTrajectory {
         double cos2theta = Math.cos(angle) * Math.cos(angle);
 
         double denominator = x * sin2theta - 2 * h * cos2theta;
-        if (denominator <= 0) {
-            return Double.NaN; // invalid trajectory for this angle
-        }
+        if (denominator <= 0) return Double.NaN;
 
         double v_squared = (g * x * x) / denominator;
-        if (v_squared <= 0) {
-            return Double.NaN;
-        }
+        if (v_squared <= 0) return Double.NaN;
+
         return Math.sqrt(v_squared);
     }
 
     private double calculateLaunchAngle(Pose2d position, double v) {
         double x = target_.toTranslation2d().getDistance(position.getTranslation());
-        
-        // Check if trajectory is possible with the given velocity
+
         double discriminant = v * v * v * v - g * (g * x * x + 2 * height_ * v * v);
-        if (discriminant < 0) {
-            return Double.NaN; // Impossible trajectory
-        }
-        
-        double numerator;
-        if(highArc_ == true){
-            numerator = v * v + Math.sqrt(discriminant);
-        }
-        else{
-            numerator = v * v - Math.sqrt(discriminant);
-        }
-        double denomenator = g * x;
+        if (discriminant < 0) return Double.NaN;
 
-        return Math.atan2(numerator, denomenator);
+        double numerator = highArc_ ? v * v + Math.sqrt(discriminant) : v * v - Math.sqrt(discriminant);
+        double denominator = g * x;
+
+        return Math.atan2(numerator, denominator);
     }
 
-    private double calculateHeadingAngle(Pose2d position) {
-        double deltaX = target_.getX() - position.getX();
-        double deltaY = target_.getY() - position.getY();
-
-        double heading = Math.atan2(deltaY, deltaX); // solves for heading
-
-        return heading;
-
+    private double calculateHeadingAngle(Pose2d position, Translation2d aimTarget) {
+        double deltaX = aimTarget.getX() - position.getX();
+        double deltaY = aimTarget.getY() - position.getY();
+        return Math.atan2(deltaY, deltaX);
     }
-    /**
-     * Setter for target; change the target live
-     * @param target Z, Y, and Z of target for shot in the form of a Translation3d
-     */
+
     public void setTarget(Translation3d target) {
         target_ = target;
         height_ = target.getZ() - launch_height_;
     }
-    /**
-     * Gives a valid shooter trajectory for a given robot position
-     * @param position robot position (X and Y) in the form of a Pose2d
-     * @return returns a TrajectorySol that contains velocity, exit angle, and heading angle
-     */
+
     public TrajectorySol getSolution(Pose2d position) {
+        return getSolutionWithVelocity(position, new ChassisSpeeds(0, 0, 0));
+    }
+
+    /**
+     * Auto-aim while moving.
+     * @param position current robot pose
+     * @param fieldSpeeds robot field-relative velocity (m/s)
+     * @return TrajectorySol containing velocity, exit angle, and heading angle
+     */
+    public TrajectorySol getSolutionWithVelocity(Pose2d position, ChassisSpeeds fieldSpeeds) {
         TrajectorySol solution = new TrajectorySol();
-        
-        if (useFixedAngle_) {
-            // Fixed angle mode: calculate required velocity for the fixed angle
-            solution.exit_angle = fixedAngle_;
-            solution.velocity = calculateVelocityForAngle(position, fixedAngle_);
-            // Valid if velocity is finite and positive
-            solution.valid = Double.isFinite(solution.velocity) && solution.velocity > 0;
-        } else {
-            // Variable angle mode: use velocity lookup table and calculate angle
-            solution.velocity = calculateLaunchVelocity(position);
-            
-            // Check if velocity lookup was successful
-            if (!Double.isFinite(solution.velocity) || solution.velocity <= 0) {
-                solution.valid = false;
-                solution.velocity = Double.NaN;
-                solution.exit_angle = Double.NaN;
-            } else {
-                solution.exit_angle = calculateLaunchAngle(position, solution.velocity);
-                // Valid if angle calculation is finite
-                solution.valid = Double.isFinite(solution.exit_angle);
-            }
+
+        // Step 1: compute initial solution assuming stationary
+        Translation2d stationaryTarget = target_.toTranslation2d();
+        double velocity = useFixedAngle_ ? calculateVelocityForAngle(position, fixedAngle_) : calculateLaunchVelocity(position);
+
+        if (!Double.isFinite(velocity) || velocity <= 0) {
+            solution.valid = false;
+            solution.velocity = Double.NaN;
+            solution.exit_angle = Double.NaN;
+            solution.heading_angle = Double.NaN;
+            return solution;
         }
-        
-        solution.heading_angle = calculateHeadingAngle(position);
-        
+
+        double exitAngle = useFixedAngle_ ? fixedAngle_ : calculateLaunchAngle(position, velocity);
+
+        // Step 2: estimate time of flight
+        double horizontalDistance = stationaryTarget.getDistance(position.getTranslation());
+        double timeOfFlight = horizontalDistance / (velocity * Math.cos(exitAngle));
+
+        // Step 3: predict lead point
+        double leadX = stationaryTarget.getX() - fieldSpeeds.vxMetersPerSecond * timeOfFlight;
+        double leadY = stationaryTarget.getY() - fieldSpeeds.vyMetersPerSecond * timeOfFlight;
+        Translation2d leadTarget = new Translation2d(leadX, leadY);
+
+        // Step 4: recompute range and heading using lead target
+        double leadRange = leadTarget.getDistance(position.getTranslation());
+        double leadVelocity = useFixedAngle_ ? calculateVelocityForAngle(position, fixedAngle_) : range_to_velocity_.get(leadRange);
+        if (!Double.isFinite(leadVelocity) || leadVelocity <= 0) {
+            solution.valid = false;
+            solution.velocity = Double.NaN;
+            solution.exit_angle = Double.NaN;
+            solution.heading_angle = Double.NaN;
+            return solution;
+        }
+
+        double leadExitAngle = useFixedAngle_ ? fixedAngle_ : calculateLaunchAngle(position, leadVelocity);
+        double heading = calculateHeadingAngle(position, leadTarget);
+
+        solution.velocity = leadVelocity;
+        solution.exit_angle = leadExitAngle;
+        solution.heading_angle = heading;
+        solution.valid = true;
+
         return solution;
     }
 }
