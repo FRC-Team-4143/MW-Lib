@@ -4,63 +4,79 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import java.nio.ByteBuffer;
 
-public class StatesPacket implements Packet {
-
-    // Byte index for state packet data
-    public static final int TYPE_ID = 2;
-    private static final int MOD_1_ANG_POS_IDX = 9;
-    private static final int MOD_1_LIN_VEL_IDX = 13;
-    private static final int MOD_2_ANG_POS_IDX = 17;
-    private static final int MOD_2_LIN_VEL_IDX = 21;
-    private static final int MOD_3_ANG_POS_IDX = 25;
-    private static final int MOD_3_LIN_VEL_IDX = 29;
-    private static final int MOD_4_ANG_POS_IDX = 33;
-    private static final int MOD_4_LIN_VEL_IDX = 37;
-
-    private static final double RESOLUTION = 1000.0;
-
-    public SwerveModuleState[] module_states_ = new SwerveModuleState[4];
-    private Timestamp timestamp_ = new Timestamp(0, 0);
-
-    StatesPacket() {}
+/**
+ * Packet handler for swerve drive module state data.
+ * Provides functionality to parse incoming packets containing
+ * the current state of all swerve modules.
+ */
+public abstract class StatesPacket implements Packet {
 
     /**
-     * Updates the states packet data from a received byte buffer.
-     * Parses timestamp and swerve module states from the buffer.
+     * Data structure containing swerve module state information.
+     */
+    public static class ModuleStatesData {
+        /** Array of swerve module states (4 modules) */
+        public final SwerveModuleState[] moduleStates;
+        /** Timestamp when the states were recorded */
+        public final Timestamp timestamp;
+
+        public ModuleStatesData(SwerveModuleState[] moduleStates, Timestamp timestamp) {
+            this.moduleStates = moduleStates.clone();
+            this.timestamp = timestamp;
+        }
+    }
+
+    // Packet type identifier
+    public static final int TYPE_ID = 2;
+    
+    // Byte indices for module state data
+    private static final int MODULE_1_ANGLE_IDX = 9;
+    private static final int MODULE_1_VELOCITY_IDX = 13;
+    private static final int MODULE_2_ANGLE_IDX = 17;
+    private static final int MODULE_2_VELOCITY_IDX = 21;
+    private static final int MODULE_3_ANGLE_IDX = 25;
+    private static final int MODULE_3_VELOCITY_IDX = 29;
+    private static final int MODULE_4_ANGLE_IDX = 33;
+    private static final int MODULE_4_VELOCITY_IDX = 37;
+
+    private static final double STATE_RESOLUTION = 1000.0;
+
+    /**
+     * Parses module states packet data from a received byte buffer.
+     * Extracts timestamp and all swerve module states from the buffer.
      * 
      * @param buffer the byte buffer containing the packet data
+     * @return ModuleStatesData object with parsed information
      */
-    public void updateData(byte[] buffer) {
-        Timestamp timestamp =
-                new Timestamp(
-                        ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
-                        ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
-        if (timestamp.isLatest(timestamp_)) {
-            timestamp_ = timestamp;
-            module_states_[0] =
-                    new SwerveModuleState(
-                            ByteBuffer.wrap(buffer, MOD_1_LIN_VEL_IDX, 4).getInt() / RESOLUTION,
-                            new Rotation2d(
-                                    ByteBuffer.wrap(buffer, MOD_1_ANG_POS_IDX, 4).getInt()
-                                            / RESOLUTION));
-            module_states_[1] =
-                    new SwerveModuleState(
-                            ByteBuffer.wrap(buffer, MOD_2_LIN_VEL_IDX, 4).getInt() / RESOLUTION,
-                            new Rotation2d(
-                                    ByteBuffer.wrap(buffer, MOD_2_ANG_POS_IDX, 4).getInt()
-                                            / RESOLUTION));
-            module_states_[2] =
-                    new SwerveModuleState(
-                            ByteBuffer.wrap(buffer, MOD_3_LIN_VEL_IDX, 4).getInt() / RESOLUTION,
-                            new Rotation2d(
-                                    ByteBuffer.wrap(buffer, MOD_3_ANG_POS_IDX, 4).getInt()
-                                            / RESOLUTION));
-            module_states_[3] =
-                    new SwerveModuleState(
-                            ByteBuffer.wrap(buffer, MOD_4_LIN_VEL_IDX, 4).getInt() / RESOLUTION,
-                            new Rotation2d(
-                                    ByteBuffer.wrap(buffer, MOD_4_ANG_POS_IDX, 4).getInt()
-                                            / RESOLUTION));
-        }
+    public static ModuleStatesData updateData(byte[] buffer) {
+        // Parse timestamp
+        Timestamp timestamp = new Timestamp(
+                ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
+                ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
+        
+        // Parse module states
+        SwerveModuleState[] moduleStates = new SwerveModuleState[4];
+        
+        moduleStates[0] = new SwerveModuleState(
+                ByteBuffer.wrap(buffer, MODULE_1_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
+                new Rotation2d(
+                        ByteBuffer.wrap(buffer, MODULE_1_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
+        
+        moduleStates[1] = new SwerveModuleState(
+                ByteBuffer.wrap(buffer, MODULE_2_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
+                new Rotation2d(
+                        ByteBuffer.wrap(buffer, MODULE_2_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
+        
+        moduleStates[2] = new SwerveModuleState(
+                ByteBuffer.wrap(buffer, MODULE_3_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
+                new Rotation2d(
+                        ByteBuffer.wrap(buffer, MODULE_3_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
+        
+        moduleStates[3] = new SwerveModuleState(
+                ByteBuffer.wrap(buffer, MODULE_4_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
+                new Rotation2d(
+                        ByteBuffer.wrap(buffer, MODULE_4_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
+        
+        return new ModuleStatesData(moduleStates, timestamp);
     }
 }
