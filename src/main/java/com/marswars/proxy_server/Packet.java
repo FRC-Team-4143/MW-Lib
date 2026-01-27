@@ -1,16 +1,30 @@
 package com.marswars.proxy_server;
 
+/**
+ * Base interface for all proxy server packet types.
+ * Provides common constants and utilities for packet parsing.
+ */
 public interface Packet {
-    // Timestamp class to store packet timestamp and perform operations
+    
+    // Common packet header byte indices
+    /** Packet type identifier index */
+    int PACKET_ID_IDX = 0;
+    /** Timestamp seconds index */
+    int TIME_SEC_IDX = 1;
+    /** Timestamp nanoseconds index */
+    int TIME_NSEC_IDX = 5;
+    
+    // Legacy aliases for compatibility
+    @Deprecated
+    int ID_IDX = PACKET_ID_IDX;
 
-    // Byte index for packet header data
-    public static final int ID_IDX = 0;
-    public static final int TIME_SEC_IDX = 1;
-    public static final int TIME_NSEC_IDX = 5;
-
+    /**
+     * Timestamp class to store packet timestamp and perform timestamp operations.
+     * Contains seconds and nanoseconds components for high-precision timing.
+     */
     public static class Timestamp {
-        public int seconds = 0;
-        public int nanoseconds = 0;
+        public final int seconds;
+        public final int nanoseconds;
 
         public Timestamp(int seconds, int nanoseconds) {
             this.seconds = seconds;
@@ -18,20 +32,36 @@ public interface Packet {
         }
 
         /**
-         * Determines is current timestamp is more recent than supplied timestamp
+         * Determines if this timestamp is more recent than the provided timestamp.
          *
-         * @param recorded the store {@link #Timestamp} to compare current timestamp against
-         * @return true: current timestamp is the most recent | false: recorded timestamp is the
-         *     most recent
+         * @param other the timestamp to compare against
+         * @return true if this timestamp is more recent, false otherwise
          */
-        public boolean isLatest(Timestamp recorded) {
-            if (seconds > recorded.seconds) {
+        public boolean isMoreRecentThan(Timestamp other) {
+            if (this.seconds > other.seconds) {
                 return true;
-            } else if (nanoseconds > recorded.nanoseconds) {
+            } else if (this.seconds == other.seconds && this.nanoseconds > other.nanoseconds) {
                 return true;
-            } else {
-                return false;
             }
+            return false;
+        }
+        
+        @Override
+        public String toString() {
+            return String.format("Timestamp{sec=%d, nsec=%d}", seconds, nanoseconds);
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Timestamp timestamp = (Timestamp) obj;
+            return seconds == timestamp.seconds && nanoseconds == timestamp.nanoseconds;
+        }
+        
+        @Override
+        public int hashCode() {
+            return seconds * 31 + nanoseconds;
         }
     }
 }
