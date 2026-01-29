@@ -89,7 +89,7 @@ jobs:
             ```gradle
             dependencies {
                 ...
-                implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'
+                implementation 'com.github.frc-team-4143:mw-lib-java:${{ inputs.version }}'
                 ...
             }
             ```
@@ -123,7 +123,7 @@ jobs:
           echo "    }" >> $GITHUB_STEP_SUMMARY
           echo "}" >> $GITHUB_STEP_SUMMARY
           echo "dependencies {" >> $GITHUB_STEP_SUMMARY
-          echo "    implementation 'io.github.frc-team-4143:MW-Lib-java:${{ inputs.version }}'" >> $GITHUB_STEP_SUMMARY
+          echo "    implementation 'com.github.frc-team-4143:mw-lib-java:${{ inputs.version }}'" >> $GITHUB_STEP_SUMMARY
           echo "}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
