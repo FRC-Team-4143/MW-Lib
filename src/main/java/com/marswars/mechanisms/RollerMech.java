@@ -267,7 +267,7 @@ public class RollerMech extends MechBase {
      * @param slot the slot index to configure
      * @param config the slot config to apply
      */
-    private void configSlot(int slot, SlotConfigs config) {
+    public void configSlot(int slot, SlotConfigs config) {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {

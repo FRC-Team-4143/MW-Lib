@@ -21,6 +21,7 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import com.marswars.util.FxMotorConfig;
 import com.marswars.util.FxMotorConfig.FxMotorType;
@@ -52,6 +53,7 @@ public class ArmMech extends MechBase {
     private final SingleJointedArmSim arm_sim_;
     private final double gear_ratio_;
     private final DCMotor motor_type_;
+    private final double moi_;
 
     // sensor inputs
     protected double position_ = 0;
@@ -68,12 +70,12 @@ public class ArmMech extends MechBase {
      * Constructs a new ArmMech
      *
      * @param logging_prefix String prefix for logging
-     * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO arm
-     * @param length Length of the arm in meters (Simulation only)
-     * @param mass_kg Mass of the arm in kg (Simulation only)
-     * @param min_angle Minimum angle of the arm in radians (Simulation only)
-     * @param max_angle Maximum angle of the arm in radians (Simulation only)
+     * @param motor_configs  List of motor configurations
+     * @param gear_ratio     Gear ratio from motor TO arm
+     * @param length         Length of the arm in meters (Simulation only)
+     * @param mass_kg        Mass of the arm in kg (Simulation only)
+     * @param min_angle      Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle      Maximum angle of the arm in radians (Simulation only)
      *
      * @apiNote This constructor enables gravity compensation by default
      */
@@ -92,13 +94,13 @@ public class ArmMech extends MechBase {
      * Constructs a new ArmMech
      *
      * @param logging_prefix String prefix for logging
-     * @param mech_name Name of the mechanism
-     * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO arm
-     * @param length Length of the arm in meters (Simulation only)
-     * @param mass_kg Mass of the arm in kg (Simulation only)
-     * @param min_angle Minimum angle of the arm in radians (Simulation only)
-     * @param max_angle Maximum angle of the arm in radians (Simulation only)
+     * @param mech_name      Name of the mechanism
+     * @param motor_configs  List of motor configurations
+     * @param gear_ratio     Gear ratio from motor TO arm
+     * @param length         Length of the arm in meters (Simulation only)
+     * @param mass_kg        Mass of the arm in kg (Simulation only)
+     * @param min_angle      Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle      Maximum angle of the arm in radians (Simulation only)
      *
      * @apiNote This constructor enables gravity compensation by default
      */
@@ -117,14 +119,17 @@ public class ArmMech extends MechBase {
     /**
      * Constructs a new ArmMech
      *
-     * @param logging_prefix String prefix for logging
-     * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO arm
-     * @param length Length of the arm in meters (Simulation only)
-     * @param mass_kg Mass of the arm in kg (Simulation only)
-     * @param min_angle Minimum angle of the arm in radians (Simulation only)
-     * @param max_angle Maximum angle of the arm in radians (Simulation only)
-     * @param gravity_compensate true to enable gravity compensation, false otherwise
+     * @param logging_prefix     String prefix for logging
+     * @param motor_configs      List of motor configurations
+     * @param gear_ratio         Gear ratio from motor TO arm
+     * @param length             Length of the arm in meters (Simulation only)
+     * @param mass_kg            Mass of the arm in kg (Simulation only)
+     * @param min_angle          Minimum angle of the arm in radians (Simulation
+     *                           only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation
+     *                           only)
+     * @param gravity_compensate true to enable gravity compensation, false
+     *                           otherwise
      */
     public ArmMech(
             String logging_prefix,
@@ -135,22 +140,26 @@ public class ArmMech extends MechBase {
             double min_angle,
             double max_angle,
             boolean gravity_compensate) {
-            this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, gravity_compensate);
+        this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle,
+                gravity_compensate);
 
-        }
+    }
 
     /**
      * Constructs a new ArmMech
      *
-     * @param logging_prefix String prefix for logging
-     * @param mech_name Name of the mechanism
-     * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO arm
-     * @param length Length of the arm in meters (Simulation only)
-     * @param mass_kg Mass of the arm in kg (Simulation only)
-     * @param min_angle Minimum angle of the arm in radians (Simulation only)
-     * @param max_angle Maximum angle of the arm in radians (Simulation only)
-     * @param gravity_compensate true to enable gravity compensation, false otherwise
+     * @param logging_prefix     String prefix for logging
+     * @param mech_name          Name of the mechanism
+     * @param motor_configs      List of motor configurations
+     * @param gear_ratio         Gear ratio from motor TO arm
+     * @param length             Length of the arm in meters (Simulation only)
+     * @param mass_kg            Mass of the arm in kg (Simulation only)
+     * @param min_angle          Minimum angle of the arm in radians (Simulation
+     *                           only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation
+     *                           only)
+     * @param gravity_compensate true to enable gravity compensation, false
+     *                           otherwise
      */
     public ArmMech(
             String logging_prefix,
@@ -169,20 +178,19 @@ public class ArmMech extends MechBase {
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
-        ConstructedMotors configured_motors =
-                configMotors(
-                        motor_configs,
-                        gear_ratio,
-                        (cfg) -> {
-                            // Configure the motor for position & velocity control with gravity
-                            // compensation
-                            if(gravity_compensate){
-                                cfg.config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
-                                cfg.config.Slot1.GravityType = GravityTypeValue.Arm_Cosine;
-                                cfg.config.Slot2.GravityType = GravityTypeValue.Arm_Cosine;
-                            }
-                            return cfg;
-                        });
+        ConstructedMotors configured_motors = configMotors(
+                motor_configs,
+                gear_ratio,
+                (cfg) -> {
+                    // Configure the motor for position & velocity control with gravity
+                    // compensation
+                    if (gravity_compensate) {
+                        cfg.config.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+                        cfg.config.Slot1.GravityType = GravityTypeValue.Arm_Cosine;
+                        cfg.config.Slot2.GravityType = GravityTypeValue.Arm_Cosine;
+                    }
+                    return cfg;
+                });
         motors_ = configured_motors.motors;
         signals_ = configured_motors.signals;
 
@@ -216,17 +224,17 @@ public class ArmMech extends MechBase {
             throw new IllegalArgumentException("Unsupported motor type");
         }
 
-        arm_sim_ =
-                new SingleJointedArmSim(
-                        motor_type_, // Motor type
-                        gear_ratio,
-                        SingleJointedArmSim.estimateMOI(length, mass_kg),
-                        length, // Length of the arm (meters)
-                        min_angle, // Minimum angle (radians)
-                        max_angle, // Maximum angle (radians)
-                        gravity_compensate, // Simulate gravity
-                        0 // Starting angle (radians)
-                        );
+        moi_ = SingleJointedArmSim.estimateMOI(length, mass_kg);
+        arm_sim_ = new SingleJointedArmSim(
+                motor_type_, // Motor type
+                gear_ratio,
+                moi_,
+                length, // Length of the arm (meters)
+                min_angle, // Minimum angle (radians)
+                max_angle, // Maximum angle (radians)
+                gravity_compensate, // Simulate gravity
+                0 // Starting angle (radians)
+        );
 
         // Setup tunable PIDs
         TunablePid.create(
@@ -275,11 +283,10 @@ public class ArmMech extends MechBase {
 
             // Convert meters to motor rotations
             double motorPosition = Radians.of(arm_sim_.getAngleRads() * gear_ratio_).in(Rotations);
-            double motorVelocity =
-                    RadiansPerSecond.of(arm_sim_.getVelocityRadPerSec() * gear_ratio_)
-                            .in(RotationsPerSecond);
+            double motorVelocity = RadiansPerSecond.of(arm_sim_.getVelocityRadPerSec() * gear_ratio_)
+                    .in(RotationsPerSecond);
 
-            for(int i = 0; i < motors_.length; i++) {
+            for (int i = 0; i < motors_.length; i++) {
                 motors_[i].getSimState().setRawRotorPosition(motorPosition);
                 motors_[i].getSimState().setRotorVelocity(motorVelocity);
             }
@@ -347,10 +354,10 @@ public class ArmMech extends MechBase {
     /**
      * Configures the given slot with the given config
      *
-     * @param slot the slot to configure
+     * @param slot   the slot to configure
      * @param config the config to apply
      */
-    private void configSlot(int slot, SlotConfigs config) {
+    public void configSlot(int slot, SlotConfigs config) {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {
@@ -432,5 +439,26 @@ public class ArmMech extends MechBase {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
+    }
+
+    /**
+     * Applies a load torque to the arm mechanism for simulation purposes.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm). Positive values
+     *                  oppose motion.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        double current_torque = motor_type_.KtNMPerAmp * getLeaderCurrent();
+        current_torque -= torque_nm;
+
+        // Calculate the new angular velocity based on the net torque
+        double angular_acceleration = current_torque / moi_;
+        double new_velocity = velocity_ + angular_acceleration * 0.020; // assuming 20ms timestep
+        double new_postion = position_ + new_velocity * 0.02;
+
+        // Apply the calculated velocity to simulation
+        if (IS_SIM) {
+            arm_sim_.setState(new_postion, new_velocity);
+        }
     }
 }

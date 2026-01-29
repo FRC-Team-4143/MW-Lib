@@ -389,7 +389,7 @@ public class ElevatorMech extends MechBase {
      * @param slot the slot to configure
      * @param config the slot config to apply
      */
-    private void configSlot(int slot, SlotConfigs config) {
+    public void configSlot(int slot, SlotConfigs config) {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {
@@ -470,6 +470,26 @@ public class ElevatorMech extends MechBase {
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
-        duty_cycle_request_.Output = duty_cycle;
+        duty_cycle_request_.Output = duty_cycle; 
+    }
+
+    /**
+     * Applies a load torque to the elevator mechanism for simulation purposes.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm). Positive values oppose motion.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        double current_torque = motor_type_.KtNMPerAmp * getLeaderCurrent();
+        current_torque -= torque_nm;
+
+        // Calculate the new angular velocity based on the net torque
+        double angular_acceleration = current_torque / roller_inertia_;
+        double new_velocity = velocity_ + angular_acceleration * 0.020; // assuming 20ms timestep
+        double new_position = position_ + new_velocity * 0.02;
+
+        // Apply the calculated velocity to simulation
+        if (IS_SIM) {
+            elevator_sim_.setState(new_position, new_velocity);
+        }
     }
 }
