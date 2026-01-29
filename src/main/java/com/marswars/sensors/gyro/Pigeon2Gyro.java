@@ -14,7 +14,6 @@
 package com.marswars.sensors.gyro;
 
 import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -28,8 +27,6 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import com.marswars.swerve_lib.PhoenixOdometryThread;
-import com.marswars.util.PhoenixUtil;
-import org.ironmaple.simulation.drivesims.GyroSimulation;
 
 /** IO implementation for Pigeon 2. */
 public class Pigeon2Gyro extends Gyro {
@@ -39,12 +36,10 @@ public class Pigeon2Gyro extends Gyro {
     private StatusSignal<Angle> yaw;
     private StatusSignal<AngularVelocity> yawVelocity;
 
-    // sim pigeon members
-    private GyroSimulation gyroSimulation;
-
     public Pigeon2Gyro(
-            String logging_prefix, int id, String can_bus_name, GyroSimulation gyroSimulation) {
+            String logging_prefix, int id, String can_bus_name) {
         super(logging_prefix);
+        
         if (!IS_SIM) {
             // Create Pigeon
             pigeon = new Pigeon2(id, can_bus_name);
@@ -60,28 +55,21 @@ public class Pigeon2Gyro extends Gyro {
 
             // Register to the odometry thread
             PhoenixOdometryThread.getInstance().registerGyro(yaw);
-        } else {
-            this.gyroSimulation = gyroSimulation;
         }
+        // In simulation, no hardware initialization needed
     }
 
     @Override
     public void readGyro() {
-        if (!IS_SIM) {
+        if (IS_SIM) {
+            // In simulation, report as disconnected so odometry-based yaw is used
+            connected = false;
+            yawPosition = new Rotation2d();
+            yawVelocityRadPerSec = 0.0;
+        } else {
             connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
             yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
             yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
-        } else {
-            PhoenixOdometryThread.getInstance()
-                    .enqueueGyroSamples(
-                            PhoenixUtil.getSimulationOdometryTimeStamps(),
-                            gyroSimulation.getCachedGyroReadings());
-
-            connected = true;
-            yawPosition = gyroSimulation.getGyroReading();
-            yawVelocityRadPerSec =
-                    Units.degreesToRadians(
-                            gyroSimulation.getMeasuredAngularVelocity().in(RadiansPerSecond));
         }
     }
 
@@ -89,8 +77,7 @@ public class Pigeon2Gyro extends Gyro {
     public void setYaw(Rotation2d yaw) {
         if (!IS_SIM) {
             pigeon.setYaw(yaw.getDegrees());
-        } else {
-            gyroSimulation.setRotation(yaw);
         }
+        // In simulation, do nothing - odometry handles yaw
     }
 }

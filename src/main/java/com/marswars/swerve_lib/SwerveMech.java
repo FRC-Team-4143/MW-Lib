@@ -25,8 +25,6 @@ import com.marswars.swerve_lib.ChassisRequest.ChassisRequestParameters;
 import com.marswars.swerve_lib.module.Module;
 import com.marswars.swerve_lib.module.ModuleTalonFX;
 import com.marswars.util.TunablePid;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 
 public class SwerveMech extends MechBase {
 
@@ -75,8 +73,6 @@ public class SwerveMech extends MechBase {
     private final Module[] modules_ = new Module[4]; // FL, FR, BL, BR
     private final Gyro gyro_;
 
-    private final SwerveDriveSimulation swerve_sim_;
-
     private final SwerveDriveKinematics kinematics_;
 
     private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
@@ -84,8 +80,7 @@ public class SwerveMech extends MechBase {
 
     public SwerveMech(
             String logging_prefix,
-            SwerveDriveConfig config,
-            DriveTrainSimulationConfig sim_config) {
+            SwerveDriveConfig config) {
         super(logging_prefix);
 
         // Configure the odom thread
@@ -93,27 +88,24 @@ public class SwerveMech extends MechBase {
                 config.FL_MODULE_CONSTANTS.drive_motor_config.canbus_name,
                 config.FL_MODULE_CONSTANTS.wheel_radius_m);
 
-        swerve_sim_ = new SwerveDriveSimulation(sim_config, Pose2d.kZero);
-
         modules_[0] =
                 new ModuleTalonFX(
-                        logging_prefix, 0, config.FL_MODULE_CONSTANTS, swerve_sim_.getModules()[0]);
+                        logging_prefix, 0, config.FL_MODULE_CONSTANTS);
         modules_[1] =
                 new ModuleTalonFX(
-                        logging_prefix, 1, config.FR_MODULE_CONSTANTS, swerve_sim_.getModules()[1]);
+                        logging_prefix, 1, config.FR_MODULE_CONSTANTS);
         modules_[2] =
                 new ModuleTalonFX(
-                        logging_prefix, 2, config.BL_MODULE_CONSTANTS, swerve_sim_.getModules()[2]);
+                        logging_prefix, 2, config.BL_MODULE_CONSTANTS);
         modules_[3] =
                 new ModuleTalonFX(
-                        logging_prefix, 3, config.BR_MODULE_CONSTANTS, swerve_sim_.getModules()[3]);
+                        logging_prefix, 3, config.BR_MODULE_CONSTANTS);
 
         gyro_ =
                 new Pigeon2Gyro(
                         logging_prefix,
                         config.PIGEON2_ID,
-                        config.PIGEON2_CANBUS_NAME,
-                        swerve_sim_.getGyroSimulation());
+                        config.PIGEON2_CANBUS_NAME);
 
         // configure the kinematics after the modules are created
         kinematics_ = new SwerveDriveKinematics(getModuleTranslations());
@@ -169,6 +161,13 @@ public class SwerveMech extends MechBase {
             // Use the angle delta from the kinematics and module deltas
             Twist2d twist = kinematics_.toTwist2d(module_deltas);
             raw_gyro_rotation = raw_gyro_rotation.plus(new Rotation2d(twist.dtheta));
+            
+            // Enqueue the calculated gyro rotation for odometry
+            // This ensures pose estimation continues working even when gyro is disconnected
+            double currentTime = Timer.getFPGATimestamp();
+            PhoenixOdometryThread.getInstance().enqueueGyroSamples(
+                new double[] {currentTime},
+                new Rotation2d[] {raw_gyro_rotation});
         }
     }
 
@@ -303,71 +302,6 @@ public class SwerveMech extends MechBase {
      */
     public Rotation2d getRawGyroRotation() {
         return raw_gyro_rotation;
-    }
-
-    /**
-     * Returns the swerve drive simulation instance.
-     *
-     * @return SwerveDriveSimulation object representing the swerve drive simulation
-     */
-    public SwerveDriveSimulation getSwerveSimulation() {
-        return swerve_sim_;
-    }
-
-    /**
-     * Applies simple direct pose control to the robot in simulation based on joystick inputs.
-     * This bypasses all swerve drive mathematics, directly updates the robot's pose,
-     * and fakes the chassis speeds to match the movement for realistic feedback.
-     * This method should only be called in simulation mode.
-     *
-     * @param joystick_twist Twist2d representing the desired movement (dx, dy, dtheta)
-     * @param translation_scale Scale factor for translation movement (meters per cycle)
-     * @param rotation_scale Scale factor for rotational movement (radians per cycle)
-     */
-    public void applySimpleSimulationControl(Twist2d joystick_twist, double translation_scale, double rotation_scale) {
-        if (swerve_sim_ != null) {
-            Pose2d current_pose = swerve_sim_.getSimulatedDriveTrainPose();
-            
-            // Calculate movement based on joystick inputs
-            double delta_x = joystick_twist.dx * translation_scale;
-            double delta_y = joystick_twist.dy * translation_scale;
-            double delta_theta = joystick_twist.dtheta * rotation_scale;
-            
-            // Calculate new pose
-            double new_x = current_pose.getX() + delta_x;
-            double new_y = current_pose.getY() + delta_y;
-            double new_rotation = current_pose.getRotation().getRadians() + delta_theta;
-            
-            Pose2d new_pose = new Pose2d(new_x, new_y, new Rotation2d(new_rotation));
-            
-            // Set the new pose directly in simulation
-            swerve_sim_.setSimulationWorldPose(new_pose);
-            
-            // Update the gyro rotation for odometry
-            raw_gyro_rotation = new_pose.getRotation();
-            
-            // Always fake the chassis speeds to match the joystick inputs
-            double loop_time = 0.02; // seconds (50 Hz)
-            
-            // Calculate chassis speeds based on actual movement per cycle
-            ChassisSpeeds target_speeds = new ChassisSpeeds(
-                (joystick_twist.dx * translation_scale) / loop_time,  // vx in m/s
-                (joystick_twist.dy * translation_scale) / loop_time,  // vy in m/s
-                (joystick_twist.dtheta * rotation_scale) / loop_time  // omega in rad/s
-            );
-            
-            // Apply light smoothing for more realistic velocity changes
-            double smooth_factor = 0.1; // Light smoothing
-            if (smooth_factor > 0.0) {
-                chassis_speeds = new ChassisSpeeds(
-                    chassis_speeds.vxMetersPerSecond * smooth_factor + target_speeds.vxMetersPerSecond * (1.0 - smooth_factor),
-                    chassis_speeds.vyMetersPerSecond * smooth_factor + target_speeds.vyMetersPerSecond * (1.0 - smooth_factor),
-                    chassis_speeds.omegaRadiansPerSecond * smooth_factor + target_speeds.omegaRadiansPerSecond * (1.0 - smooth_factor)
-                );
-            } else {
-                chassis_speeds = target_speeds;
-            }
-        }
     }
 
     /**
