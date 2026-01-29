@@ -25,7 +25,6 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import com.marswars.mechanisms.MechBase;
-import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 
 public abstract class Module extends MechBase {
 
@@ -64,19 +63,14 @@ public abstract class Module extends MechBase {
     protected final Alert steer_disconnected_alert_;
     protected final Alert steer_encoder_disconnected_alert_;
 
-    // SIM objects
-    protected final SwerveModuleSimulation simulation;
-
     public Module(
             String logging_prefix,
             int index,
-            SwerveModuleConfig config,
-            SwerveModuleSimulation simulation) {
+            SwerveModuleConfig config) {
         super(logging_prefix + "/Module" + Integer.toString(index));
 
         this.module_index_ = index;
         this.config_ = config;
-        this.simulation = simulation;
 
         drive_disconnected_alert_ =
                 new Alert(
