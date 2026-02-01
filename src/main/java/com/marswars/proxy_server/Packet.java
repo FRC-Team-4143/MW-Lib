@@ -46,6 +46,16 @@ public interface Packet {
             return false;
         }
         
+        /**
+         * Gets the timestamp as a single double value in seconds.
+         * Combines the seconds and nanoseconds into a single floating-point value.
+         *
+         * @return the timestamp in seconds (with nanosecond precision)
+         */
+        public double getSeconds() {
+            return seconds + (nanoseconds / 1_000_000_000.0);
+        }
+        
         @Override
         public String toString() {
             return String.format("Timestamp{sec=%d, nsec=%d}", seconds, nanoseconds);
