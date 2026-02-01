@@ -21,7 +21,6 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import com.marswars.util.FxMotorConfig;
 import com.marswars.util.FxMotorConfig.FxMotorType;
@@ -54,6 +53,7 @@ public class ArmMech extends MechBase {
     private final double gear_ratio_;
     private final DCMotor motor_type_;
     private final double moi_;
+    private double sim_load_torque_nm_ = 0.0; // Load torque at arm shaft for simulation
 
     // sensor inputs
     protected double position_ = 0;
@@ -275,11 +275,29 @@ public class ArmMech extends MechBase {
                 motors_[i].getSimState().setSupplyVoltage(12.0);
             }
 
-            // Set input voltage from motor controller to simulation
-            arm_sim_.setInput(motors_[0].getSimState().getMotorVoltage());
+            // Get the voltage the motor controller wants to apply
+            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            
+            // Calculate the torque required to overcome the load at the motor shaft
+            // (load torque at arm / gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            
+            // Calculate the current needed to produce this load torque
+            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            
+            // The voltage actually seen by the motor after the load consumes some current
+            // is reduced by the voltage drop across the resistance due to load current
+            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            
+            // Apply the effective voltage to the simulation
+            arm_sim_.setInput(effective_voltage);
 
             // Update simulation by 20ms
             arm_sim_.update(0.020);
+
+            // Reset the load torque after applying it (impulse load)
+            // This must be called again each cycle for sustained load
+            sim_load_torque_nm_ = 0.0;
 
             // Convert meters to motor rotations
             double motorPosition = Radians.of(arm_sim_.getAngleRads() * gear_ratio_).in(Rotations);
@@ -443,22 +461,13 @@ public class ArmMech extends MechBase {
 
     /**
      * Applies a load torque to the arm mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
      *
-     * @param torque_nm The load torque in Newton-meters (Nm). Positive values
-     *                  oppose motion.
+     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
+     *                  Positive values oppose motion in the positive direction.
      */
     public void applyLoadTorque(double torque_nm) {
-        double current_torque = motor_type_.KtNMPerAmp * getLeaderCurrent();
-        current_torque -= torque_nm;
-
-        // Calculate the new angular velocity based on the net torque
-        double angular_acceleration = current_torque / moi_;
-        double new_velocity = velocity_ + angular_acceleration * 0.020; // assuming 20ms timestep
-        double new_postion = position_ + new_velocity * 0.02;
-
-        // Apply the calculated velocity to simulation
-        if (IS_SIM) {
-            arm_sim_.setState(new_postion, new_velocity);
-        }
+        sim_load_torque_nm_ = torque_nm;
     }
 }

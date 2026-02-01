@@ -63,6 +63,7 @@ public class RollerMech extends MechBase {
     // Simulation
     private final DCMotor motor_type_;
     private final DCMotorSim roller_sim_;
+    private double sim_load_torque_nm_ = 0.0; // Load torque at roller shaft for simulation
 
     public RollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio) {
         this(logging_prefix, null, motor_configs, gear_ratio, 0.00001);
@@ -190,11 +191,29 @@ public class RollerMech extends MechBase {
                 motors_[i].getSimState().setSupplyVoltage(12.0);
             }
 
-            // Set input voltage from motor controller to simulation
-            roller_sim_.setInput(motors_[0].getSimState().getMotorVoltage());
+            // Get the voltage the motor controller wants to apply
+            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            
+            // Calculate the torque required to overcome the load at the motor shaft
+            // (load torque at roller / gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            
+            // Calculate the current needed to produce this load torque
+            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            
+            // The voltage actually seen by the motor after the load consumes some current
+            // is reduced by the voltage drop across the resistance due to load current
+            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            
+            // Apply the effective voltage to the simulation
+            roller_sim_.setInput(effective_voltage);
 
             // Update simulation by 20ms
             roller_sim_.update(0.020);
+
+            // Reset the load torque after applying it (impulse load)
+            // This must be called again each cycle for sustained load
+            sim_load_torque_nm_ = 0.0;
 
             // Convert meters to motor rotations
             double motorPosition = Radians.of(roller_sim_.getAngularPositionRad()).in(Rotations);
@@ -348,20 +367,13 @@ public class RollerMech extends MechBase {
 
     /**
      * Applies a load torque to the roller mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
      *
-     * @param torque_nm The load torque in Newton-meters (Nm). Positive values oppose motion.
+     * @param torque_nm The load torque in Newton-meters (Nm) at the roller output shaft.
+     *                  Positive values oppose motion in the positive direction.
      */
     public void applyLoadTorque(double torque_nm) {
-        double current_torque = motor_type_.KtNMPerAmp * getLeaderCurrent();
-        current_torque -= torque_nm;
-
-        // Calculate the new angular velocity based on the net torque
-        double angular_acceleration = current_torque / roller_inertia_;
-        double new_velocity = velocity_ + angular_acceleration * 0.020; // assuming 20ms timestep
-
-        // Apply the calculated velocity to simulation
-        if (IS_SIM) {
-            roller_sim_.setAngularVelocity(new_velocity);
-        }
+        sim_load_torque_nm_ = torque_nm;
     }
 }
