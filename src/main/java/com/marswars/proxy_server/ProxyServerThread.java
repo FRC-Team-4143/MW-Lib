@@ -1,17 +1,19 @@
 package com.marswars.proxy_server;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
+import com.marswars.vision.MwVisionSim;
 import com.marswars.proxy_server.OdomPacket.OdometryData;
 import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolutionData;
 import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
-import com.marswars.swerve_lib.PhoenixOdometryThread;
 import com.marswars.util.NumUtil;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -28,6 +30,49 @@ import java.util.OptionalInt;
  * Receives and processes various packet types including odometry, module states,
  * AprilTag solutions, piece detections, and timesync requests.
  * Provides bidirectional communication capabilities on a single UDP port.
+ * 
+ * <h2>PhotonVision Simulation Support</h2>
+ * In simulation mode, this class can use PhotonVision simulation to generate 
+ * simulated vision data that populates the tagSolutions queue, allowing you to 
+ * test vision-based robot code without a physical robot or vision coprocessor.
+ * 
+ * <h3>Usage Example:</h3>
+ * <pre>{@code
+ * // In your robot initialization (Robot.java or subsystem)
+ * ProxyServerThread proxyServer = ProxyServerThread.getInstance();
+ * 
+ * // Initialize vision simulation (only in simulation mode)
+ * if (RobotBase.isSimulation()) {
+ *     // Load the field layout
+ *     AprilTagFieldLayout fieldLayout = AprilTagFieldLayout.loadField(
+ *         AprilTagFields.k2025Reefscape
+ *     );
+ *     MwVisionSimulation visionSim = proxyServer.initializeVisionSimulation(fieldLayout);
+ *     
+ *     // Add default cameras (front, left, right, back)
+ *     visionSim.addDefaultCameras();
+ *     
+ *     // Or add a custom camera
+ *     // Camera mounted 0.5m forward, 0.3m up, angled 15 degrees down
+ *     Transform3d robotToCamera = new Transform3d(
+ *         new Translation3d(0.5, 0, 0.3),
+ *         new Rotation3d(0, Math.toRadians(-15), 0)
+ *     );
+ *     visionSim.addCamera("simCamera", robotToCamera);
+ * }
+ * 
+ * // In your periodic method, update with current robot pose
+ * if (RobotBase.isSimulation()) {
+ *     Pose2d currentPose = drivetrain.getPose(); // Get from your drivetrain
+ *     proxyServer.updateVisionSimulation(currentPose);
+ * }
+ * 
+ * // Vision data will now be available via getLatestTagSolutions()
+ * List<TagSolutionData> solutions = proxyServer.getLatestTagSolutions();
+ * }</pre>
+ * 
+ * @see com.marswars.vision.MwVisionSim
+ * @see TagSolutionPacket.TagSolutionData
  */
 public class ProxyServerThread extends Thread {
 
@@ -44,6 +89,9 @@ public class ProxyServerThread extends Thread {
     
     // Client connection info for sending data back
     private SocketAddress client_address_ = null;
+    
+    // Vision simulation (only used in simulation mode)
+    private MwVisionSim visionSim = null;
 
     // Singleton instance
     private static ProxyServerThread instance_ = null;
@@ -52,14 +100,9 @@ public class ProxyServerThread extends Thread {
      * Gets the singleton instance of the ProxyServerThread.
      *
      * @return the ProxyServerThread instance
-     * @throws IllegalStateException if the instance has not been configured yet
      */
     public static ProxyServerThread getInstance() {
         if (instance_ == null) {
-            throw new IllegalStateException(
-                    "ProxyServerThread not yet configured. Call configure() before"
-                            + " getInstance().");
-        } else {
             instance_ = new ProxyServerThread();
             instance_.configureServer();
         }
@@ -68,13 +111,7 @@ public class ProxyServerThread extends Thread {
 
     @Override
     public void start(){
-        if(!(RobotBase.isSimulation())){
-            configureServer();
-            super.start();
-        }
-        else{
-            System.out.println("ProxyServerThread not started - in simulation");
-        }
+        super.start();
     }
 
     @Override
@@ -396,6 +433,45 @@ public class ProxyServerThread extends Thread {
             // Drivers Station Not Connected.
             // This should not occur since this will only be TeleOp Init
             return 0;
+        }
+    }
+    
+    /**
+     * Initializes vision simulation for generating simulated vision data.
+     * This should be called in simulation mode to enable PhotonVision simulation.
+     * Only works in simulation mode - does nothing on real robot.
+     * 
+     * @param fieldLayout the AprilTag field layout to use
+     * @return the created MwVisionSimulation instance, or null if not in simulation
+     */
+    public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout fieldLayout) {
+        if (RobotBase.isSimulation() && visionSim == null) {
+            visionSim = new MwVisionSim(fieldLayout);
+            System.out.println("ProxyServerThread: Vision simulation initialized");
+        }
+        return visionSim;
+    }
+    
+    /**
+     * Updates the vision simulation with the current robot pose and generates vision data.
+     * This should be called periodically with the simulated robot pose.
+     * The generated vision data is automatically added to the tagSolutions queue.
+     * Only works in simulation mode - does nothing on real robot.
+     * 
+     * @param robotPose the current simulated robot pose
+     */
+    public void updateVisionSimulation(Pose2d robotPose) {
+        if (!RobotBase.isSimulation() || visionSim == null) {
+            return;
+        }
+        
+        // Update the vision system with current robot pose
+        visionSim.update(robotPose);
+        
+        // Get generated tag solutions and add them to the queue
+        List<TagSolutionData> simulatedSolutions = visionSim.getTagSolutions(robotPose);
+        for (TagSolutionData solution : simulatedSolutions) {
+            tagSolutions.add(solution);
         }
     }
 }
