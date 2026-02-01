@@ -17,11 +17,11 @@ public class CircularRegion extends Region {
     private StructArrayPublisher<Translation2d> array_publisher_;
 
     /**
-     * Create a Region2d, a polygon, from an array of Translation2d specifying vertices of a
-     * polygon. The polygon is created using the even-odd winding rule.
+     * Create a CircularRegion, defined by its center and radius.
      *
-     * @param points the array of Translation2d that define the vertices of the region.
-     * @param regionName the name of the region that is used for logging
+     * @param center the center point of the circular region
+     * @param radius the radius of the circular region in meters
+     * @param region_name the name of the region that is used for logging
      */
     public CircularRegion(Translation2d center, double radius, String region_name) {
         radius_ = radius;

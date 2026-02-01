@@ -72,6 +72,24 @@ public class ElevatorMech extends MechBase {
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     */
+    public ElevatorMech(
+            String logging_prefix,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension) {
+        this(
+                logging_prefix,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                1.0);
+    }
+
     /**
      * Constructs a new ElevatorMech
      *
