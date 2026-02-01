@@ -51,6 +51,7 @@ public class ElevatorMech extends MechBase {
     private final double drum_radius_;
     private final double position_to_rotations_;
     private final DCMotor motor_type_;
+    private double sim_load_torque_nm_ = 0.0; // Load torque at drum shaft for simulation
 
     // sensor inputs
     protected double position_ = 0;
@@ -304,11 +305,29 @@ public class ElevatorMech extends MechBase {
 
         // run the simulation update step here if we are simulating
         if (IS_SIM) {
-            // Set input voltage from motor controller to simulation
-            elevator_sim_.setInput(motors_[0].getSimState().getMotorVoltage());
+            // Get the voltage the motor controller wants to apply
+            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            
+            // Calculate the torque required to overcome the load at the motor shaft
+            // (load torque at drum / gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            
+            // Calculate the current needed to produce this load torque
+            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            
+            // The voltage actually seen by the motor after the load consumes some current
+            // is reduced by the voltage drop across the resistance due to load current
+            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            
+            // Apply the effective voltage to the simulation
+            elevator_sim_.setInput(effective_voltage);
 
             // Update simulation by 20ms
             elevator_sim_.update(0.020);
+
+            // Reset the load torque after applying it (impulse load)
+            // This must be called again each cycle for sustained load
+            sim_load_torque_nm_ = 0.0;
 
             // Convert meters to motor rotations
             double motorPosition =
@@ -389,7 +408,7 @@ public class ElevatorMech extends MechBase {
      * @param slot the slot to configure
      * @param config the slot config to apply
      */
-    private void configSlot(int slot, SlotConfigs config) {
+    public void configSlot(int slot, SlotConfigs config) {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {
@@ -470,6 +489,18 @@ public class ElevatorMech extends MechBase {
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
-        duty_cycle_request_.Output = duty_cycle;
+        duty_cycle_request_.Output = duty_cycle; 
+    }
+
+    /**
+     * Applies a load torque to the elevator mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm) at the drum output shaft.
+     *                  Positive values oppose motion in the positive direction.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        sim_load_torque_nm_ = torque_nm;
     }
 }
