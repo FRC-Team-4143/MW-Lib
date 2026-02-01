@@ -11,6 +11,7 @@ import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolutionData;
 import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
+import com.marswars.swerve_lib.PhoenixOdometryThread;
 import com.marswars.util.NumUtil;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -31,19 +32,39 @@ import java.util.OptionalInt;
 public class ProxyServerThread extends Thread {
 
     // Data packet queues for storing received information
-    private static final ConcurrentFifoQueue<OdometryData> odometryReadings = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<ModuleStatesData> moduleStatesReadings = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<TagSolutionData> tagSolutions = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<PieceDetectionData> pieceDetections = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<OdometryData> odometryReadings = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<ModuleStatesData> moduleStatesReadings = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<TagSolutionData> tagSolutions = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<PieceDetectionData> pieceDetections = new ConcurrentFifoQueue<>(20);
 
     // Socket Config
-    private static final int PORT = 5809; // local port to bind server
-    private static DatagramSocket socket_ = null;
-    private static final int TIMEOUT = 1; // Server receive blocking timeout
+    private final int PORT = 5809; // local port to bind server
+    private DatagramSocket socket_ = null;
+    private final int TIMEOUT = 1; // Server receive blocking timeout
     
     // Client connection info for sending data back
-    private static SocketAddress client_address_ = null;
+    private SocketAddress client_address_ = null;
 
+    // Singleton instance
+    private static ProxyServerThread instance_ = null;
+
+    /**
+     * Gets the singleton instance of the ProxyServerThread.
+     *
+     * @return the ProxyServerThread instance
+     * @throws IllegalStateException if the instance has not been configured yet
+     */
+    public static ProxyServerThread getInstance() {
+        if (instance_ == null) {
+            throw new IllegalStateException(
+                    "ProxyServerThread not yet configured. Call configure() before"
+                            + " getInstance().");
+        } else {
+            instance_ = new ProxyServerThread();
+            instance_.configureServer();
+        }
+        return instance_;
+    }
 
     @Override
     public void start(){
@@ -69,7 +90,7 @@ public class ProxyServerThread extends Thread {
      * @throws SocketException if the socket could not be opened, or the socket could not bind to
      *     the specified local port.
      */
-    public static boolean configureServer() {
+    public boolean configureServer() {
         // check if socket is already bound
         if (socket_ == null || !socket_.isBound()) {
             try {
@@ -96,7 +117,7 @@ public class ProxyServerThread extends Thread {
      * @throws SocketTimeoutException if socket receive timed out to avoid blocking.
      * @throws IOException if I/O error occurs.
      */
-    public static boolean updateData() {
+    private boolean updateData() {
 
         try {
             // clear the buffer after every message
@@ -158,7 +179,7 @@ public class ProxyServerThread extends Thread {
      * @param buffer the byte array to send
      * @return true if data was sent successfully, false if there was an error
      */
-    public static boolean sendData(byte[] buffer) {
+    public boolean sendData(byte[] buffer) {
         if (socket_ == null || !socket_.isBound()) {
             System.err.println("Socket not configured. Call configureServer() first.");
             return false;
@@ -185,7 +206,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link OdometryData} from chassis proxy
      */
-    public static List<OdometryData> getLatestOdometryReadings() {
+    public List<OdometryData> getLatestOdometryReadings() {
         return odometryReadings.toList();
     }
 
@@ -195,7 +216,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link ModuleStatesData} containing swerve module information
      */
-    public static List<ModuleStatesData> getLatestModuleStatesReadings() {
+    public List<ModuleStatesData> getLatestModuleStatesReadings() {
         return moduleStatesReadings.toList();
     }
 
@@ -205,7 +226,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return list of SwerveModuleState arrays (for backward compatibility)
      */
-    public static List<SwerveModuleState[]> getLatestModuleStatesArrays() {
+    public List<SwerveModuleState[]> getLatestModuleStatesArrays() {
         List<SwerveModuleState[]> moduleStatesArrays = new ArrayList<>();
         for (ModuleStatesData statesData : moduleStatesReadings.toList()) {
             moduleStatesArrays.add(statesData.moduleStates);
@@ -219,7 +240,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link TagSolutionData} with pose estimates and detected tag IDs
      */
-    public static List<TagSolutionData> getLatestTagSolutions() {
+    public List<TagSolutionData> getLatestTagSolutions() {
         return tagSolutions.toList();
     }   
     
@@ -229,7 +250,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link PieceDetectionData} with piece detection information
      */
-    public static List<PieceDetectionData> getLatestPieceDetections() {
+    public List<PieceDetectionData> getLatestPieceDetections() {
         return pieceDetections.toList();
     }
 
@@ -239,7 +260,7 @@ public class ProxyServerThread extends Thread {
      * @param tag_name flag name to record in log
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean snapshot(String tag_name) {
+    public boolean snapshot(String tag_name) {
         int tag_name_length = (int) NumUtil.clamp(tag_name.length(), 400);
         byte[] buffer = new byte[1 + tag_name_length];
         buffer[0] = 52; // Message ID
@@ -255,7 +276,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean syncMatchData() {
+    public boolean syncMatchData() {
         String event_name = DriverStation.getEventName();
         byte[] buffer = new byte[5 + event_name.length()];
         buffer[0] = 50; // Message ID
@@ -277,7 +298,7 @@ public class ProxyServerThread extends Thread {
      * @param request the parsed timesync request data
      * @return true if response was sent successfully, false otherwise
      */
-    public static boolean sendTimesyncResponse(TimesyncRequestData request) {
+    private boolean sendTimesyncResponse(TimesyncRequestData request) {
         // Create structured response with current server timestamps
         TimesyncResponse.TimesyncResponseData response = TimesyncResponse.createResponse(request);
         
@@ -293,7 +314,7 @@ public class ProxyServerThread extends Thread {
      * @param payload the data payload (can be null for header-only packets)
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean sendCustomPacket(byte message_id, byte[] payload) {
+    public boolean sendCustomPacket(byte message_id, byte[] payload) {
         byte[] buffer;
         
         if (payload == null || payload.length == 0) {
@@ -315,7 +336,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return SocketAddress of the last client that sent data, null if no client has connected
      */
-    public static SocketAddress getClientAddress() {
+    public SocketAddress getClientAddress() {
         return client_address_;
     }
 
@@ -324,7 +345,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return true if there is a client address available for sending data
      */
-    public static boolean hasClientConnection() {
+    public boolean hasClientConnection() {
         return client_address_ != null;
     }
 
@@ -334,7 +355,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return byte value representing match type
      */
-    private static byte serializeMatchType() {
+    private byte serializeMatchType() {
         switch (DriverStation.getMatchType()) {
             case Practice:
                 {
@@ -360,7 +381,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return byte value representing station location
      */
-    private static byte serializeAllianceStation() {
+    private byte serializeAllianceStation() {
         OptionalInt optional = DriverStation.getLocation();
         if (optional.isPresent()) {
             int station = optional.getAsInt();
