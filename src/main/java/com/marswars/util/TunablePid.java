@@ -1,6 +1,8 @@
 package com.marswars.util;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
+
 import dev.doglog.DogLog;
 import edu.wpi.first.math.controller.PIDController;
 
@@ -51,7 +53,16 @@ public class TunablePid {
                         controller.setD(newD);
                     }
                 });
-    }
+        }
+
+        public static void create(String key, PhoenixPIDController controller) {
+            DogLog.tunable(
+                    key + "/kP", controller.getP(), newP -> controller.setP(newP));
+            DogLog.tunable(
+                    key + "/kI", controller.getI(), newI -> controller.setI(newI));
+            DogLog.tunable(
+                    key + "/kD", controller.getD(), newD -> controller.setD(newD));
+        }
 
     private TunablePid() {}
 }

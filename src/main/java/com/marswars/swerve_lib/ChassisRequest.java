@@ -309,7 +309,7 @@ public interface ChassisRequest {
          * <p>This PID controller operates on heading radians and outputs a target rotational rate
          * in radians per second.
          */
-        public PhoenixPIDController HeadingController = new PhoenixPIDController(7.3, 0, 0.07);
+        public PhoenixPIDController HeadingController = new PhoenixPIDController(0, 0, 0.0);
 
         /** The perspective to use when determining which direction is forward. */
         public XPositiveReference XPositiveReference =
@@ -468,6 +468,19 @@ public interface ChassisRequest {
         public FieldCentricFacingAngle withXPositiveReference(
                 XPositiveReference xPositiveReference) {
             this.XPositiveReference = xPositiveReference;
+            return this;
+        }
+
+        /**
+         * Sets the PID controller used to maintain the desired heading. Users can specify the PID
+         * gains to change how aggressively to maintain heading.
+         *
+         * @param headingController The PID controller used to maintain the desired heading.
+         * @return this request
+         */
+        public FieldCentricFacingAngle withHeadingController(
+                PhoenixPIDController headingController) {
+            this.HeadingController = headingController;
             return this;
         }
     }

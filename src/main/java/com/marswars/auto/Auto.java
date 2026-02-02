@@ -39,6 +39,13 @@ public class Auto extends SequentialCommandGroup {
     return (Trajectory<SwerveSample>) trajectories.get(name);
   }
 
+  public Pose2d getStartPose() {
+    if (trajectory_list_.isEmpty() || trajectory_list_.get(0).length == 0) {
+      return Pose2d.kZero;
+    }
+    return trajectory_list_.get(0)[0];
+  }
+
   /** 
    * Get the full path as an array of Pose2d, flipped for alliance if needed
    * 
