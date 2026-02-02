@@ -42,6 +42,9 @@ repositories {
   maven {
     url = "https://maven.photonvision.org/repository/snapshots"
   }
+  maven {
+    url = "https://frcmaven.wpi.edu/artifactory/sleipnirgroup-mvn-release/"
+  }
 }
 if (project.hasProperty('releaseMode')) {
   wpilibRepositories.addAllReleaseRepositories(project)
@@ -97,6 +100,10 @@ dependencies {
     implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.1.12"
     implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"
+    
+    // Choreo
+    implementation "choreo:ChoreoLib-java:2026.0.1"
+    implementation "com.google.code.gson:gson:2.11.0"
     
     // PhotonVision for simulation only
     implementation "org.photonvision:photonlib-java:v2026.1.1"
