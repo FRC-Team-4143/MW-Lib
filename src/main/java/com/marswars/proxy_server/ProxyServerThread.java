@@ -1,11 +1,14 @@
 package com.marswars.proxy_server;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
+import com.marswars.vision.MwVisionSim;
 import com.marswars.proxy_server.OdomPacket.OdometryData;
 import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
@@ -27,33 +30,88 @@ import java.util.OptionalInt;
  * Receives and processes various packet types including odometry, module states,
  * AprilTag solutions, piece detections, and timesync requests.
  * Provides bidirectional communication capabilities on a single UDP port.
+ * 
+ * <h2>PhotonVision Simulation Support</h2>
+ * In simulation mode, this class can use PhotonVision simulation to generate 
+ * simulated vision data that populates the tagSolutions queue, allowing you to 
+ * test vision-based robot code without a physical robot or vision coprocessor.
+ * 
+ * <h3>Usage Example:</h3>
+ * <pre>{@code
+ * // In your robot initialization (Robot.java or subsystem)
+ * ProxyServerThread proxyServer = ProxyServerThread.getInstance();
+ * 
+ * // Initialize vision simulation (only in simulation mode)
+ * if (RobotBase.isSimulation()) {
+ *     // Load the field layout
+ *     AprilTagFieldLayout fieldLayout = AprilTagFieldLayout.loadField(
+ *         AprilTagFields.k2025Reefscape
+ *     );
+ *     MwVisionSimulation visionSim = proxyServer.initializeVisionSimulation(fieldLayout);
+ *     
+ *     // Add default cameras (front, left, right, back)
+ *     visionSim.addDefaultCameras();
+ *     
+ *     // Or add a custom camera
+ *     // Camera mounted 0.5m forward, 0.3m up, angled 15 degrees down
+ *     Transform3d robotToCamera = new Transform3d(
+ *         new Translation3d(0.5, 0, 0.3),
+ *         new Rotation3d(0, Math.toRadians(-15), 0)
+ *     );
+ *     visionSim.addCamera("simCamera", robotToCamera);
+ * }
+ * 
+ * // In your periodic method, update with current robot pose
+ * if (RobotBase.isSimulation()) {
+ *     Pose2d currentPose = drivetrain.getPose(); // Get from your drivetrain
+ *     proxyServer.updateVisionSimulation(currentPose);
+ * }
+ * 
+ * // Vision data will now be available via getLatestTagSolutions()
+ * List<TagSolutionData> solutions = proxyServer.getLatestTagSolutions();
+ * }</pre>
+ * 
+ * @see com.marswars.vision.MwVisionSim
+ * @see TagSolutionPacket.TagSolutionData
  */
 public class ProxyServerThread extends Thread {
 
     // Data packet queues for storing received information
-    private static final ConcurrentFifoQueue<OdometryData> odometryReadings = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<ModuleStatesData> moduleStatesReadings = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<TagSolutionData> tagSolutions = new ConcurrentFifoQueue<>(20);
-    private static final ConcurrentFifoQueue<PieceDetectionData> pieceDetections = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<OdometryData> odometryReadings = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<ModuleStatesData> moduleStatesReadings = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<TagSolutionData> tagSolutions = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<PieceDetectionData> pieceDetections = new ConcurrentFifoQueue<>(20);
 
     // Socket Config
-    private static final int PORT = 5809; // local port to bind server
-    private static DatagramSocket socket_ = null;
-    private static final int TIMEOUT = 1; // Server receive blocking timeout
+    private final int PORT = 5809; // local port to bind server
+    private DatagramSocket socket_ = null;
+    private final int TIMEOUT = 1; // Server receive blocking timeout
     
     // Client connection info for sending data back
-    private static SocketAddress client_address_ = null;
+    private SocketAddress client_address_ = null;
+    
+    // Vision simulation (only used in simulation mode)
+    private MwVisionSim visionSim = null;
 
+    // Singleton instance
+    private static ProxyServerThread instance_ = null;
+
+    /**
+     * Gets the singleton instance of the ProxyServerThread.
+     *
+     * @return the ProxyServerThread instance
+     */
+    public static ProxyServerThread getInstance() {
+        if (instance_ == null) {
+            instance_ = new ProxyServerThread();
+            instance_.configureServer();
+        }
+        return instance_;
+    }
 
     @Override
     public void start(){
-        if(!(RobotBase.isSimulation())){
-            configureServer();
-            super.start();
-        }
-        else{
-            System.out.println("ProxyServerThread not started - in simulation");
-        }
+        super.start();
     }
 
     @Override
@@ -69,7 +127,7 @@ public class ProxyServerThread extends Thread {
      * @throws SocketException if the socket could not be opened, or the socket could not bind to
      *     the specified local port.
      */
-    public static boolean configureServer() {
+    public boolean configureServer() {
         // check if socket is already bound
         if (socket_ == null || !socket_.isBound()) {
             try {
@@ -96,7 +154,7 @@ public class ProxyServerThread extends Thread {
      * @throws SocketTimeoutException if socket receive timed out to avoid blocking.
      * @throws IOException if I/O error occurs.
      */
-    public static boolean updateData() {
+    private boolean updateData() {
 
         try {
             // clear the buffer after every message
@@ -158,7 +216,7 @@ public class ProxyServerThread extends Thread {
      * @param buffer the byte array to send
      * @return true if data was sent successfully, false if there was an error
      */
-    public static boolean sendData(byte[] buffer) {
+    public boolean sendData(byte[] buffer) {
         if (socket_ == null || !socket_.isBound()) {
             System.err.println("Socket not configured. Call configureServer() first.");
             return false;
@@ -185,7 +243,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link OdometryData} from chassis proxy
      */
-    public static List<OdometryData> getLatestOdometryReadings() {
+    public List<OdometryData> getLatestOdometryReadings() {
         return odometryReadings.toList();
     }
 
@@ -195,7 +253,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link ModuleStatesData} containing swerve module information
      */
-    public static List<ModuleStatesData> getLatestModuleStatesReadings() {
+    public List<ModuleStatesData> getLatestModuleStatesReadings() {
         return moduleStatesReadings.toList();
     }
 
@@ -205,7 +263,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return list of SwerveModuleState arrays (for backward compatibility)
      */
-    public static List<SwerveModuleState[]> getLatestModuleStatesArrays() {
+    public List<SwerveModuleState[]> getLatestModuleStatesArrays() {
         List<SwerveModuleState[]> moduleStatesArrays = new ArrayList<>();
         for (ModuleStatesData statesData : moduleStatesReadings.toList()) {
             moduleStatesArrays.add(statesData.moduleStates);
@@ -219,7 +277,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link TagSolutionData} with pose estimates and detected tag IDs
      */
-    public static List<TagSolutionData> getLatestTagSolutions() {
+    public List<TagSolutionData> getLatestTagSolutions() {
         return tagSolutions.toList();
     }   
     
@@ -229,7 +287,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return list of recent {@link PieceDetectionData} with piece detection information
      */
-    public static List<PieceDetectionData> getLatestPieceDetections() {
+    public List<PieceDetectionData> getLatestPieceDetections() {
         return pieceDetections.toList();
     }
 
@@ -239,7 +297,7 @@ public class ProxyServerThread extends Thread {
      * @param tag_name flag name to record in log
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean snapshot(String tag_name) {
+    public boolean snapshot(String tag_name) {
         int tag_name_length = (int) NumUtil.clamp(tag_name.length(), 400);
         byte[] buffer = new byte[1 + tag_name_length];
         buffer[0] = 52; // Message ID
@@ -255,7 +313,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean syncMatchData() {
+    public boolean syncMatchData() {
         String event_name = DriverStation.getEventName();
         byte[] buffer = new byte[5 + event_name.length()];
         buffer[0] = 50; // Message ID
@@ -277,7 +335,7 @@ public class ProxyServerThread extends Thread {
      * @param request the parsed timesync request data
      * @return true if response was sent successfully, false otherwise
      */
-    public static boolean sendTimesyncResponse(TimesyncRequestData request) {
+    private boolean sendTimesyncResponse(TimesyncRequestData request) {
         // Create structured response with current server timestamps
         TimesyncResponse.TimesyncResponseData response = TimesyncResponse.createResponse(request);
         
@@ -293,7 +351,7 @@ public class ProxyServerThread extends Thread {
      * @param payload the data payload (can be null for header-only packets)
      * @return true if packet was sent successfully, false otherwise
      */
-    public static boolean sendCustomPacket(byte message_id, byte[] payload) {
+    public boolean sendCustomPacket(byte message_id, byte[] payload) {
         byte[] buffer;
         
         if (payload == null || payload.length == 0) {
@@ -315,7 +373,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return SocketAddress of the last client that sent data, null if no client has connected
      */
-    public static SocketAddress getClientAddress() {
+    public SocketAddress getClientAddress() {
         return client_address_;
     }
 
@@ -324,7 +382,7 @@ public class ProxyServerThread extends Thread {
      * 
      * @return true if there is a client address available for sending data
      */
-    public static boolean hasClientConnection() {
+    public boolean hasClientConnection() {
         return client_address_ != null;
     }
 
@@ -334,7 +392,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return byte value representing match type
      */
-    private static byte serializeMatchType() {
+    private byte serializeMatchType() {
         switch (DriverStation.getMatchType()) {
             case Practice:
                 {
@@ -360,7 +418,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return byte value representing station location
      */
-    private static byte serializeAllianceStation() {
+    private byte serializeAllianceStation() {
         OptionalInt optional = DriverStation.getLocation();
         if (optional.isPresent()) {
             int station = optional.getAsInt();
@@ -375,6 +433,45 @@ public class ProxyServerThread extends Thread {
             // Drivers Station Not Connected.
             // This should not occur since this will only be TeleOp Init
             return 0;
+        }
+    }
+    
+    /**
+     * Initializes vision simulation for generating simulated vision data.
+     * This should be called in simulation mode to enable PhotonVision simulation.
+     * Only works in simulation mode - does nothing on real robot.
+     * 
+     * @param fieldLayout the AprilTag field layout to use
+     * @return the created MwVisionSimulation instance, or null if not in simulation
+     */
+    public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout fieldLayout) {
+        if (RobotBase.isSimulation() && visionSim == null) {
+            visionSim = new MwVisionSim(fieldLayout);
+            System.out.println("ProxyServerThread: Vision simulation initialized");
+        }
+        return visionSim;
+    }
+    
+    /**
+     * Updates the vision simulation with the current robot pose and generates vision data.
+     * This should be called periodically with the simulated robot pose.
+     * The generated vision data is automatically added to the tagSolutions queue.
+     * Only works in simulation mode - does nothing on real robot.
+     * 
+     * @param robotPose the current simulated robot pose
+     */
+    public void updateVisionSimulation(Pose2d robotPose) {
+        if (!RobotBase.isSimulation() || visionSim == null) {
+            return;
+        }
+        
+        // Update the vision system with current robot pose
+        visionSim.update(robotPose);
+        
+        // Get generated tag solutions and add them to the queue
+        List<TagSolutionData> simulatedSolutions = visionSim.getTagSolutions(robotPose);
+        for (TagSolutionData solution : simulatedSolutions) {
+            tagSolutions.add(solution);
         }
     }
 }
