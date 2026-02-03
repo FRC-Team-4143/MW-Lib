@@ -53,6 +53,15 @@ public abstract class MwSubsystem<
     }
 
     /**
+     * Gets the current state of the state machine
+     *
+     * @return the current state of the state machine
+     */
+    public StateType getSystemState() {
+        return system_state_;
+    }
+
+    /**
      * DO NOT OVERRIDE THIS METHOD IN THE BASE CLASS IF YOU DO, BAD THINGS WILL HAPPEN! YOUR
      * SUBSYSTEM WILL NOT TICK CORRECTLY
      */
