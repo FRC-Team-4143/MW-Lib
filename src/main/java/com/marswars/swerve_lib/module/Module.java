@@ -103,7 +103,7 @@ public abstract class Module extends MechBase {
         // Apply setpoints
         switch (DriveMode) {
             case CLOSED_LOOP ->
-                    setDriveVelocity(state.speedMetersPerSecond / config_.wheel_radius_m);
+                    setDriveVelocity(state.speedMetersPerSecond / config_.wheel_radius_m * config_.module_type.driveRatio);
             case OPEN_LOOP ->
                     setDriveOpenLoop(state.speedMetersPerSecond / config_.speed_at_12_volts * 12.0);
         }
@@ -132,12 +132,12 @@ public abstract class Module extends MechBase {
 
     /** Returns the current drive position of the module in meters. */
     public double getPositionMeters() {
-        return drive_position_rad_ * config_.wheel_radius_m;
+        return (drive_position_rad_ / config_.module_type.driveRatio) * config_.wheel_radius_m;
     }
 
     /** Returns the current drive velocity of the module in meters per second. */
     public double getVelocityMetersPerSec() {
-        return drive_velocity_rad_per_sec_ * config_.wheel_radius_m;
+        return (drive_velocity_rad_per_sec_ / config_.module_type.driveRatio) * config_.wheel_radius_m;
     }
 
     /** Returns the module position (turn angle and drive position). */
