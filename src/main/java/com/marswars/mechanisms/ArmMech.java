@@ -227,7 +227,7 @@ public class ArmMech extends MechBase {
         moi_ = SingleJointedArmSim.estimateMOI(length, mass_kg);
         arm_sim_ = new SingleJointedArmSim(
                 motor_type_, // Motor type
-                gear_ratio,
+                1.0 / gear_ratio,
                 moi_,
                 length, // Length of the arm (meters)
                 min_angle, // Minimum angle (radians)

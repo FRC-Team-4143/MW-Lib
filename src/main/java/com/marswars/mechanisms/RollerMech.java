@@ -149,7 +149,7 @@ public class RollerMech extends MechBase {
         roller_sim_ =
                 new DCMotorSim(
                         LinearSystemId.createDCMotorSystem(
-                                motor_type_, roller_inertia_, gear_ratio_),
+                                motor_type_, roller_inertia_, 1.0 / gear_ratio_),
                         motor_type_);
 
         // Setup tunable PIDs

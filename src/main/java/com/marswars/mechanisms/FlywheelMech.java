@@ -138,7 +138,7 @@ public class FlywheelMech extends MechBase {
         flywheel_sim_ =
                 new FlywheelSim(
                         LinearSystemId.createFlywheelSystem(
-                                motor_type_, wheel_inertia_, gear_ratio_),
+                                motor_type_, wheel_inertia_, 1.0 / gear_ratio_),
                         motor_type_);
 
         // Setup tunable PIDs
