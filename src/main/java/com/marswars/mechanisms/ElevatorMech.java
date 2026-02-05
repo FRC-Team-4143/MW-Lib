@@ -69,7 +69,7 @@ public class ElevatorMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO drum
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
@@ -96,7 +96,7 @@ public class ElevatorMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO drum
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
@@ -128,7 +128,7 @@ public class ElevatorMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO drum
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
@@ -160,7 +160,7 @@ public class ElevatorMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO drum
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
@@ -195,7 +195,7 @@ public class ElevatorMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO drum
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param drum_radius Radius of the drum in meters
      * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
      * @param max_extension Maximum extension of the elevator in meters (Simulation only)
@@ -220,11 +220,16 @@ public class ElevatorMech extends MechBase {
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
+        // MW-Lib convention: gear_ratio is motor/mechanism
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio;
+        
         // load the motors
         ConstructedMotors configured_motors =
                 configMotors(
                         motor_configs,
-                        gear_ratio,
+                        sensor_to_mech_ratio,
                         (cfg) -> {
                             // Configure the motor for position & velocity control with gravity
                             // compensation
@@ -327,8 +332,8 @@ public class ElevatorMech extends MechBase {
             double controller_voltage = motors_[0].getSimState().getMotorVoltage();
             
             // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at drum / gear ratio = load torque at motor)
-            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            // (load torque at drum * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
@@ -347,13 +352,15 @@ public class ElevatorMech extends MechBase {
             // This must be called again each cycle for sustained load
             sim_load_torque_nm_ = 0.0;
 
-            // Convert meters to motor rotations
-            double motorPosition =
-                    elevator_sim_.getPositionMeters() * position_to_rotations_ * gear_ratio_;
-            double motorVelocity =
-                    elevator_sim_.getVelocityMetersPerSecond()
-                            * position_to_rotations_
-                            * gear_ratio_;
+            // Convert mechanism position to motor position
+            // position_to_rotations_ converts meters to mechanism rotations
+            // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
+            double mechanismRotations = elevator_sim_.getPositionMeters() * position_to_rotations_;
+            double mechanismRotationsPerSec = 
+                    elevator_sim_.getVelocityMetersPerSecond() * position_to_rotations_;
+            
+            double motorPosition = mechanismRotations * gear_ratio_;
+            double motorVelocity = mechanismRotationsPerSec * gear_ratio_;
 
             for(int i = 0; i < motors_.length; i++) {
                 motors_[i].getSimState().setRawRotorPosition(motorPosition);

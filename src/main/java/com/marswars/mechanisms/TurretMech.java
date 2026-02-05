@@ -10,7 +10,7 @@ public class TurretMech extends RollerMech {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs Configuration for the turret motor
-     * @param gear_ratio Gear ratio from motor TO turret
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param moi Moment of inertia of the turret in kg*m^2 (Simulation only)
      */
     public TurretMech(
@@ -27,7 +27,7 @@ public class TurretMech extends RollerMech {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs Configuration for the turret motor
-     * @param gear_ratio Gear ratio from motor TO turret
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param moi Moment of inertia of the turret in kg*m^2 (Simulation only)
      */
     public TurretMech(
