@@ -108,7 +108,12 @@ public class RollerMech extends MechBase {
         gear_ratio_ = gear_ratio;
         roller_inertia_ = roller_inertia;
 
-        ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio_);
+        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // Therefore we need the inverse
+        double sensor_to_mech_ratio = 1.0 / gear_ratio_;
+        
+        ConstructedMotors configured_motors = configMotors(motor_configs, sensor_to_mech_ratio);
 
         // Store system parameters
         position_request_ = new PositionVoltage(0).withSlot(0);
@@ -215,11 +220,17 @@ public class RollerMech extends MechBase {
             // This must be called again each cycle for sustained load
             sim_load_torque_nm_ = 0.0;
 
-            // Convert meters to motor rotations
-            double motorPosition = Radians.of(roller_sim_.getAngularPositionRad()).in(Rotations);
-            double motorVelocity =
-                    RadiansPerSecond.of(roller_sim_.getAngularVelocityRadPerSec())
-                            .in(RotationsPerSecond);
+            // The simulation gives mechanism (output) position/velocity in radians
+            // setRawRotorPosition expects raw rotor (motor) position in rotations
+            // Since gear_ratio_ = mechanism/motor, we need motor = mechanism / gear_ratio_
+            double mechanismPositionRad = roller_sim_.getAngularPositionRad();
+            double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
+            
+            double motorPositionRad = mechanismPositionRad / gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            
+            double motorPosition = Radians.of(motorPositionRad).in(Rotations);
+            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
 
             for(int i = 0; i < motors_.length; i++) {
                 motors_[i].getSimState().setRawRotorPosition(motorPosition);

@@ -100,7 +100,12 @@ public class FlywheelMech extends MechBase {
         this.velocity_request_ = new VelocityVoltage(0).withSlot(1);
         this.duty_cycle_request_ = new DutyCycleOut(0);
 
-        ConstructedMotors configured_motors = configMotors(motor_configs, gear_ratio);
+        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // Therefore we need the inverse
+        double sensor_to_mech_ratio = 1.0 / gear_ratio;
+        
+        ConstructedMotors configured_motors = configMotors(motor_configs, sensor_to_mech_ratio);
         motors_ = configured_motors.motors;
         signals_ = configured_motors.signals;
 
@@ -197,10 +202,12 @@ public class FlywheelMech extends MechBase {
             // This must be called again each cycle for sustained load
             sim_load_torque_nm_ = 0.0;
 
-            // Convert meters to motor rotations
-            double motorVelocity =
-                    RadiansPerSecond.of(flywheel_sim_.getAngularVelocityRadPerSec() * gear_ratio_)
-                            .in(RotationsPerSecond);
+            // Convert mechanism velocity to motor velocity
+            // gear_ratio_ = mechanism/motor, so motor = mechanism / gear_ratio_
+            double mechanismVelocityRadPerSec = flywheel_sim_.getAngularVelocityRadPerSec();
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            
+            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
             position_ += motorVelocity * 0.020;
 
             for(int i = 0; i < motors_.length; i++) {

@@ -178,9 +178,14 @@ public class ArmMech extends MechBase {
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
+        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // Therefore we need the inverse
+        double sensor_to_mech_ratio = 1.0 / gear_ratio;
+        
         ConstructedMotors configured_motors = configMotors(
                 motor_configs,
-                gear_ratio,
+                sensor_to_mech_ratio,
                 (cfg) -> {
                     // Configure the motor for position & velocity control with gravity
                     // compensation
@@ -299,10 +304,16 @@ public class ArmMech extends MechBase {
             // This must be called again each cycle for sustained load
             sim_load_torque_nm_ = 0.0;
 
-            // Convert meters to motor rotations
-            double motorPosition = Radians.of(arm_sim_.getAngleRads() * gear_ratio_).in(Rotations);
-            double motorVelocity = RadiansPerSecond.of(arm_sim_.getVelocityRadPerSec() * gear_ratio_)
-                    .in(RotationsPerSecond);
+            // Convert mechanism position to motor position
+            // gear_ratio_ = mechanism/motor, so motor = mechanism / gear_ratio_
+            double mechanismPositionRad = arm_sim_.getAngleRads();
+            double mechanismVelocityRadPerSec = arm_sim_.getVelocityRadPerSec();
+            
+            double motorPositionRad = mechanismPositionRad / gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            
+            double motorPosition = Radians.of(motorPositionRad).in(Rotations);
+            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
 
             for (int i = 0; i < motors_.length; i++) {
                 motors_[i].getSimState().setRawRotorPosition(motorPosition);

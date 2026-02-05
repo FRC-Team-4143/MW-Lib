@@ -220,11 +220,16 @@ public class ElevatorMech extends MechBase {
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
+        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // Therefore we need the inverse
+        double sensor_to_mech_ratio = 1.0 / gear_ratio;
+        
         // load the motors
         ConstructedMotors configured_motors =
                 configMotors(
                         motor_configs,
-                        gear_ratio,
+                        sensor_to_mech_ratio,
                         (cfg) -> {
                             // Configure the motor for position & velocity control with gravity
                             // compensation
@@ -347,13 +352,15 @@ public class ElevatorMech extends MechBase {
             // This must be called again each cycle for sustained load
             sim_load_torque_nm_ = 0.0;
 
-            // Convert meters to motor rotations
-            double motorPosition =
-                    elevator_sim_.getPositionMeters() * position_to_rotations_ * gear_ratio_;
-            double motorVelocity =
-                    elevator_sim_.getVelocityMetersPerSecond()
-                            * position_to_rotations_
-                            * gear_ratio_;
+            // Convert mechanism position to motor position
+            // position_to_rotations_ converts meters to mechanism rotations
+            // gear_ratio_ = mechanism/motor, so motor = mechanism / gear_ratio_
+            double mechanismRotations = elevator_sim_.getPositionMeters() * position_to_rotations_;
+            double mechanismRotationsPerSec = 
+                    elevator_sim_.getVelocityMetersPerSecond() * position_to_rotations_;
+            
+            double motorPosition = mechanismRotations / gear_ratio_;
+            double motorVelocity = mechanismRotationsPerSec / gear_ratio_;
 
             for(int i = 0; i < motors_.length; i++) {
                 motors_[i].getSimState().setRawRotorPosition(motorPosition);
