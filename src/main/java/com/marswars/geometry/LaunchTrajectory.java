@@ -2,7 +2,6 @@ package com.marswars.geometry;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class LaunchTrajectory {
@@ -78,12 +77,23 @@ public class LaunchTrajectory {
         return fixedAngle_;
     }
 
+    /**
+     * Calculates the launch velocity needed to hit the target from the given position
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @return launch velocity in meters / second, NaN if impossible
+     */
     private double calculateLaunchVelocity(Pose2d position) {
         double range = target_.toTranslation2d().getDistance(position.getTranslation());
         Double velocity = range_to_velocity_.get(range);
         return velocity != null ? velocity : Double.NaN;
     }
 
+    /**
+     * Calculates the launch velocity needed to hit the target from the given position with the given angle
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @param angle launch angle in radians
+     * @return launch velocity in meters / second, NaN if impossible
+     */
     private double calculateVelocityForAngle(Pose2d position, double angle) {
         double x = target_.toTranslation2d().getDistance(position.getTranslation());
         double h = height_;
@@ -103,6 +113,12 @@ public class LaunchTrajectory {
         return Math.sqrt(v_squared);
     }
 
+    /**
+     * Calculates the launch angle needed to hit the target from the given position with the given velocity
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @param v launch velocity in meters / second
+     * @return launch angle in radians, NaN if impossible
+     */
     private double calculateLaunchAngle(Pose2d position, double v) {
         double x = target_.toTranslation2d().getDistance(position.getTranslation());
         
@@ -124,6 +140,11 @@ public class LaunchTrajectory {
         return Math.atan2(numerator, denomenator);
     }
 
+    /**
+     * Calculates the heading angle needed to face the target from the given position
+     * @param position robot position (X and Y) in the form of a Pose2d
+     * @return heading angle in radians
+     */
     private double calculateHeadingAngle(Pose2d position) {
         double deltaX = target_.getX() - position.getX();
         double deltaY = target_.getY() - position.getY();
@@ -141,6 +162,15 @@ public class LaunchTrajectory {
         target_ = target;
         height_ = target.getZ() - launch_height_;
     }
+
+    /**
+     * Setter for highArc; change the arc type live (only valid for variable angle shooters)
+     * @param highArc true for higher arc, false for lower arc
+     */
+    public void setHighArc(boolean highArc) {
+        highArc_ = highArc;
+    }
+
     /**
      * Gives a valid shooter trajectory for a given robot position
      * @param position robot position (X and Y) in the form of a Pose2d
