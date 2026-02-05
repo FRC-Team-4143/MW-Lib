@@ -61,9 +61,9 @@ import java.util.Optional;
 public class MwVisionSim {
     private static final String VISION_SIM_LABEL = "proxy-vision-sim";
     
-    private final VisionSystemSim visionSim;
-    private final List<CameraSimulation> cameras;
-    private final AprilTagFieldLayout fieldLayout;
+    private final VisionSystemSim vision_sim_;
+    private final List<CameraSimulation> cameras_;
+    private final AprilTagFieldLayout field_layout_;
     
     /**
      * Represents a single simulated camera with its properties and transform.
@@ -73,10 +73,32 @@ public class MwVisionSim {
         public final PhotonCameraSim cameraSim;
         public final Transform3d robotToCamera;
         
-        public CameraSimulation(String cameraName, SimCameraProperties properties, Transform3d robotToCamera) {
-            this.camera = new PhotonCamera(cameraName);
+        /** 
+         * Creates a new CameraSimulation with the specified parameters.
+         * 
+         * @param camera_name the name of the camera
+         * @param properties the camera properties (resolution, FOV, noise, etc.)
+         * @param robot_to_camera transform from robot center to camera
+         */
+        public CameraSimulation(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera) {
+            this.camera = new PhotonCamera(camera_name);
             this.cameraSim = new PhotonCameraSim(camera, properties);
-            this.robotToCamera = robotToCamera;
+            this.robotToCamera = robot_to_camera;
+        }
+
+        /** 
+         * Creates a new CameraSimulation with the specified parameters and max sight range.
+         * 
+         * @param camera_name the name of the camera
+         * @param properties the camera properties (resolution, FOV, noise, etc.)
+         * @param robot_to_camera transform from robot center to camera
+         * @param max_sight_range maximum sight range of the camera in meters
+         */
+        public CameraSimulation(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera, double max_sight_range) {
+            this.camera = new PhotonCamera(camera_name);
+            this.cameraSim = new PhotonCameraSim(camera, properties);
+            this.robotToCamera = robot_to_camera;
+            this.cameraSim.setMaxSightRange(max_sight_range);
         }
     }
     
@@ -84,15 +106,15 @@ public class MwVisionSim {
      * Creates a new VisionSimulation with the specified field layout.
      * The vision system will be labeled "proxy-vision-sim" in NetworkTables.
      * 
-     * @param fieldLayout the AprilTag field layout to use for the simulation
+     * @param field_layout the AprilTag field layout to use for the simulation
      */
-    public MwVisionSim(AprilTagFieldLayout fieldLayout) {
-        this.visionSim = new VisionSystemSim(VISION_SIM_LABEL);
-        this.cameras = new ArrayList<>();
-        this.fieldLayout = fieldLayout;
+    public MwVisionSim(AprilTagFieldLayout field_layout) {
+        this.vision_sim_ = new VisionSystemSim(VISION_SIM_LABEL);
+        this.cameras_ = new ArrayList<>();
+        this.field_layout_ = field_layout;
         
-        if (fieldLayout != null) {
-            visionSim.addAprilTags(fieldLayout);
+        if (field_layout != null) {
+            vision_sim_.addAprilTags(field_layout);
         }
     }
     
@@ -104,18 +126,18 @@ public class MwVisionSim {
      * @param field the predefined AprilTag field (e.g., AprilTagFields.k2025Reefscape)
      */
     public MwVisionSim(AprilTagFields field) {
-        this.visionSim = new VisionSystemSim(VISION_SIM_LABEL);
-        this.cameras = new ArrayList<>();
+        this.vision_sim_ = new VisionSystemSim(VISION_SIM_LABEL);
+        this.cameras_ = new ArrayList<>();
         
         AprilTagFieldLayout layout = null;
         try {
             layout = AprilTagFieldLayout.loadField(field);
-            visionSim.addAprilTags(layout);
+            vision_sim_.addAprilTags(layout);
         } catch (Exception e) {
             System.err.println("Failed to load AprilTag field layout: " + e.getMessage());
             e.printStackTrace();
         }
-        this.fieldLayout = layout;
+        this.field_layout_ = layout;
     }
     
     /**
@@ -130,37 +152,37 @@ public class MwVisionSim {
      */
     public void addDefaultCameras() {
         // Camera mounting height and distance from center
-        double cameraHeight = 0.3; // meters up from robot center
-        double cameraOffset = 0.3; // meters from robot center
-        double cameraAngle = Math.toRadians(-20); // angle down from horizontal
+        double camera_height = 0.3; // meters up from robot center
+        double camera_offset = 0.3; // meters from robot center
+        double camera_angle = Math.toRadians(-20); // angle down from horizontal
         
         // Front camera - facing forward
-        Transform3d frontCamera = new Transform3d(
-            new Translation3d(cameraOffset, 0, cameraHeight),
-            new Rotation3d(0, cameraAngle, 0)
+        Transform3d front_camera = new Transform3d(
+            new Translation3d(camera_offset, 0, camera_height),
+            new Rotation3d(0, camera_angle, 0)
         );
-        addCamera("camera-front", frontCamera);
+        addCamera("camera-front", front_camera);
         
         // Left camera - facing left (90 degrees)
-        Transform3d leftCamera = new Transform3d(
-            new Translation3d(0, cameraOffset, cameraHeight),
-            new Rotation3d(0, cameraAngle, Math.toRadians(90))
+        Transform3d left_camera = new Transform3d(
+            new Translation3d(0, camera_offset, camera_height),
+            new Rotation3d(0, camera_angle, Math.toRadians(90))
         );
-        addCamera("camera-left", leftCamera);
+        addCamera("camera-left", left_camera);
         
         // Right camera - facing right (-90 degrees)
-        Transform3d rightCamera = new Transform3d(
-            new Translation3d(0, -cameraOffset, cameraHeight),
-            new Rotation3d(0, cameraAngle, Math.toRadians(-90))
+        Transform3d right_camera = new Transform3d(
+            new Translation3d(0, -camera_offset, camera_height),
+            new Rotation3d(0, camera_angle, Math.toRadians(-90))
         );
-        addCamera("camera-right", rightCamera);
+        addCamera("camera-right", right_camera);
         
         // Back camera - facing backward (180 degrees)
-        Transform3d backCamera = new Transform3d(
-            new Translation3d(-cameraOffset, 0, cameraHeight),
-            new Rotation3d(0, cameraAngle, Math.toRadians(180))
+        Transform3d back_camera = new Transform3d(
+            new Translation3d(-camera_offset, 0, camera_height),
+            new Rotation3d(0, camera_angle, Math.toRadians(180))
         );
-        addCamera("camera-back", backCamera);
+        addCamera("camera-back", back_camera);
         
         System.out.println("VisionSimulation: Added 4 default cameras (front, left, right, back)");
     }
@@ -168,32 +190,34 @@ public class MwVisionSim {
     /**
      * Adds a simulated camera to the vision system.
      * 
-     * @param cameraName the name of the camera
-     * @param robotToCamera transform from robot center to camera
+     * @param camera_name the name of the camera
+     * @param robot_to_camera transform from robot center to camera
      * @return the created CameraSimulation object
      */
-    public CameraSimulation addCamera(String cameraName, Transform3d robotToCamera) {
-        return addCamera(cameraName, createDefaultCameraProperties(), robotToCamera);
+    public CameraSimulation addCamera(String camera_name, Transform3d robot_to_camera) {
+        // Use default camera properties and max sight range of 9.0 meters (roughly half the field length)
+        return addCamera(camera_name, createDefaultCameraProperties(), robot_to_camera, 9.0);
     }
     
     /**
      * Adds a simulated camera with custom properties to the vision system.
      * 
-     * @param cameraName the name of the camera
+     * @param camera_name the name of the camera
      * @param properties the camera properties (resolution, FOV, noise, etc.)
-     * @param robotToCamera transform from robot center to camera
+     * @param robot_to_camera transform from robot center to camera
+     * @param max_sight_range maximum sight range of the camera in meters
      * @return the created CameraSimulation object
      */
-    public CameraSimulation addCamera(String cameraName, SimCameraProperties properties, Transform3d robotToCamera) {
-        CameraSimulation camSim = new CameraSimulation(cameraName, properties, robotToCamera);
-        cameras.add(camSim);
-        visionSim.addCamera(camSim.cameraSim, robotToCamera);
+    public CameraSimulation addCamera(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera, double max_sight_range) {
+        CameraSimulation cam_sim = new CameraSimulation(camera_name, properties, robot_to_camera, max_sight_range);
+        cameras_.add(cam_sim);
+        vision_sim_.addCamera(cam_sim.cameraSim, robot_to_camera);
         
         // Enable camera streams for debugging
-        camSim.cameraSim.enableRawStream(true);
-        camSim.cameraSim.enableProcessedStream(true);
+        cam_sim.cameraSim.enableRawStream(true);
+        cam_sim.cameraSim.enableProcessedStream(true);
         
-        return camSim;
+        return cam_sim;
     }
     
     /**
@@ -223,22 +247,22 @@ public class MwVisionSim {
      * Updates the vision simulation with the current robot pose.
      * This should be called periodically (every robot loop) with the simulated robot pose.
      * 
-     * @param robotPose the current simulated robot pose on the field
+     * @param robot_pose the current simulated robot pose on the field
      */
-    public void update(Pose2d robotPose) {
+    public void update(Pose2d robot_pose) {
         if (!RobotBase.isSimulation()) {
             return;
         }
         
         // Convert Pose2d to Pose3d (robot is on the ground, z=0)
-        Pose3d robotPose3d = new Pose3d(
-            robotPose.getX(),
-            robotPose.getY(),
+        Pose3d robot_pose_3d = new Pose3d(
+            robot_pose.getX(),
+            robot_pose.getY(),
             0.0,
-            new Rotation3d(0, 0, robotPose.getRotation().getRadians())
+            new Rotation3d(0, 0, robot_pose.getRotation().getRadians())
         );
         
-        visionSim.update(robotPose3d);
+        vision_sim_.update(robot_pose_3d);
     }
     
     /**
@@ -247,7 +271,7 @@ public class MwVisionSim {
      * @return list of all CameraSimulation objects
      */
     public List<CameraSimulation> getCameras() {
-        return cameras;
+        return cameras_;
     }
     
     /**
@@ -256,7 +280,7 @@ public class MwVisionSim {
      * @return the VisionSystemSim instance
      */
     public VisionSystemSim getVisionSim() {
-        return visionSim;
+        return vision_sim_;
     }
     
     /**
@@ -265,7 +289,7 @@ public class MwVisionSim {
      * @return the AprilTagFieldLayout
      */
     public AprilTagFieldLayout getFieldLayout() {
-        return fieldLayout;
+        return field_layout_;
     }
     
     /**
@@ -273,18 +297,18 @@ public class MwVisionSim {
      * This method processes the latest results from all simulated cameras and generates
      * tag solution data compatible with the proxy server format.
      * 
-     * @param robotPose the current robot pose (used for timestamp synchronization)
+     * @param robot_pose the current robot pose (used for timestamp synchronization)
      * @return list of TagSolutionData from all cameras with valid targets
      */
-    public List<TagSolutionPacket.TagSolutionData> getTagSolutions(Pose2d robotPose) {
+    public List<TagSolutionPacket.TagSolutionData> getTagSolutions(Pose2d robot_pose) {
         if (!RobotBase.isSimulation()) {
             return new ArrayList<>();
         }
         
         List<TagSolutionPacket.TagSolutionData> solutions = new ArrayList<>();
         
-        for (CameraSimulation camSim : cameras) {
-            var result = camSim.camera.getLatestResult();
+        for (CameraSimulation cam_sim : cameras_) {
+            var result = cam_sim.camera.getLatestResult();
             
             // Skip if no targets detected
             if (!result.hasTargets()) {
@@ -292,42 +316,42 @@ public class MwVisionSim {
             }
             
             // Get the best target (or could iterate through all targets)
-            var bestTarget = result.getBestTarget();
+            var best_target = result.getBestTarget();
             
             // Collect all detected AprilTag IDs
-            ArrayList<Integer> detectedIds = new ArrayList<>();
+            ArrayList<Integer> detected_ids = new ArrayList<>();
             for (var target : result.getTargets()) {
                 if (target.getFiducialId() >= 0) {
-                    detectedIds.add(target.getFiducialId());
+                    detected_ids.add(target.getFiducialId());
                 }
             }
             
             // Skip if no valid fiducial IDs
-            if (detectedIds.isEmpty()) {
+            if (detected_ids.isEmpty()) {
                 continue;
             }
             
             // Try to get the pose estimate from the camera
-            Pose2d estimatedPose = robotPose; // Default to current robot pose
+            Pose2d estimated_pose = robot_pose; // Default to current robot pose
             
             // If we have a transform from the target, we could estimate pose
             // For now, we'll use the robot's current pose as the "estimated" pose
             // In a real scenario, you'd use the camera's pose estimation
-            if (bestTarget.getBestCameraToTarget() != null) {
+            if (best_target.getBestCameraToTarget() != null) {
                 // Get the AprilTag pose from the field layout
                 try {
-                    Optional<Pose3d> tagPoseOpt = fieldLayout.getTagPose(bestTarget.getFiducialId());
-                    if (tagPoseOpt.isPresent()) {
+                    Optional<Pose3d> tag_pose_opt = field_layout_.getTagPose(best_target.getFiducialId());
+                    if (tag_pose_opt.isPresent()) {
                         // Calculate robot pose from tag detection
-                        Pose3d tagPose3d = tagPoseOpt.get();
-                        Transform3d cameraToTarget = bestTarget.getBestCameraToTarget();
-                        Transform3d robotToCamera = camSim.robotToCamera;
+                        Pose3d tag_pose_3d = tag_pose_opt.get();
+                        Transform3d camera_to_target = best_target.getBestCameraToTarget();
+                        Transform3d robot_to_camera = cam_sim.robotToCamera;
                         
                         // Robot pose = Tag pose - (Robot to Camera + Camera to Target)
-                        Pose3d cameraPose = tagPose3d.transformBy(cameraToTarget.inverse());
-                        Pose3d estimatedRobotPose = cameraPose.transformBy(robotToCamera.inverse());
+                        Pose3d camera_pose = tag_pose_3d.transformBy(camera_to_target.inverse());
+                        Pose3d estimated_robot_pose = camera_pose.transformBy(robot_to_camera.inverse());
                         
-                        estimatedPose = estimatedRobotPose.toPose2d();
+                        estimated_pose = estimated_robot_pose.toPose2d();
                     }
                 } catch (Exception e) {
                     // If pose estimation fails, use current robot pose
@@ -336,16 +360,16 @@ public class MwVisionSim {
             }
             
             // Create timestamp (using system time for simulation)
-            long timestampMicros = (long)(result.getTimestampSeconds() * 1_000_000);
+            long timestamp_micros = (long)(result.getTimestampSeconds() * 1_000_000);
             Timestamp timestamp = new Timestamp(
-                (int)(timestampMicros / 1_000_000),
-                (int)((timestampMicros % 1_000_000) * 1000)
+                (int)(timestamp_micros / 1_000_000),
+                (int)((timestamp_micros % 1_000_000) * 1000)
             );
             
             // Create TagSolutionData
             TagSolutionPacket.TagSolutionData solution = new TagSolutionPacket.TagSolutionData(
-                estimatedPose,
-                detectedIds,
+                estimated_pose,
+                detected_ids,
                 timestamp
             );
             
@@ -359,10 +383,10 @@ public class MwVisionSim {
      * Adjusts a camera's transform relative to the robot.
      * Useful for simulating moving mechanisms like turrets.
      * 
-     * @param cameraSim the camera simulation to adjust
-     * @param newRobotToCamera the new transform from robot to camera
+     * @param camera_sim the camera simulation to adjust
+     * @param new_robot_to_camera the new transform from robot to camera
      */
-    public void adjustCamera(CameraSimulation cameraSim, Transform3d newRobotToCamera) {
-        visionSim.adjustCamera(cameraSim.cameraSim, newRobotToCamera);
+    public void adjustCamera(CameraSimulation camera_sim, Transform3d new_robot_to_camera) {
+        vision_sim_.adjustCamera(camera_sim.cameraSim, new_robot_to_camera);
     }
 }
