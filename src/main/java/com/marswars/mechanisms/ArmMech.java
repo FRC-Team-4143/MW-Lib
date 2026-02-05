@@ -71,7 +71,7 @@ public class ArmMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs  List of motor configurations
-     * @param gear_ratio     Gear ratio from motor TO arm
+     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
      * @param length         Length of the arm in meters (Simulation only)
      * @param mass_kg        Mass of the arm in kg (Simulation only)
      * @param min_angle      Minimum angle of the arm in radians (Simulation only)
@@ -96,7 +96,7 @@ public class ArmMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name      Name of the mechanism
      * @param motor_configs  List of motor configurations
-     * @param gear_ratio     Gear ratio from motor TO arm
+     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
      * @param length         Length of the arm in meters (Simulation only)
      * @param mass_kg        Mass of the arm in kg (Simulation only)
      * @param min_angle      Minimum angle of the arm in radians (Simulation only)
@@ -121,7 +121,7 @@ public class ArmMech extends MechBase {
      *
      * @param logging_prefix     String prefix for logging
      * @param motor_configs      List of motor configurations
-     * @param gear_ratio         Gear ratio from motor TO arm
+     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
      * @param length             Length of the arm in meters (Simulation only)
      * @param mass_kg            Mass of the arm in kg (Simulation only)
      * @param min_angle          Minimum angle of the arm in radians (Simulation
@@ -151,7 +151,7 @@ public class ArmMech extends MechBase {
      * @param logging_prefix     String prefix for logging
      * @param mech_name          Name of the mechanism
      * @param motor_configs      List of motor configurations
-     * @param gear_ratio         Gear ratio from motor TO arm
+     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
      * @param length             Length of the arm in meters (Simulation only)
      * @param mass_kg            Mass of the arm in kg (Simulation only)
      * @param min_angle          Minimum angle of the arm in radians (Simulation
@@ -178,10 +178,10 @@ public class ArmMech extends MechBase {
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
 
-        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // MW-Lib convention: gear_ratio is motor/mechanism
         // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
-        // Therefore we need the inverse
-        double sensor_to_mech_ratio = 1.0 / gear_ratio;
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio;
         
         ConstructedMotors configured_motors = configMotors(
                 motor_configs,
@@ -232,7 +232,7 @@ public class ArmMech extends MechBase {
         moi_ = SingleJointedArmSim.estimateMOI(length, mass_kg);
         arm_sim_ = new SingleJointedArmSim(
                 motor_type_, // Motor type
-                1.0 / gear_ratio,
+                gear_ratio,
                 moi_,
                 length, // Length of the arm (meters)
                 min_angle, // Minimum angle (radians)
@@ -284,8 +284,8 @@ public class ArmMech extends MechBase {
             double controller_voltage = motors_[0].getSimState().getMotorVoltage();
             
             // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at arm / gear ratio = load torque at motor)
-            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            // (load torque at arm * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
@@ -305,12 +305,12 @@ public class ArmMech extends MechBase {
             sim_load_torque_nm_ = 0.0;
 
             // Convert mechanism position to motor position
-            // gear_ratio_ = mechanism/motor, so motor = mechanism / gear_ratio_
+            // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
             double mechanismPositionRad = arm_sim_.getAngleRads();
             double mechanismVelocityRadPerSec = arm_sim_.getVelocityRadPerSec();
             
-            double motorPositionRad = mechanismPositionRad / gear_ratio_;
-            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            double motorPositionRad = mechanismPositionRad * gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
             
             double motorPosition = Radians.of(motorPositionRad).in(Rotations);
             double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);

@@ -64,7 +64,7 @@ public class FlywheelMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO wheel
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
@@ -83,7 +83,7 @@ public class FlywheelMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs List of motor configurations
-     * @param gear_ratio Gear ratio from motor TO wheel
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
@@ -100,10 +100,10 @@ public class FlywheelMech extends MechBase {
         this.velocity_request_ = new VelocityVoltage(0).withSlot(1);
         this.duty_cycle_request_ = new DutyCycleOut(0);
 
-        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // MW-Lib convention: gear_ratio is motor/mechanism
         // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
-        // Therefore we need the inverse
-        double sensor_to_mech_ratio = 1.0 / gear_ratio;
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio;
         
         ConstructedMotors configured_motors = configMotors(motor_configs, sensor_to_mech_ratio);
         motors_ = configured_motors.motors;
@@ -143,7 +143,7 @@ public class FlywheelMech extends MechBase {
         flywheel_sim_ =
                 new FlywheelSim(
                         LinearSystemId.createFlywheelSystem(
-                                motor_type_, wheel_inertia_, 1.0 / gear_ratio_),
+                                motor_type_, wheel_inertia_, gear_ratio_),
                         motor_type_);
 
         // Setup tunable PIDs
@@ -182,8 +182,8 @@ public class FlywheelMech extends MechBase {
             double controller_voltage = motors_[0].getSimState().getMotorVoltage();
             
             // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at flywheel / gear ratio = load torque at motor)
-            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            // (load torque at flywheel * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
@@ -203,9 +203,9 @@ public class FlywheelMech extends MechBase {
             sim_load_torque_nm_ = 0.0;
 
             // Convert mechanism velocity to motor velocity
-            // gear_ratio_ = mechanism/motor, so motor = mechanism / gear_ratio_
+            // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
             double mechanismVelocityRadPerSec = flywheel_sim_.getAngularVelocityRadPerSec();
-            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
             
             double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
             position_ += motorVelocity * 0.020;

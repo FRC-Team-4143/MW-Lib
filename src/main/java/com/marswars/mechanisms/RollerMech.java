@@ -75,7 +75,7 @@ public class RollerMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs Configuration for the roller motor
-     * @param gear_ratio Gear ratio from motor TO roller
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      */
     public RollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio) {
         this(logging_prefix, mech_name, motor_configs, gear_ratio, 0.00001);
@@ -86,7 +86,7 @@ public class RollerMech extends MechBase {
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs Configuration for the roller motor
-     * @param gear_ratio Gear ratio from motor TO roller
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
      */
     public RollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
@@ -99,7 +99,7 @@ public class RollerMech extends MechBase {
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
      * @param motor_configs Configuration for the roller motor
-     * @param gear_ratio Gear ratio from motor TO roller
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
      * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
      */
     public RollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
@@ -108,10 +108,10 @@ public class RollerMech extends MechBase {
         gear_ratio_ = gear_ratio;
         roller_inertia_ = roller_inertia;
 
-        // MW-Lib convention: gear_ratio is "from motor TO mechanism" = mechanism/motor
+        // MW-Lib convention: gear_ratio is motor/mechanism
         // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
-        // Therefore we need the inverse
-        double sensor_to_mech_ratio = 1.0 / gear_ratio_;
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio_;
         
         ConstructedMotors configured_motors = configMotors(motor_configs, sensor_to_mech_ratio);
 
@@ -154,7 +154,7 @@ public class RollerMech extends MechBase {
         roller_sim_ =
                 new DCMotorSim(
                         LinearSystemId.createDCMotorSystem(
-                                motor_type_, roller_inertia_, 1.0 / gear_ratio_),
+                                motor_type_, roller_inertia_, gear_ratio_),
                         motor_type_);
 
         // Setup tunable PIDs
@@ -200,8 +200,8 @@ public class RollerMech extends MechBase {
             double controller_voltage = motors_[0].getSimState().getMotorVoltage();
             
             // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at roller / gear ratio = load torque at motor)
-            double motor_load_torque = sim_load_torque_nm_ / gear_ratio_;
+            // (load torque at roller * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
@@ -222,12 +222,12 @@ public class RollerMech extends MechBase {
 
             // The simulation gives mechanism (output) position/velocity in radians
             // setRawRotorPosition expects raw rotor (motor) position in rotations
-            // Since gear_ratio_ = mechanism/motor, we need motor = mechanism / gear_ratio_
+            // Since gear_ratio_ = motor/mechanism, we need motor = mechanism * gear_ratio_
             double mechanismPositionRad = roller_sim_.getAngularPositionRad();
             double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
             
-            double motorPositionRad = mechanismPositionRad / gear_ratio_;
-            double motorVelocityRadPerSec = mechanismVelocityRadPerSec / gear_ratio_;
+            double motorPositionRad = mechanismPositionRad * gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
             
             double motorPosition = Radians.of(motorPositionRad).in(Rotations);
             double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
