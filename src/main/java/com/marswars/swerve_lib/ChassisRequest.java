@@ -815,4 +815,180 @@ public interface ChassisRequest {
             return this;
         }
     }
+
+    /**
+     * Applies robot-relative chassis speeds while maintaining a field-centric facing angle.
+     * This allows the robot to move in any direction relative to itself while independently
+     * controlling its orientation to face a specific field-relative direction.
+     */
+    public class RobotCentricFacingAngle implements ChassisRequest {
+
+        /** The robot-relative chassis speeds to apply to the drivetrain. */
+        public ChassisSpeeds Speeds = new ChassisSpeeds();
+
+        /**
+         * The direction the robot should face. 0 Degrees is defined as in the direction of the X
+         * axis.
+         */
+        public Rotation2d TargetDirection = new Rotation2d();
+
+        /** The rotational deadband of the request. */
+        public double RotationalDeadband = 0;
+
+        /** The maximum absolute rotational rate of the request. */
+        public double MaxAbsRotationalRate = 0;
+
+        /**
+         * The center of rotation the robot should rotate around. This is (0,0) by default, which
+         * will rotate around the center of the robot.
+         */
+        public Translation2d CenterOfRotation = new Translation2d();
+
+        /** The type of control request to use for the drive motor. */
+        public Module.DriveControlMode DriveRequestType = Module.DriveControlMode.OPEN_LOOP;
+
+        /** The type of control request to use for the steer motor. */
+        public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
+
+        /**
+         * The PID controller used to maintain the desired heading. Users can specify the PID gains
+         * to change how aggressively to maintain heading.
+         *
+         * <p>This PID controller operates on heading radians and outputs a target rotational rate
+         * in radians per second.
+         */
+        public PhoenixPIDController HeadingController = new PhoenixPIDController(0, 0, 0.0);
+
+        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+            // Get the robot-relative speeds
+            double toApplyVx = Speeds.vxMetersPerSecond;
+            double toApplyVy = Speeds.vyMetersPerSecond;
+            
+            // Calculate rotational rate to maintain target heading
+            Rotation2d angleToFace = TargetDirection;
+            HeadingController.enableContinuousInput(0, 2 * Math.PI);
+            
+            Pose2d currentRobotPose = parameters.currentPose;
+            double rotationRate =
+                    HeadingController.calculate(
+                            currentRobotPose.getRotation().getRadians(),
+                            angleToFace.getRadians(),
+                            parameters.timestamp);
+
+            double toApplyOmega = rotationRate;
+            if (Math.abs(toApplyOmega) < RotationalDeadband) {
+                toApplyOmega = 0;
+            }
+            if (MaxAbsRotationalRate > 0) {
+                toApplyOmega =
+                        MathUtil.clamp(toApplyOmega, -MaxAbsRotationalRate, MaxAbsRotationalRate);
+            }
+
+            // Create chassis speeds with robot-relative translation and calculated rotation
+            ChassisSpeeds speeds =
+                    ChassisSpeeds.discretize(
+                            new ChassisSpeeds(toApplyVx, toApplyVy, toApplyOmega),
+                            parameters.updatePeriod);
+
+            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+
+            for (int i = 0; i < modulesToApply.length; ++i) {
+                modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
+            }
+        }
+
+        /**
+         * Sets the robot-relative chassis speeds to apply to the drivetrain.
+         *
+         * @param speeds Robot-relative chassis speeds to apply
+         * @return this request
+         */
+        public RobotCentricFacingAngle withSpeeds(ChassisSpeeds speeds) {
+            this.Speeds = speeds;
+            return this;
+        }
+
+        /**
+         * Sets the desired direction to face. 0 Degrees is defined as in the direction of the X
+         * axis. As a result, a TargetDirection of 90 degrees will point along the Y axis, or to the
+         * left.
+         *
+         * @param targetDirection Desired direction to face
+         * @return this request
+         */
+        public RobotCentricFacingAngle withTargetHeading(Rotation2d targetDirection) {
+            this.TargetDirection = targetDirection;
+            return this;
+        }
+
+        /**
+         * Sets the rotational deadband of the request.
+         *
+         * @param rotationalDeadband Rotational deadband of the request
+         * @return this request
+         */
+        public RobotCentricFacingAngle withRotationalDeadband(double rotationalDeadband) {
+            this.RotationalDeadband = rotationalDeadband;
+            return this;
+        }
+
+        /**
+         * Sets the maximum absolute rotational rate of the request.
+         *
+         * @param maxAbsRotationalRate The maximum absolute rotational rate
+         * @return this request
+         */
+        public RobotCentricFacingAngle withMaxAbsRotationalRate(double maxAbsRotationalRate) {
+            this.MaxAbsRotationalRate = maxAbsRotationalRate;
+            return this;
+        }
+
+        /**
+         * Sets the center of rotation of the request
+         *
+         * @param centerOfRotation The center of rotation the robot should rotate around.
+         * @return this request
+         */
+        public RobotCentricFacingAngle withCenterOfRotation(Translation2d centerOfRotation) {
+            this.CenterOfRotation = centerOfRotation;
+            return this;
+        }
+
+        /**
+         * Sets the type of control request to use for the drive motor.
+         *
+         * @param driveRequestType The type of control request to use for the drive motor
+         * @return this request
+         */
+        public RobotCentricFacingAngle withDriveRequestType(
+                Module.DriveControlMode driveRequestType) {
+            this.DriveRequestType = driveRequestType;
+            return this;
+        }
+
+        /**
+         * Sets the type of control request to use for the steer motor.
+         *
+         * @param steerRequestType The type of control request to use for the steer motor
+         * @return this request
+         */
+        public RobotCentricFacingAngle withSteerRequestType(
+                Module.SteerControlMode steerRequestType) {
+            this.SteerRequestType = steerRequestType;
+            return this;
+        }
+
+        /**
+         * Sets the PID controller used to maintain the desired heading. Users can specify the PID
+         * gains to change how aggressively to maintain heading.
+         *
+         * @param headingController The PID controller used to maintain the desired heading.
+         * @return this request
+         */
+        public RobotCentricFacingAngle withHeadingController(
+                PhoenixPIDController headingController) {
+            this.HeadingController = headingController;
+            return this;
+        }
+    }
 }
