@@ -38,17 +38,17 @@ public class ModuleTalonFX extends Module {
     protected final CANcoder cancoder;
     protected final AnalogEncoder encoder;
 
-    // Non FOC control requests
+    // Voltage control requests (free tier)
     protected final VoltageOut voltage_req_ = new VoltageOut(0);
     protected final PositionVoltage position_voltage_req_ = new PositionVoltage(0.0);
     protected final VelocityVoltage velocity_voltage_req_ = new VelocityVoltage(0.0);
 
-    // Torque-current control requests
-    protected final TorqueCurrentFOC torque_current_req_ = new TorqueCurrentFOC(0);
-    protected final PositionTorqueCurrentFOC position_torque_current_req_ =
-            new PositionTorqueCurrentFOC(0.0);
-    protected final VelocityTorqueCurrentFOC velocity_torque_current_req_ =
-            new VelocityTorqueCurrentFOC(0.0);
+    // Duty cycle control requests (free tier, replaces Pro FOC commands)
+    protected final DutyCycleOut duty_cycle_req_ = new DutyCycleOut(0);
+    protected final PositionDutyCycle position_duty_cycle_req_ =
+            new PositionDutyCycle(0.0);
+    protected final VelocityDutyCycle velocity_duty_cycle_req_ =
+            new VelocityDutyCycle(0.0);
 
     // Inputs from drive motor
     protected final StatusSignal<Angle> drive_position_sig_;
@@ -223,7 +223,7 @@ public class ModuleTalonFX extends Module {
     public void setDriveOpenLoop(double output) {
         ControlRequest req;
         if (config_.enable_foc) {
-            req = torque_current_req_.withOutput(output);
+            req = duty_cycle_req_.withOutput(output);
         } else {
             req = voltage_req_.withOutput(output);
         }
@@ -236,7 +236,7 @@ public class ModuleTalonFX extends Module {
         if (config_.enable_foc) {
             req = voltage_req_.withOutput(output);
         } else {
-            req = torque_current_req_.withOutput(output);
+            req = duty_cycle_req_.withOutput(output);
         }
         steer_talonfx_.setControl(req);
     }
@@ -247,7 +247,7 @@ public class ModuleTalonFX extends Module {
                 Units.radiansToRotations(wheelVelocityRadPerSec) * config_.module_type.driveRatio;
         ControlRequest req;
         if (config_.enable_foc) {
-            req = velocity_torque_current_req_.withVelocity(motorVelocityRotPerSec);
+            req = velocity_duty_cycle_req_.withVelocity(motorVelocityRotPerSec);
         } else {
             req = velocity_voltage_req_.withVelocity(motorVelocityRotPerSec);
         }
@@ -258,7 +258,7 @@ public class ModuleTalonFX extends Module {
     public void setSteerPosition(Rotation2d rotation) {
         ControlRequest req;
         if (config_.enable_foc) {
-            req = position_torque_current_req_.withPosition(rotation.getRotations());
+            req = position_duty_cycle_req_.withPosition(rotation.getRotations());
         } else {
             req = position_voltage_req_.withPosition(rotation.getRotations());
         }
