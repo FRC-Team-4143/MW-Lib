@@ -832,6 +832,9 @@ public interface ChassisRequest {
          */
         public Rotation2d TargetDirection = new Rotation2d();
 
+        /** The allowable deadband of the request. */
+        public double Deadband = 0;
+
         /** The rotational deadband of the request. */
         public double RotationalDeadband = 0;
 
@@ -863,7 +866,10 @@ public interface ChassisRequest {
             // Get the robot-relative speeds
             double toApplyVx = Speeds.vxMetersPerSecond;
             double toApplyVy = Speeds.vyMetersPerSecond;
-            
+            if (Math.sqrt(toApplyVx * toApplyVx + toApplyVy * toApplyVy) < Deadband) {
+                toApplyVx = 0;
+                toApplyVy = 0;
+            }
             // Calculate rotational rate to maintain target heading
             Rotation2d angleToFace = TargetDirection;
             HeadingController.enableContinuousInput(0, 2 * Math.PI);
@@ -920,7 +926,16 @@ public interface ChassisRequest {
             this.TargetDirection = targetDirection;
             return this;
         }
-
+        /**
+         * Sets the allowable deadband of the request.
+         *
+         * @param deadband Allowable deadband of the request
+         * @return this request
+         */
+        public RobotCentricFacingAngle withDeadband(double deadband) {
+            this.Deadband = deadband;
+            return this;
+        }
         /**
          * Sets the rotational deadband of the request.
          *
