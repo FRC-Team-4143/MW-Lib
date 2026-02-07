@@ -9,7 +9,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.Slot1Configs;
+// import com.ctre.phoenix6.configs.Slot1Configs; // PRO FEATURE - Commented out
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
@@ -130,10 +130,11 @@ public class RollerMech extends MechBase {
                 SlotConfigs.from(motor_configs.get(0).config.Slot0));
         DogLog.tunable(
                 getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
+        // Using Slot0 instead of Slot1 (Pro feature)
         TunablePid.create(
                 getLoggingKey() + "VelocityGains",
                 this::configVelocitySlot,
-                SlotConfigs.from(motor_configs.get(0).config.Slot1));
+                SlotConfigs.from(motor_configs.get(0).config.Slot0));
         DogLog.tunable(
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
     }
@@ -238,9 +239,11 @@ public class RollerMech extends MechBase {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {
-            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+            // PRO FEATURE: Slot1 requires Pro license - fall back to Slot0
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+            System.err.println("WARNING: Slot1 is a Pro feature. Using Slot0 instead.");
         } else {
-            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+            throw new IllegalArgumentException("Slot must be 0 or 1");
         }
     }
 

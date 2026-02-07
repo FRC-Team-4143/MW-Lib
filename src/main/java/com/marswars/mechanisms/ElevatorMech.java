@@ -7,10 +7,10 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.Slot1Configs;
+// import com.ctre.phoenix6.configs.Slot1Configs; // PRO FEATURE - Commented out
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+// import com.ctre.phoenix6.controls.MotionMagicVoltage; // PRO FEATURE - Commented out
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
@@ -28,7 +28,7 @@ public class ElevatorMech extends MechBase {
 
     /** Control modes for the elevator mechanism */
     protected enum ControlMode {
-        MOTION_MAGIC_POSITION,
+        // MOTION_MAGIC_POSITION, // PRO FEATURE - Commented out
         POSITION,
         VELOCITY,
         DUTY_CYCLE
@@ -39,7 +39,7 @@ public class ElevatorMech extends MechBase {
     // Always assume that we have the leader motor in index 0
     protected final TalonFX motors_[];
     protected final PositionVoltage position_request_;
-    protected final MotionMagicVoltage motion_magic_position_request_;
+    // protected final MotionMagicVoltage motion_magic_position_request_; // PRO FEATURE - Commented out
     protected final boolean use_motion_magic_;
     protected final VelocityVoltage velocity_request_;
     protected final DutyCycleOut duty_cycle_request_;
@@ -118,8 +118,8 @@ public class ElevatorMech extends MechBase {
         super(logging_prefix);
 
         position_request_ = new PositionVoltage(0).withSlot(0);
-        motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
-        velocity_request_ = new VelocityVoltage(0).withSlot(1);
+        // motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0); // PRO FEATURE - Commented out
+        velocity_request_ = new VelocityVoltage(0).withSlot(0); // Changed from Slot1 to Slot0 (free tier)
         duty_cycle_request_ = new DutyCycleOut(0);
 
         // load the motors
@@ -244,9 +244,9 @@ public class ElevatorMech extends MechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
-            case MOTION_MAGIC_POSITION:
-                motors_[0].setControl(motion_magic_position_request_);
-                break;
+            // case MOTION_MAGIC_POSITION: // PRO FEATURE - Commented out
+            //     motors_[0].setControl(motion_magic_position_request_);
+            //     break;
             case POSITION:
                 motors_[0].setControl(position_request_);
                 break;
@@ -308,9 +308,11 @@ public class ElevatorMech extends MechBase {
         if (slot == 0) {
             motors_[0].getConfigurator().apply(Slot0Configs.from(config));
         } else if (slot == 1) {
-            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+            // PRO FEATURE: Slot1 requires Pro license - fall back to Slot0
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+            System.err.println("WARNING: Slot1 is a Pro feature. Using Slot0 instead.");
         } else {
-            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+            throw new IllegalArgumentException("Slot must be 0 or 1");
         }
     }
 
@@ -357,13 +359,14 @@ public class ElevatorMech extends MechBase {
      */
     public void setTargetPosition(double position_m) {
         position_target_ = position_m;
-        if (use_motion_magic_) {
-            control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
-            motion_magic_position_request_.Position = position_m / position_to_rotations_;
-        } else {
+        // PRO FEATURE: MotionMagic is commented out - using regular position control instead
+        // if (use_motion_magic_) {
+        //     control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        //     motion_magic_position_request_.Position = position_m / position_to_rotations_;
+        // } else {
             control_mode_ = ControlMode.POSITION;
             position_request_.Position = position_m / position_to_rotations_;
-        }
+        // }
     }
 
     /**

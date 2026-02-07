@@ -72,37 +72,41 @@ public class FxMotorConfig {
                 loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "ki"));
         config.Slot0.kD =
                 loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot0", "kd"));
-        config.Slot1.kS =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ks"));
-        config.Slot1.kV =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kv"));
-        config.Slot1.kA =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ka"));
-        config.Slot1.kG =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kg"));
-        config.Slot1.kP =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kp"));
-        config.Slot1.kI =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ki"));
-        config.Slot1.kD =
-                loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kd"));
+        
+        // PRO FEATURE: Slot1 configurations (multiple PID slots require Pro license)
+        // Commented out to avoid Pro license requirement - only Slot0 is free
+        // config.Slot1.kS =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ks"));
+        // config.Slot1.kV =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kv"));
+        // config.Slot1.kA =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ka"));
+        // config.Slot1.kG =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kg"));
+        // config.Slot1.kP =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kp"));
+        // config.Slot1.kI =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "ki"));
+        // config.Slot1.kD =
+        //         loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "slot1", "kd"));
 
-        // Load the motion magic configs
-        if (loader.getBoolValue(
-                ConstantsLoader.combinePath(base_steps, "motion_magic", "enabled"))) {
-            use_motion_magic = true;
-            config.MotionMagic.MotionMagicCruiseVelocity =
-                    loader.getDoubleValue(
-                            ConstantsLoader.combinePath(
-                                    base_steps, "motion_magic", "cruise_velocity"));
-            config.MotionMagic.MotionMagicAcceleration =
-                    loader.getDoubleValue(
-                            ConstantsLoader.combinePath(
-                                    base_steps, "motion_magic", "acceleration"));
-            config.MotionMagic.MotionMagicJerk =
-                    loader.getDoubleValue(
-                            ConstantsLoader.combinePath(base_steps, "motion_magic", "jerk"));
-        }
+        // PRO FEATURE: MotionMagic configurations (MotionMagic requires Pro license)
+        // Commented out to avoid Pro license requirement - use regular Position control instead
+        // if (loader.getBoolValue(
+        //         ConstantsLoader.combinePath(base_steps, "motion_magic", "enabled"))) {
+        //     use_motion_magic = true;
+        //     config.MotionMagic.MotionMagicCruiseVelocity =
+        //             loader.getDoubleValue(
+        //                     ConstantsLoader.combinePath(
+        //                             base_steps, "motion_magic", "cruise_velocity"));
+        //     config.MotionMagic.MotionMagicAcceleration =
+        //             loader.getDoubleValue(
+        //                     ConstantsLoader.combinePath(
+        //                             base_steps, "motion_magic", "acceleration"));
+        //     config.MotionMagic.MotionMagicJerk =
+        //             loader.getDoubleValue(
+        //                     ConstantsLoader.combinePath(base_steps, "motion_magic", "jerk"));
+        // }
 
         // Load a supply current limit if configured
         if (loader.getBoolValue(

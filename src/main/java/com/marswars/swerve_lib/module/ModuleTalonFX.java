@@ -115,11 +115,8 @@ public class ModuleTalonFX extends Module {
             throw new IllegalArgumentException("Unsupported encoder type for ModuleTalonFX");
         }
 
-        steerConfig.MotionMagic.MotionMagicCruiseVelocity = 100.0 / config_.module_type.steerRatio;
-        steerConfig.MotionMagic.MotionMagicAcceleration =
-                steerConfig.MotionMagic.MotionMagicCruiseVelocity / 0.100;
-        steerConfig.MotionMagic.MotionMagicExpo_kV = 0.12 * config_.module_type.steerRatio;
-        steerConfig.MotionMagic.MotionMagicExpo_kA = 0.1;
+        // Note: MotionMagic configuration removed - it's a Pro feature
+        // Using regular position control instead
         steerConfig.ClosedLoopGeneral.ContinuousWrap = true;
         steerConfig.MotorOutput.Inverted =
                 config_.module_type.steerInverted
