@@ -20,6 +20,8 @@ public abstract class Gyro implements SubsystemIoBase {
     protected boolean connected = false;
     private boolean connected_debounced_ = false;
     protected Rotation2d yawPosition = new Rotation2d();
+    protected Rotation2d pitchPosition = new Rotation2d();
+    protected Rotation2d rollPosition = new Rotation2d();
     protected double yawVelocityRadPerSec = 0.0;
 
     protected final boolean IS_SIM;
@@ -73,6 +75,14 @@ public abstract class Gyro implements SubsystemIoBase {
         return yawPosition;
     }
 
+    public Rotation2d getPitchPosition() {
+        return pitchPosition;
+    }
+
+    public Rotation2d getRollPosition() {
+        return rollPosition;
+    }
+
     public double getYawVelocityRadPerSec() {
         return yawVelocityRadPerSec;
     }
@@ -81,6 +91,8 @@ public abstract class Gyro implements SubsystemIoBase {
     public void logData() {
         DogLog.log(getLoggingKey() + "Connected", connected_debounced_);
         DogLog.log(getLoggingKey() + "YawPositionDeg", yawPosition.getDegrees());
+        DogLog.log(getLoggingKey() + "PitchPositionDeg", pitchPosition.getDegrees());
+        DogLog.log(getLoggingKey() + "RollPositionDeg", rollPosition.getDegrees());
         DogLog.log(getLoggingKey() + "YawVelocityRadPerSec", yawVelocityRadPerSec);
     }
 

@@ -34,6 +34,8 @@ public class Pigeon2Gyro extends Gyro {
     // real pigeon members
     private Pigeon2 pigeon;
     private StatusSignal<Angle> yaw;
+    private StatusSignal<Angle> pitch;
+    private StatusSignal<Angle> roll;
     private StatusSignal<AngularVelocity> yawVelocity;
 
     public Pigeon2Gyro(
@@ -44,12 +46,16 @@ public class Pigeon2Gyro extends Gyro {
             // Create Pigeon
             pigeon = new Pigeon2(id, can_bus_name);
             yaw = pigeon.getYaw();
+            pitch = pigeon.getPitch();
+            roll = pigeon.getRoll();
             yawVelocity = pigeon.getAngularVelocityZWorld();
 
             // Configure Pigeon
             pigeon.getConfigurator().apply(new Pigeon2Configuration());
             pigeon.getConfigurator().setYaw(0.0);
             yaw.setUpdateFrequency(new CANBus(can_bus_name).isNetworkFD() ? 250.0 : 100.0);
+            pitch.setUpdateFrequency(50.0);
+            roll.setUpdateFrequency(50.0);
             yawVelocity.setUpdateFrequency(50.0);
             pigeon.optimizeBusUtilization();
 
@@ -65,11 +71,15 @@ public class Pigeon2Gyro extends Gyro {
             // In simulation, report as disconnected so odometry-based yaw is used
             connected = false;
             yawPosition = new Rotation2d();
+            pitchPosition = new Rotation2d();
+            rollPosition = new Rotation2d();
             yawVelocityRadPerSec = 0.0;
         } else {
             connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
             yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
             yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
+            pitchPosition = Rotation2d.fromRadians(MathUtil.angleModulus(pitch.getValue().in(Radians)));
+            rollPosition = Rotation2d.fromRadians(MathUtil.angleModulus(roll.getValue().in(Radians)));
         }
     }
 

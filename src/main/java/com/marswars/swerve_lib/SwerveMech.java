@@ -6,6 +6,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -28,21 +29,21 @@ import com.marswars.util.TunablePid;
 
 public class SwerveMech extends MechBase {
 
-    private SwerveModuleState[] current_module_states =
+    private SwerveModuleState[] current_module_states_ =
             new SwerveModuleState[] {
                 new SwerveModuleState(),
                 new SwerveModuleState(),
                 new SwerveModuleState(),
                 new SwerveModuleState()
             };
-    private SwerveModuleState[] setpoint_module_states =
+    private SwerveModuleState[] setpoint_module_states_ =
             new SwerveModuleState[] {
                 new SwerveModuleState(),
                 new SwerveModuleState(),
                 new SwerveModuleState(),
                 new SwerveModuleState()
             };
-    private SwerveModulePosition[] module_positions =
+    private SwerveModulePosition[] module_positions_ =
             new SwerveModulePosition[] {
                 new SwerveModulePosition(),
                 new SwerveModulePosition(),
@@ -56,7 +57,7 @@ public class SwerveMech extends MechBase {
                 new SwerveModulePosition(),
                 new SwerveModulePosition()
             };
-    private SwerveModulePosition[] last_module_positions =
+    private SwerveModulePosition[] last_module_positions_ =
             new SwerveModulePosition[] {
                 new SwerveModulePosition(),
                 new SwerveModulePosition(),
@@ -64,11 +65,11 @@ public class SwerveMech extends MechBase {
                 new SwerveModulePosition()
             };
 
-    private ChassisSpeeds chassis_speeds = new ChassisSpeeds();
-    private Rotation2d raw_gyro_rotation = Rotation2d.kZero;
+    private ChassisSpeeds chassis_speeds_ = new ChassisSpeeds();
+    private Rotation2d heading_ = Rotation2d.kZero;
 
-    private ChassisRequest current_request = new ChassisRequest.Idle();
-    private ChassisRequestParameters current_request_parameters = new ChassisRequestParameters();
+    private ChassisRequest current_request_ = new ChassisRequest.Idle();
+    private ChassisRequestParameters current_request_parameters_ = new ChassisRequestParameters();
 
     private final Module[] modules_ = new Module[4]; // FL, FR, BL, BR
     private final Gyro gyro_;
@@ -113,7 +114,6 @@ public class SwerveMech extends MechBase {
         // Start odometry thread
         PhoenixOdometryThread.getInstance().start();
 
-        // TODO: Load the default gains from config
         TunablePid.create(
                 getLoggingKey() + "Drive/PositionGains",
                 this::setDrivePositionGains,
@@ -141,33 +141,33 @@ public class SwerveMech extends MechBase {
         gyro_.logData();
 
         for (int i = 0; i < modules_.length; i++) {
-            current_module_states[i] = modules_[i].getCurrentState();
-            setpoint_module_states[i] = modules_[i].getSetpointState();
-            module_positions[i] = modules_[i].getPosition();
+            current_module_states_[i] = modules_[i].getCurrentState();
+            setpoint_module_states_[i] = modules_[i].getSetpointState();
+            module_positions_[i] = modules_[i].getPosition();
             module_deltas[i] =
                     new SwerveModulePosition(
-                            module_positions[i].distanceMeters
-                                    - last_module_positions[i].distanceMeters,
-                            module_positions[i].angle);
-            last_module_positions[i] = module_positions[i];
+                            module_positions_[i].distanceMeters
+                                    - last_module_positions_[i].distanceMeters,
+                            module_positions_[i].angle);
+            last_module_positions_[i] = module_positions_[i];
         }
-        chassis_speeds = kinematics_.toChassisSpeeds(current_module_states);
+        chassis_speeds_ = kinematics_.toChassisSpeeds(current_module_states_);
 
         // Update gyro angle
         if (gyro_.isConnected()) {
             // Use the real gyro angle
-            raw_gyro_rotation = gyro_.getYawPosition();
+            heading_ = gyro_.getYawPosition();
         } else {
             // Use the angle delta from the kinematics and module deltas
             Twist2d twist = kinematics_.toTwist2d(module_deltas);
-            raw_gyro_rotation = raw_gyro_rotation.plus(new Rotation2d(twist.dtheta));
+            heading_ = heading_.plus(new Rotation2d(twist.dtheta));
             
             // Enqueue the calculated gyro rotation for odometry
             // This ensures pose estimation continues working even when gyro is disconnected
             double currentTime = Timer.getFPGATimestamp();
             PhoenixOdometryThread.getInstance().enqueueGyroSamples(
                 new double[] {currentTime},
-                new Rotation2d[] {raw_gyro_rotation});
+                new Rotation2d[] {heading_});
         }
     }
 
@@ -178,9 +178,9 @@ public class SwerveMech extends MechBase {
                 module.stop();
             }
         } else {
-            current_request_parameters.kinematics = kinematics_;
-            current_request_parameters.moduleLocations = getModuleTranslations();
-            current_request.apply(current_request_parameters, modules_);
+            current_request_parameters_.kinematics = kinematics_;
+            current_request_parameters_.moduleLocations = getModuleTranslations();
+            current_request_.apply(current_request_parameters_, modules_);
 
             // Modules do not have a write outputs method
             // for (Module module : modules_) {
@@ -192,15 +192,16 @@ public class SwerveMech extends MechBase {
     /** Logs data to DogLog. */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states);
-        DogLog.log(getLoggingKey() + "SetpointModuleStates", setpoint_module_states);
-        DogLog.log(getLoggingKey() + "ModulePositions", module_positions);
+        DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states_);
+        DogLog.log(getLoggingKey() + "SetpointModuleStates", setpoint_module_states_);
+        DogLog.log(getLoggingKey() + "ModulePositions", module_positions_);
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
-        DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds", chassis_speeds);
-        DogLog.log(getLoggingKey() + "RawGyroRotation", raw_gyro_rotation);
+        DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
+        DogLog.log(getLoggingKey() + "ChassisSpeeds", chassis_speeds_);
+        DogLog.log(getLoggingKey() + "ChassisHeading", heading_);
+        DogLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
         DogLog.log(
-                getLoggingKey() + "CurrentRequestType", current_request.getClass().getSimpleName());
+                getLoggingKey() + "CurrentRequestType", current_request_.getClass().getSimpleName());
     }
 
     /**
@@ -209,7 +210,7 @@ public class SwerveMech extends MechBase {
      * @param request
      */
     public void setChassisRequest(ChassisRequest request) {
-        current_request = request;
+        current_request_ = request;
     }
 
     /**
@@ -219,12 +220,12 @@ public class SwerveMech extends MechBase {
      * @param operator_forward_direction The operator's forward direction.
      */
     public void setChassisRequestParameters(Pose2d pose, Rotation2d operator_forward_direction) {
-        current_request_parameters.currentChassisSpeed = chassis_speeds;
-        current_request_parameters.currentPose = pose;
-        current_request_parameters.updatePeriod =
-                Timer.getFPGATimestamp() - current_request_parameters.timestamp;
-        current_request_parameters.timestamp = Timer.getFPGATimestamp();
-        current_request_parameters.operatorForwardDirection = operator_forward_direction;
+        current_request_parameters_.currentChassisSpeed = chassis_speeds_;
+        current_request_parameters_.currentPose = pose;
+        current_request_parameters_.updatePeriod =
+                Timer.getFPGATimestamp() - current_request_parameters_.timestamp;
+        current_request_parameters_.timestamp = Timer.getFPGATimestamp();
+        current_request_parameters_.operatorForwardDirection = operator_forward_direction;
     }
 
     /**
@@ -274,7 +275,7 @@ public class SwerveMech extends MechBase {
      * @return ChassisSpeeds object representing the robot's chassis speeds
      */
     public ChassisSpeeds getChassisSpeeds() {
-        return chassis_speeds;
+        return chassis_speeds_;
     }
 
     /**
@@ -283,7 +284,7 @@ public class SwerveMech extends MechBase {
      * @return SwerveModuleState[] array of module states
      */
     public SwerveModuleState[] getModuleStates() {
-        return current_module_states;
+        return current_module_states_;
     }
 
     /**
@@ -292,7 +293,7 @@ public class SwerveMech extends MechBase {
      * @return SwerveModulePosition[] array of module positions
      */
     public SwerveModulePosition[] getModulePositions() {
-        return module_positions;
+        return module_positions_;
     }
 
     /**
@@ -300,8 +301,24 @@ public class SwerveMech extends MechBase {
      *
      * @return Rotation2d representing the raw gyro rotation
      */
-    public Rotation2d getRawGyroRotation() {
-        return raw_gyro_rotation;
+    public Rotation2d getGyroYaw() {
+        return heading_;
+    }
+
+    public double getGyroYawRate(){
+        return gyro_.getYawVelocityRadPerSec();
+    }
+
+    /**
+     * Returns the gyro rotation as a Rotation3d containing pitch, yaw, and roll.
+     *
+     * @return Rotation3d representing the gyro rotation
+     */
+    public Rotation3d getGyroRotation() {
+        return new Rotation3d(
+            gyro_.getRollPosition().getRadians(),
+            gyro_.getPitchPosition().getRadians(),
+            gyro_.getYawPosition().getRadians());
     }
 
     /**
