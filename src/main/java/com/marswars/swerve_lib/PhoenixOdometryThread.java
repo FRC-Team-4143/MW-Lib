@@ -299,15 +299,9 @@ public class PhoenixOdometryThread extends Thread {
             // Wait for updates from all signals
             signals_lock_.lock();
             try {
-                if (IS_CANFD && all_signals_.length > 0) {
-                    BaseStatusSignal.waitForAll(2.0 / ODOMETRY_FREQUENCY, all_signals_);
-                } else {
-                    // "waitForAll" does not support blocking on multiple signals with a bus
-                    // that is not CAN FD, regardless of Pro licensing. No reasoning for this
-                    // behavior is provided by the documentation.
+                
                     Thread.sleep((long) (1000.0 / ODOMETRY_FREQUENCY));
-                    if (all_signals_.length > 0) BaseStatusSignal.refreshAll(all_signals_);
-                }
+                    if (all_signals_.length > 0) BaseStatusSignal.refreshAll(all_signals_); 
             } catch (InterruptedException e) {
                 e.printStackTrace();
             } finally {
