@@ -29,7 +29,12 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
 
     log_metadata_pub_ = create_publisher<logging_msgs::msg::LogMetadata>("/log/metadata", rclcpp::SystemDefaultsQoS());
 
+    snapshot_client_ = create_client<logging_msgs::srv::SnapshotRequest>("/log/snapshot_request");
+
     tryConnectUdpServer();
+
+    // initialize times
+    last_sync_time_ = get_clock()->now();
 
     RCLCPP_INFO(get_logger(), "Proxy client startup complete");
 }
@@ -153,7 +158,8 @@ void ProxyClientNode::autosnapCb(AutoSnapshot msg) {
 
     const rclcpp::Time now = get_clock()->now();
 
-    logging_msgs::srv::SnapshotRequest::Request::SharedPtr request;
+    logging_msgs::srv::SnapshotRequest::Request::SharedPtr request =
+        std::make_shared<logging_msgs::srv::SnapshotRequest::Request>();
     request->description = msg.evt_name;
     request->snapshot_name = "autosnap_" + msg.evt_name + "_" + std::to_string(now.seconds());
     request->request_id = msg.start_snapshot ? request->REQUEST_START : request->REQUEST_STOP;
@@ -162,7 +168,7 @@ void ProxyClientNode::autosnapCb(AutoSnapshot msg) {
 }
 
 void ProxyClientNode::syncResponseCb(SyncResponseMsg msg) {
-    const double client_time_at_recv = rclcpp::Clock().now().seconds();
+    const double client_time_at_recv = get_clock()->now().seconds();
 
     // recover the client and server time from the response
     const double client_at_send = msg.client_send_sec + (msg.client_send_nanosec / 1e9);
