@@ -13,7 +13,7 @@ std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     // pose
     buffer << msg.x_pos;
     buffer << msg.y_pos;
-    buffer << msg.omega_pos;
+    buffer << msg.theta_pos;
 
     // tag ids
     int32_t tag_count = static_cast<int32_t>(msg.tag_ids.size());

@@ -1,5 +1,7 @@
 #include "chassis_proxy_client/proxy_client.hpp"
 
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 #include <yaml-cpp/yaml.h>
 
 #include "chassis_proxy_client/messages/obj_det/proxy_det.hpp"
@@ -69,6 +71,21 @@ void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSh
     TagDetectionMsg proxy_msg;
     proxy_msg.sec = msg->header.stamp.sec;
     proxy_msg.nanosec = msg->header.stamp.nanosec;
+    proxy_msg.tag_ids = msg->detected_tags;
+
+    // convert from quaternion to euler angles in degrees
+    tf2::Quaternion q(msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z,
+                      msg->pose.orientation.w);
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    proxy_msg.theta_pos = yaw;
+    proxy_msg.x_pos = msg->pose.position.x;
+    proxy_msg.y_pos = msg->pose.position.y;
+
+    // now send it to the server
+    udp_client_->sendMsg(proxy_msg);
 }
 
 void ProxyClientNode::matchInfoCb(MatchInfo msg) {
