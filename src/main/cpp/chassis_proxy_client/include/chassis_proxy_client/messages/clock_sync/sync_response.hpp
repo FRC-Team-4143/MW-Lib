@@ -15,8 +15,8 @@ struct SyncResponseMsg {
     // Server timestamps: when request was received and when response sent
     int32_t server_recv_sec{ 0 };
     int32_t server_recv_nanosec{ 0 };
-    int32_t server_send_sec{ 0 };
-    int32_t server_send_nanosec{ 0 };
+    int32_t client_send_sec{ 0 };
+    int32_t client_send_nanosec{ 0 };
 
     static std::vector<uint8_t> serialize(const SyncResponseMsg& msg);
 

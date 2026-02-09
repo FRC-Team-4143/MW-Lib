@@ -4,6 +4,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <yaml-cpp/yaml.h>
 
+#include "chassis_proxy_client/messages/clock_sync/sync_request.hpp"
 #include "chassis_proxy_client/messages/obj_det/proxy_det.hpp"
 #include "chassis_proxy_client/messages/tag_detection/tag_detection.hpp"
 
@@ -28,11 +29,6 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
 
     log_metadata_pub_ = create_publisher<logging_msgs::msg::LogMetadata>("/log/metadata", rclcpp::SystemDefaultsQoS());
 
-    // Setup the UDP server and register message types for receive
-    udp_server_ = std::make_unique<UdpServer>(params_->client_port);
-    udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
-    udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
-
     tryConnectUdpServer();
 
     RCLCPP_INFO(get_logger(), "Proxy client startup complete");
@@ -44,6 +40,37 @@ void ProxyClientNode::onTick() {
         udp_server_->processPackets();
     } catch (const std::runtime_error& e) {
         RCLCPP_WARN_STREAM(get_logger(), "Failed to handle proxy packet with error: " << e.what());
+
+        // try to recover by reconnecting the server
+        tryConnectUdpServer();
+    }
+
+    // Periodically send clock sync requests to the server to maintain an accurate estimate of the clock offset
+    const rclcpp::Time now = get_clock()->now();
+    if (now - last_sync_time_ > rclcpp::Duration(5s)) {
+        SyncRequestMsg sync_req;
+
+        RCLCPP_INFO(get_logger(), "Sending clock sync request to server");
+
+        const rclcpp::Time sync_now = get_clock()->now();
+        sync_req.sec = sync_now.seconds();
+        sync_req.nanosec = sync_now.nanoseconds() % static_cast<int64_t>(1e9);
+
+        udp_client_->sendMsg(sync_req);
+        last_sync_time_ = now;
+
+        RCLCPP_INFO(get_logger(), "Sent clock sync request to server");
+    }
+
+    // Check for snapshot response if a request was sent
+    if (snapshot_resp_.valid() && snapshot_resp_.wait_for(0s) == std::future_status::ready) {
+        auto response = snapshot_resp_.get();
+        if (response) {
+            RCLCPP_INFO_STREAM(get_logger(), "Snapshot response received: " << response->response_msg);
+        } else {
+            RCLCPP_ERROR_STREAM(get_logger(), "Snapshot request failed");
+        }
+        snapshot_resp_ = std::shared_future<logging_msgs::srv::SnapshotRequest::Response::SharedPtr>();
     }
 }
 
@@ -55,7 +82,20 @@ void ProxyClientNode::shutdown() {
 }
 
 void ProxyClientNode::tryConnectUdpServer() {
+    // reset existing client and server if they exist
+    udp_client_.reset();
+    udp_server_.reset();
+
     try {
+        RCLCPP_INFO(get_logger(), "Attempting proxy connection to %s:%d", params_->server_addr.c_str(),
+                    params_->server_port);
+
+        // Now setup the server to listen for incoming packets from the proxy server
+        udp_server_ = std::make_unique<UdpServer>(params_->client_port);
+        udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
+        udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
+        udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
+
         // Just setup the local part of the client and configure the server address
         udp_client_ = std::make_unique<UdpClient>(params_->server_addr, params_->server_port);
     } catch (const std::system_error& e) {
@@ -66,7 +106,7 @@ void ProxyClientNode::tryConnectUdpServer() {
 }
 
 void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSharedPtr msg) {
-    RCLCPP_INFO_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
+    RCLCPP_DEBUG_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
 
     TagDetectionMsg proxy_msg;
     proxy_msg.sec = msg->header.stamp.sec;
@@ -109,8 +149,30 @@ void ProxyClientNode::matchInfoCb(MatchInfo msg) {
 }
 
 void ProxyClientNode::autosnapCb(AutoSnapshot msg) {
-    // multiline
     RCLCPP_INFO_STREAM(get_logger(), "Received Snapshot Request: " << msg.evt_name);
+
+    const rclcpp::Time now = get_clock()->now();
+
+    logging_msgs::srv::SnapshotRequest::Request::SharedPtr request;
+    request->description = msg.evt_name;
+    request->snapshot_name = "autosnap_" + msg.evt_name + "_" + std::to_string(now.seconds());
+    request->request_id = msg.start_snapshot ? request->REQUEST_START : request->REQUEST_STOP;
+
+    snapshot_resp_ = snapshot_client_->async_send_request(request).share();
+}
+
+void ProxyClientNode::syncResponseCb(SyncResponseMsg msg) {
+    const double client_time_at_recv = rclcpp::Clock().now().seconds();
+
+    // recover the client and server time from the response
+    const double client_at_send = msg.client_send_sec + (msg.client_send_nanosec / 1e9);
+    const double server_time = msg.server_recv_sec + (msg.server_recv_nanosec / 1e9);
+
+    // compute the clock offset using the round trip time method
+    const double half_rtt = (client_time_at_recv - client_at_send) / 2.0;
+    clock_offset_sec_ = server_time - (client_at_send + half_rtt);
+
+    RCLCPP_INFO_STREAM(get_logger(), "Computed new sync offset: " << clock_offset_sec_);
 }
 
 ProxyVisionDetection loadDetection(const std_msgs::msg::Header& hdr, const vision_msgs::msg::Detection2D& msg,
