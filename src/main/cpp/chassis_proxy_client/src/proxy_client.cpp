@@ -79,32 +79,6 @@ void ProxyClientNode::onTick() {
     }
 }
 
-void ProxyClientNode::shutdown() {
-    RCLCPP_INFO(get_logger(), "Proxy client shutting down");
-    // Cleanup resources if needed
-    udp_server_.reset();
-}
-
-void ProxyClientNode::tryConnectUdpServer() {
-    // reset existing client and server if they exist
-    udp_server_.reset();
-
-    try {
-        RCLCPP_INFO(get_logger(), "Binding local UDP port %d for proxy communication", params_->client_port);
-        RCLCPP_INFO(get_logger(), "Connecting to %s:%d", params_->server_addr.c_str(), params_->server_port);
-
-        // Now setup the server to listen for incoming packets from the proxy server
-        udp_server_ = std::make_unique<UdpServer>(params_->client_port, params_->server_addr, params_->server_port);
-        udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
-        udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
-        udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
-    } catch (const std::system_error& e) {
-        RCLCPP_ERROR_STREAM(get_logger(),
-                            "Failed to connect to " << params_->server_addr << ":" << params_->server_port);
-        RCLCPP_ERROR_STREAM(get_logger(), "Error: " << e.what());
-    }
-}
-
 void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSharedPtr msg) {
     RCLCPP_DEBUG_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
 
@@ -239,6 +213,33 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
         udp_server_->sendMsg(proxy_msg);
     }
 }
+
+void ProxyClientNode::tryConnectUdpServer() {
+    // reset existing client and server if they exist
+    udp_server_.reset();
+
+    try {
+        RCLCPP_INFO(get_logger(), "Binding local UDP port %d for proxy communication", params_->client_port);
+        RCLCPP_INFO(get_logger(), "Connecting to %s:%d", params_->server_addr.c_str(), params_->server_port);
+
+        // Now setup the server to listen for incoming packets from the proxy server
+        udp_server_ = std::make_unique<UdpServer>(params_->client_port, params_->server_addr, params_->server_port);
+        udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
+        udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
+        udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
+    } catch (const std::system_error& e) {
+        RCLCPP_ERROR_STREAM(get_logger(),
+                            "Failed to connect to " << params_->server_addr << ":" << params_->server_port);
+        RCLCPP_ERROR_STREAM(get_logger(), "Error: " << e.what());
+    }
+}
+
+void ProxyClientNode::shutdown() {
+    RCLCPP_INFO(get_logger(), "Proxy client shutting down");
+    // Cleanup resources if needed
+    udp_server_.reset();
+}
+
 }  // namespace proxy_client
 
 int main(int argc, char** argv) {
