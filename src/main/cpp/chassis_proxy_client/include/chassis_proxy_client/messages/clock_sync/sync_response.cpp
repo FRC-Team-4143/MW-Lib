@@ -10,8 +10,8 @@ std::vector<uint8_t> SyncResponseMsg::serialize(const SyncResponseMsg& msg) {
     buffer << msg.req_id;
     buffer << msg.server_recv_sec;
     buffer << msg.server_recv_nanosec;
-    buffer << msg.server_send_sec;
-    buffer << msg.server_send_nanosec;
+    buffer << msg.client_send_sec;
+    buffer << msg.client_send_nanosec;
 
     return buffer.serialize();
 }
@@ -28,8 +28,8 @@ SyncResponseMsg SyncResponseMsg::deserialize(const std::vector<uint8_t>& data) {
     buffer >> msg.req_id;
     buffer >> msg.server_recv_sec;
     buffer >> msg.server_recv_nanosec;
-    buffer >> msg.server_send_sec;
-    buffer >> msg.server_send_nanosec;
+    buffer >> msg.client_send_sec;
+    buffer >> msg.client_send_nanosec;
 
     return msg;
 } 
