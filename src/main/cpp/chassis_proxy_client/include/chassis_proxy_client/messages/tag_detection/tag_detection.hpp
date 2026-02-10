@@ -16,9 +16,9 @@ struct TagDetectionMsg {
     std::vector<uint8_t> tag_ids;
 
     // Robot Pose
-    int32_t x_pos;
-    int32_t y_pos;
-    int32_t theta_pos;
+    double x_pos;
+    double y_pos;
+    double theta_pos;
 
     static std::vector<uint8_t> serialize(const TagDetectionMsg& msg);
 
