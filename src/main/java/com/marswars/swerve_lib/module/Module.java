@@ -26,13 +26,18 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import com.marswars.mechanisms.MechBase;
 
+/**
+ * Base class for swerve modules with drive and steer control.
+ */
 public abstract class Module extends MechBase {
 
+    /** Drive motor control mode selection. */
     public enum DriveControlMode {
         OPEN_LOOP,
         CLOSED_LOOP
     }
 
+    /** Steer motor control mode selection. */
     public enum SteerControlMode {
         CLOSED_LOOP
     }

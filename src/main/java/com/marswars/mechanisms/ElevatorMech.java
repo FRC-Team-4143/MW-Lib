@@ -24,6 +24,9 @@ import com.marswars.util.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
 import java.util.List;
 
+/**
+ * Mechanism implementation for elevators with position, velocity, and duty cycle control.
+ */
 public class ElevatorMech extends MechBase {
 
     /** Control modes for the elevator mechanism */
@@ -311,6 +314,7 @@ public class ElevatorMech extends MechBase {
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         BaseStatusSignal.refreshAll(signals_);
@@ -369,6 +373,7 @@ public class ElevatorMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
@@ -389,6 +394,7 @@ public class ElevatorMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         // commands

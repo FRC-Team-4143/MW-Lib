@@ -23,6 +23,9 @@ import com.marswars.util.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
 import java.util.List;
 
+/**
+ * Mechanism implementation for flywheels with velocity and duty cycle control.
+ */
 public class FlywheelMech extends MechBase {
 
     /** Control modes for the flywheel mechanism */
@@ -157,6 +160,7 @@ public class FlywheelMech extends MechBase {
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         BaseStatusSignal.refreshAll(signals_);
@@ -217,6 +221,7 @@ public class FlywheelMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
@@ -231,6 +236,7 @@ public class FlywheelMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         // commands

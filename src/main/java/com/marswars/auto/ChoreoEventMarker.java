@@ -63,6 +63,7 @@ public class ChoreoEventMarker {
         has_been_passed_ = false;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return String.format(

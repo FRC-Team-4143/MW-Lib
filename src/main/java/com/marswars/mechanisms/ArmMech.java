@@ -27,6 +27,9 @@ import com.marswars.util.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
 import java.util.List;
 
+/**
+ * Mechanism implementation for a single-jointed arm with position, velocity, and duty control.
+ */
 public class ArmMech extends MechBase {
 
     /** Control modes for the arm mechanism */
@@ -258,6 +261,7 @@ public class ArmMech extends MechBase {
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         BaseStatusSignal.refreshAll(signals_);
@@ -322,6 +326,7 @@ public class ArmMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
@@ -342,6 +347,7 @@ public class ArmMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         // commands

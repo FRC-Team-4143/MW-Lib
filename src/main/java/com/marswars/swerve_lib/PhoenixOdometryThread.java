@@ -82,6 +82,11 @@ public class PhoenixOdometryThread extends Thread {
         instance = new PhoenixOdometryThread(bus_name, wheel_radius_m);
     }
 
+    /**
+     * Gets the configured PhoenixOdometryThread singleton.
+     *
+     * @return the configured PhoenixOdometryThread
+     */
     public static PhoenixOdometryThread getInstance() {
         if (instance == null) {
             throw new IllegalStateException(
@@ -116,6 +121,7 @@ public class PhoenixOdometryThread extends Thread {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void start() {
         if (!IS_SIM && all_signals_.length > 0) {
@@ -127,6 +133,11 @@ public class PhoenixOdometryThread extends Thread {
         }
     }
 
+    /**
+     * Registers a gyro yaw signal for odometry sampling.
+     *
+     * @param yaw_signal The yaw status signal to sample
+     */
     public void registerGyro(StatusSignal<Angle> yaw_signal) {
         signals_lock_.lock();
         try {
@@ -140,6 +151,13 @@ public class PhoenixOdometryThread extends Thread {
         }
     }
 
+    /**
+     * Registers a swerve module's steer and drive position signals for sampling.
+     *
+     * @param module_index Index of the module (0-3)
+     * @param steer_signal Steer position signal
+     * @param drive_signal Drive position signal
+     */
     public void registerModule(
             int module_index, StatusSignal<Angle> steer_signal, StatusSignal<Angle> drive_signal) {
         if (module_index < 0 || module_index >= 4) {
@@ -161,6 +179,11 @@ public class PhoenixOdometryThread extends Thread {
         }
     }
 
+    /**
+     * Adds a signal to the internal list for synchronized sampling.
+     *
+     * @param signal The status signal to add
+     */
     protected void registerSignal(BaseStatusSignal signal) {
         // Add the signal to the all_signals array
         BaseStatusSignal[] new_signals = new BaseStatusSignal[all_signals_.length + 1];
@@ -185,6 +208,14 @@ public class PhoenixOdometryThread extends Thread {
         return samples;
     }
 
+    /**
+     * Enqueues simulated module measurements (simulation only).
+     *
+     * @param index Module index (0-3)
+     * @param stamps Timestamps in seconds
+     * @param steer_positions Steer positions in radians
+     * @param drive_positions Drive positions in radians
+     */
     public void enqueueModuleSamples(
             int index, double[] stamps, Rotation2d[] steer_positions, double[] drive_positions) {
         if (!IS_SIM) {
@@ -233,6 +264,12 @@ public class PhoenixOdometryThread extends Thread {
         return samples;
     }
 
+    /**
+     * Enqueues simulated gyro measurements (simulation only).
+     *
+     * @param timestamps Timestamps in seconds
+     * @param samples Gyro yaw samples
+     */
     public void enqueueGyroSamples(double[] timestamps, Rotation2d[] samples) {
         if (!IS_SIM) {
             DriverStation.reportWarning(
@@ -259,6 +296,11 @@ public class PhoenixOdometryThread extends Thread {
         }
     }
 
+    /**
+     * Drains the measurement queues and returns synchronized swerve samples.
+     *
+     * @return list of combined swerve measurements
+     */
     public List<SwerveMeasurement> getSwerveSamples() {
         List<SwerveMeasurement> swerveSamples = new ArrayList<>();
         odometry_lock_.lock();
@@ -293,6 +335,7 @@ public class PhoenixOdometryThread extends Thread {
         return swerveSamples;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void run() {
         while (true) {

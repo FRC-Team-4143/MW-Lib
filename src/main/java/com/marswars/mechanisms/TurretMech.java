@@ -4,6 +4,9 @@ import java.util.List;
 
 import com.marswars.util.FxMotorConfig;
 
+/**
+ * Roller-based mechanism configured for turret control.
+ */
 public class TurretMech extends RollerMech {
     /**
      * Constructs a new TurretMech

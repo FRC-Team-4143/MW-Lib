@@ -36,6 +36,9 @@ import com.marswars.swerve_lib.PhoenixOdometryThread;
 import com.marswars.util.MWPreferences;
 import org.ejml.simple.UnsupportedOperation;
 
+/**
+ * TalonFX-based swerve module implementation with optional simulation support.
+ */
 public class ModuleTalonFX extends Module {
     private final boolean IS_SIM = RobotBase.isSimulation();
     
@@ -86,10 +89,17 @@ public class ModuleTalonFX extends Module {
     private double sim_drive_applied_volts_ = 0.0;
     private double sim_steer_applied_volts_ = 0.0;
 
+    /**
+     * Creates a new TalonFX swerve module.
+     *
+     * @param logging_prefix Logging prefix for telemetry
+     * @param index Module index (0-3)
+     * @param config Module configuration
+     */
     public ModuleTalonFX(
-            String logging_prefix,
-            int index,
-            SwerveModuleConfig config) {
+        String logging_prefix,
+        int index,
+        SwerveModuleConfig config) {
         super(logging_prefix, index, config);
 
         drive_talonfx_ =
@@ -214,6 +224,7 @@ public class ModuleTalonFX extends Module {
         steer_sim_.setState(config_.encoder_offset_rad, 0.0);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         if (IS_SIM) {
@@ -307,6 +318,7 @@ public class ModuleTalonFX extends Module {
                 !steer_encoder_conn_deb_.calculate(steerEncoderStatus.isOK()));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setDriveOpenLoop(double output) {
         if (IS_SIM) {
@@ -324,6 +336,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setSteerOpenLoop(double output) {
         if (IS_SIM) {
@@ -340,6 +353,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setDriveVelocity(double wheelVelocityRadPerSec) {
         if (IS_SIM) {
@@ -361,6 +375,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setSteerPosition(Rotation2d rotation) {
         if (IS_SIM) {
@@ -377,6 +392,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setDriveGains(int slot, SlotConfigs gains) {
         if (IS_SIM) {
@@ -394,6 +410,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setSteerGains(SlotConfigs gains) {
         if (IS_SIM) {
@@ -405,6 +422,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setModuleOffset() {
         if (IS_SIM) {
@@ -419,6 +437,7 @@ public class ModuleTalonFX extends Module {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setNeutralMode(NeutralModeValue mode) {
         neutral_mode_ = mode;
@@ -429,6 +448,7 @@ public class ModuleTalonFX extends Module {
         DogLog.log(getLoggingKey() + "SetNeutralMode", mode);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         // In simulation, stop motors when disabled
@@ -441,6 +461,7 @@ public class ModuleTalonFX extends Module {
         // For real hardware, control requests are sent immediately in the set methods
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         DogLog.log(getLoggingKey() + "Drive/PositionRad", drive_position_rad_);

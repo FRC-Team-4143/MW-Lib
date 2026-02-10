@@ -27,6 +27,9 @@ import com.marswars.swerve_lib.module.Module;
 import com.marswars.swerve_lib.module.ModuleTalonFX;
 import com.marswars.util.TunablePid;
 
+/**
+ * Mechanism implementation for a four-module swerve drivetrain.
+ */
 public class SwerveMech extends MechBase {
 
     private SwerveModuleState[] current_module_states_ =
@@ -79,9 +82,15 @@ public class SwerveMech extends MechBase {
     private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
     private final Trigger ds_enabled_trigger_ = new Trigger(DriverStation::isEnabled);
 
+    /**
+     * Creates a new swerve mechanism using the provided drivetrain configuration.
+     *
+     * @param logging_prefix Logging prefix for telemetry
+     * @param config Drivetrain configuration
+     */
     public SwerveMech(
-            String logging_prefix,
-            SwerveDriveConfig config) {
+        String logging_prefix,
+        SwerveDriveConfig config) {
         super(logging_prefix);
 
         // Configure the odom thread
@@ -131,6 +140,7 @@ public class SwerveMech extends MechBase {
         ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         for (var module : modules_) {
@@ -171,6 +181,7 @@ public class SwerveMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     public void writeOutputs(double timestamp) {
         // Stop moving when disabled
         if (DriverStation.isDisabled()) {
@@ -189,7 +200,7 @@ public class SwerveMech extends MechBase {
         }
     }
 
-    /** Logs data to DogLog. */
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states_);
@@ -244,13 +255,22 @@ public class SwerveMech extends MechBase {
         }
     }
 
+    /**
+     * Sets the neutral mode for all swerve modules.
+     *
+     * @param mode The desired neutral mode
+     */
     public void setNeutralMode(NeutralModeValue mode) {
         for (var module : modules_) {
             module.setNeutralMode(mode);
         }
     }
 
-    /** Returns the current estimated robot pose. */
+    /**
+     * Returns the array of swerve modules in order (FL, FR, BL, BR).
+     *
+     * @return the module array
+     */
     public Module[] getModules() {
         return modules_;
     }
@@ -305,6 +325,11 @@ public class SwerveMech extends MechBase {
         return yaw_;
     }
 
+    /**
+     * Returns the gyro yaw rate in radians per second.
+     *
+     * @return yaw rate in radians per second
+     */
     public double getGyroYawRate(){
         return gyro_.getYawVelocityRadPerSec();
     }
