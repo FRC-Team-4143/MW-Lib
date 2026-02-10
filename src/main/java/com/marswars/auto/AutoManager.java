@@ -43,7 +43,9 @@ public class AutoManager {
       visualizeAuto(selected_auto);
     }));
 
-    
+    // Put the auto chooser and auto display on the dashboard once during initialization
+    SmartDashboard.putData("Auto Chooser", auto_chooser_);
+    SmartDashboard.putData("Selected Auto Path", auto_display);
   }
 
   /** 
@@ -55,8 +57,6 @@ public class AutoManager {
     for (Auto auto : autos) {
       auto_chooser_.addOption(auto.getClass().getSimpleName(), (Auto) auto);
     }
-    // Put the auto chooser on the dashboard
-    SmartDashboard.putData("Auto Chooser", auto_chooser_);
   }
 
   /** 
@@ -79,7 +79,8 @@ public class AutoManager {
     }
 
     auto_display.getObject("Auto Path").setPoses(auto.getPath(alliance.get()));
-    SmartDashboard.putData("Selected Auto Path", auto_display);
+    // No need to call putData again - the Field2d object is already on SmartDashboard
+    // and will automatically update when we change its poses
   }
 
 }
