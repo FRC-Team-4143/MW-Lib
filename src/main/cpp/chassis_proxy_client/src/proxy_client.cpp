@@ -61,7 +61,7 @@ void ProxyClientNode::onTick() {
         sync_req.sec = sync_now.seconds();
         sync_req.nanosec = sync_now.nanoseconds() % static_cast<int64_t>(1e9);
 
-        udp_client_->sendMsg(sync_req);
+        udp_server_->sendMsg(sync_req);
         last_sync_time_ = now;
 
         RCLCPP_INFO(get_logger(), "Sent clock sync request to server");
@@ -82,27 +82,22 @@ void ProxyClientNode::onTick() {
 void ProxyClientNode::shutdown() {
     RCLCPP_INFO(get_logger(), "Proxy client shutting down");
     // Cleanup resources if needed
-    udp_client_.reset();
     udp_server_.reset();
 }
 
 void ProxyClientNode::tryConnectUdpServer() {
     // reset existing client and server if they exist
-    udp_client_.reset();
     udp_server_.reset();
 
     try {
-        RCLCPP_INFO(get_logger(), "Attempting proxy connection to %s:%d", params_->server_addr.c_str(),
-                    params_->server_port);
+        RCLCPP_INFO(get_logger(), "Binding local UDP port %d for proxy communication", params_->client_port);
+        RCLCPP_INFO(get_logger(), "Connecting to %s:%d", params_->server_addr.c_str(), params_->server_port);
 
         // Now setup the server to listen for incoming packets from the proxy server
-        udp_server_ = std::make_unique<UdpServer>(params_->client_port);
+        udp_server_ = std::make_unique<UdpServer>(params_->client_port, params_->server_addr, params_->server_port);
         udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
         udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
         udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
-
-        // Just setup the local part of the client and configure the server address
-        udp_client_ = std::make_unique<UdpClient>(params_->server_addr, params_->server_port);
     } catch (const std::system_error& e) {
         RCLCPP_ERROR_STREAM(get_logger(),
                             "Failed to connect to " << params_->server_addr << ":" << params_->server_port);
@@ -130,7 +125,7 @@ void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSh
     proxy_msg.y_pos = msg->pose.position.y;
 
     // now send it to the server
-    udp_client_->sendMsg(proxy_msg);
+    udp_server_->sendMsg(proxy_msg);
 }
 
 void ProxyClientNode::matchInfoCb(MatchInfo msg) {
@@ -217,7 +212,7 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
 
     if (msg->detections.empty()) {
         ProxyVisionDetection proxy_msg = loadEmptyDetections(msg->header);
-        udp_client_->sendMsg(proxy_msg);
+        udp_server_->sendMsg(proxy_msg);
 
     } else {
         // filter for greatest bbox area
@@ -241,7 +236,7 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
         // now convert it to the packet
         uint8_t class_id = std::distance(params_->class_names.begin(), it);
         ProxyVisionDetection proxy_msg = loadDetection(msg->header, best, class_id, cam_info_, 0, 1);
-        udp_client_->sendMsg(proxy_msg);
+        udp_server_->sendMsg(proxy_msg);
     }
 }
 }  // namespace proxy_client

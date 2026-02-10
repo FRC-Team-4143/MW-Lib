@@ -26,7 +26,7 @@ file(GLOB_RECURSE MSG_SOURCES ${PROJECT_SOURCE_DIR}/include/chassis_proxy_client
 
 message("Discovered proxy msgs ${MSG_SOURCES} ")
 
-add_executable(proxy_client src/udp_client.cpp src/proxy_client.cpp 
+add_executable(proxy_client src/proxy_client.cpp 
   src/udp_server.cpp src/msg_common.cpp ${MSG_SOURCES})
 target_include_directories(proxy_client PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
