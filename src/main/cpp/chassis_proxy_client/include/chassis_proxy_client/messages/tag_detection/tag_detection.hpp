@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "chassis_proxy_client/messages/msg_common.hpp"
 
 namespace proxy_client {
 struct TagDetectionMsg {
@@ -9,8 +10,7 @@ struct TagDetectionMsg {
     const uint8_t msg_id{ 15u };
 
     // Timestamp
-    int32_t sec{ 0 };
-    int32_t nanosec{ 0 };
+    TimeStamp timestamp;
 
     // Tag ID
     std::vector<uint8_t> tag_ids;

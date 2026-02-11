@@ -8,10 +8,8 @@ std::vector<uint8_t> SyncResponseMsg::serialize(const SyncResponseMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
     buffer << msg.req_id;
-    buffer << msg.server_recv_sec;
-    buffer << msg.server_recv_nanosec;
-    buffer << msg.client_send_sec;
-    buffer << msg.client_send_nanosec;
+    buffer << msg.server_stamp;
+    buffer << msg.client_send_stamp;
 
     return buffer.serialize();
 }
@@ -26,10 +24,8 @@ SyncResponseMsg SyncResponseMsg::deserialize(const std::vector<uint8_t>& data) {
     BinIStream buffer(data);
     buffer >> msg.msg_id;
     buffer >> msg.req_id;
-    buffer >> msg.server_recv_sec;
-    buffer >> msg.server_recv_nanosec;
-    buffer >> msg.client_send_sec;
-    buffer >> msg.client_send_nanosec;
+    buffer >> msg.server_stamp;
+    buffer >> msg.client_send_stamp;
 
     return msg;
 } 

@@ -89,6 +89,14 @@ BinIStream& BinIStream::operator>>(int64_t& v) {
     return *this;
 }
 
+BinIStream& BinIStream::operator>>(TimeStamp& v) {
+    TimeStamp tmp;
+    (*this) >> tmp.sec;
+    (*this) >> tmp.nanosec;
+    v = tmp;
+    return *this;
+}
+
 BinOStream::BinOStream() : oss() {}
 
 BinOStream& BinOStream::operator<<(const double & v) {
@@ -150,6 +158,12 @@ BinOStream& BinOStream::operator<<(const uint64_t& v) {
 BinOStream& BinOStream::operator<<(const int64_t& v) {
     uint64_t tmp = htobe64(static_cast<uint64_t>(v));
     oss.write((char*)&tmp, sizeof(tmp));
+    return *this;
+}
+
+BinOStream& BinOStream::operator<<(const TimeStamp& v) {
+    (*this) << v.sec;
+    (*this) << v.nanosec;
     return *this;
 }
 

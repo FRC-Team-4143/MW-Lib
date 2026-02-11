@@ -7,8 +7,7 @@ namespace proxy_client {
 std::vector<uint8_t> SyncRequestMsg::serialize(const SyncRequestMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
-    buffer << msg.sec;
-    buffer << msg.nanosec;
+    buffer << msg.timestamp;
     buffer << msg.req_id;
 
     return buffer.serialize();
@@ -23,8 +22,7 @@ SyncRequestMsg SyncRequestMsg::deserialize(const std::vector<uint8_t>& data) {
 
     BinIStream buffer(data);
     buffer >> msg.msg_id;
-    buffer >> msg.sec;
-    buffer >> msg.nanosec;
+    buffer >> msg.timestamp;
     buffer >> msg.req_id;
 
     return msg;

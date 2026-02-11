@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "chassis_proxy_client/messages/msg_common.hpp"
 
 namespace proxy_client {
 
@@ -13,10 +14,10 @@ struct SyncResponseMsg {
     int32_t req_id{ 0 };
 
     // Server timestamps: when request was received and when response sent
-    int32_t server_recv_sec{ 0 };
-    int32_t server_recv_nanosec{ 0 };
-    int32_t client_send_sec{ 0 };
-    int32_t client_send_nanosec{ 0 };
+    TimeStamp server_stamp;
+
+    // Client timestamp when request was sent (echoed back for RTT calculation)
+    TimeStamp client_send_stamp;
 
     static std::vector<uint8_t> serialize(const SyncResponseMsg& msg);
 
