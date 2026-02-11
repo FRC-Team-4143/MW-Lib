@@ -2,6 +2,9 @@ package com.marswars.proxy_server;
 
 import java.nio.ByteBuffer;
 
+import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.RobotController;
+
 /**
  * Packet handler for time synchronization responses.
  * Provides functionality to create and serialize timesync response packets
@@ -19,19 +22,19 @@ public abstract class TimesyncResponse implements Packet {
         public final int serverReceiveSeconds;
         /** Server timestamp when request was received (nanoseconds) */
         public final int serverReceiveNanoseconds;
-        /** Server timestamp when response was sent (seconds) */
-        public final int serverSendSeconds;
-        /** Server timestamp when response was sent (nanoseconds) */
-        public final int serverSendNanoseconds;
+        /** Client timestamp when response was sent (seconds) */
+        public final int clientSendSeconds;
+        /** Client timestamp when response was sent (nanoseconds) */
+        public final int clientSendNanoseconds;
 
         public TimesyncResponseData(int requestId, int serverReceiveSeconds, 
-                                  int serverReceiveNanoseconds, int serverSendSeconds, 
-                                  int serverSendNanoseconds) {
+                                  int serverReceiveNanoseconds, int clientSendSeconds, 
+                                  int clientSendNanoseconds) {
             this.requestId = requestId;
             this.serverReceiveSeconds = serverReceiveSeconds;
             this.serverReceiveNanoseconds = serverReceiveNanoseconds;
-            this.serverSendSeconds = serverSendSeconds;
-            this.serverSendNanoseconds = serverSendNanoseconds;
+            this.clientSendSeconds = clientSendSeconds;
+            this.clientSendNanoseconds = clientSendNanoseconds;
         }
     }
     
@@ -52,8 +55,8 @@ public abstract class TimesyncResponse implements Packet {
         bb.putInt(response.requestId);                    // req_id
         bb.putInt(response.serverReceiveSeconds);         // server_recv_sec
         bb.putInt(response.serverReceiveNanoseconds);     // server_recv_nanosec
-        bb.putInt(response.serverSendSeconds);            // server_send_sec
-        bb.putInt(response.serverSendNanoseconds);        // server_send_nanosec
+        bb.putInt(response.clientSendSeconds);            // server_send_sec
+        bb.putInt(response.clientSendNanoseconds);        // server_send_nanosec
         
         return buffer;
     }
@@ -91,17 +94,17 @@ public abstract class TimesyncResponse implements Packet {
      */
     public static TimesyncResponseData createResponse(TimesyncRequest.TimesyncRequestData request) {
         // Get current system time for server timestamps
-        long currentTimeMs = System.currentTimeMillis();
-        int serverTimeSeconds = (int) (currentTimeMs / 1000);
-        int serverTimeNanoseconds = (int) ((currentTimeMs % 1000) * 1_000_000);
+        long currentTime = RobotController.getFPGATime();
+        int serverTimeSeconds = (int) (currentTime / 1e6);
+        int serverTimeNanoseconds = (int) ((currentTime % 1e6) * 1e3);
         
         // Use same timestamp for both receive and send for simplicity
         return new TimesyncResponseData(
             request.requestId,
             serverTimeSeconds,     // server_recv_sec
             serverTimeNanoseconds, // server_recv_nanosec
-            serverTimeSeconds,     // server_send_sec (same as recv for simplicity)
-            serverTimeNanoseconds  // server_send_nanosec (same as recv for simplicity)
+            request.clientSendSeconds,     // server_send_sec (same as recv for simplicity)
+            request.clientSendNanoseconds  // server_send_nanosec (same as recv for simplicity)
         );
     }
 }
