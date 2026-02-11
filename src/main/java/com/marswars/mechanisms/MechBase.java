@@ -10,8 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * Base class for mechanism IO implementations with common motor configuration helpers.
+ */
 public abstract class MechBase implements SubsystemIoBase {
 
+    /** Container for constructed motor controllers and their status signals. */
     public class ConstructedMotors {
         public TalonFX motors[];
         public BaseStatusSignal signals[];
@@ -55,7 +59,7 @@ public abstract class MechBase implements SubsystemIoBase {
     }
 
     /**
-     * Get the logging key for this mechanism
+     * Get the logging key for this mechanism.
      *
      * @return the logging key
      */
@@ -64,7 +68,7 @@ public abstract class MechBase implements SubsystemIoBase {
     }
 
     /**
-     * Get the name of the mechanism
+     * Get the name of the mechanism.
      *
      * @return the name of the mechanism
      */

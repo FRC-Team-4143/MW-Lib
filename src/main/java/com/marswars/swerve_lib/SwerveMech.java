@@ -27,6 +27,9 @@ import com.marswars.swerve_lib.module.Module;
 import com.marswars.swerve_lib.module.ModuleTalonFX;
 import com.marswars.util.TunablePid;
 
+/**
+ * Mechanism implementation for a four-module swerve drivetrain.
+ */
 public class SwerveMech extends MechBase {
 
     private SwerveModuleState[] current_module_states_ =
@@ -66,7 +69,7 @@ public class SwerveMech extends MechBase {
             };
 
     private ChassisSpeeds chassis_speeds_ = new ChassisSpeeds();
-    private Rotation2d heading_ = Rotation2d.kZero;
+    private Rotation2d yaw_ = Rotation2d.kZero;
 
     private ChassisRequest current_request_ = new ChassisRequest.Idle();
     private ChassisRequestParameters current_request_parameters_ = new ChassisRequestParameters();
@@ -79,9 +82,15 @@ public class SwerveMech extends MechBase {
     private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
     private final Trigger ds_enabled_trigger_ = new Trigger(DriverStation::isEnabled);
 
+    /**
+     * Creates a new swerve mechanism using the provided drivetrain configuration.
+     *
+     * @param logging_prefix Logging prefix for telemetry
+     * @param config Drivetrain configuration
+     */
     public SwerveMech(
-            String logging_prefix,
-            SwerveDriveConfig config) {
+        String logging_prefix,
+        SwerveDriveConfig config) {
         super(logging_prefix);
 
         // Configure the odom thread
@@ -131,6 +140,7 @@ public class SwerveMech extends MechBase {
         ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         for (var module : modules_) {
@@ -156,21 +166,22 @@ public class SwerveMech extends MechBase {
         // Update gyro angle
         if (gyro_.isConnected()) {
             // Use the real gyro angle
-            heading_ = gyro_.getYawPosition();
+            yaw_ = gyro_.getYawPosition();
         } else {
             // Use the angle delta from the kinematics and module deltas
             Twist2d twist = kinematics_.toTwist2d(module_deltas);
-            heading_ = heading_.plus(new Rotation2d(twist.dtheta));
+            yaw_ = yaw_.plus(new Rotation2d(twist.dtheta));
             
             // Enqueue the calculated gyro rotation for odometry
             // This ensures pose estimation continues working even when gyro is disconnected
             double currentTime = Timer.getFPGATimestamp();
             PhoenixOdometryThread.getInstance().enqueueGyroSamples(
                 new double[] {currentTime},
-                new Rotation2d[] {heading_});
+                new Rotation2d[] {yaw_});
         }
     }
 
+    /** {@inheritDoc} */
     public void writeOutputs(double timestamp) {
         // Stop moving when disabled
         if (DriverStation.isDisabled()) {
@@ -189,7 +200,7 @@ public class SwerveMech extends MechBase {
         }
     }
 
-    /** Logs data to DogLog. */
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states_);
@@ -198,7 +209,7 @@ public class SwerveMech extends MechBase {
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
         DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
         DogLog.log(getLoggingKey() + "ChassisSpeeds", chassis_speeds_);
-        DogLog.log(getLoggingKey() + "ChassisHeading", heading_);
+        DogLog.log(getLoggingKey() + "ChassisYaw", yaw_);
         DogLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
         DogLog.log(
                 getLoggingKey() + "CurrentRequestType", current_request_.getClass().getSimpleName());
@@ -233,7 +244,7 @@ public class SwerveMech extends MechBase {
      *
      * @param yaw The desired yaw rotation.
      */
-    public void setGyro(Rotation2d yaw) {
+    public void setGyroYaw(Rotation2d yaw) {
         gyro_.setYaw(yaw);
     }
 
@@ -244,13 +255,22 @@ public class SwerveMech extends MechBase {
         }
     }
 
+    /**
+     * Sets the neutral mode for all swerve modules.
+     *
+     * @param mode The desired neutral mode
+     */
     public void setNeutralMode(NeutralModeValue mode) {
         for (var module : modules_) {
             module.setNeutralMode(mode);
         }
     }
 
-    /** Returns the current estimated robot pose. */
+    /**
+     * Returns the array of swerve modules in order (FL, FR, BL, BR).
+     *
+     * @return the module array
+     */
     public Module[] getModules() {
         return modules_;
     }
@@ -302,9 +322,14 @@ public class SwerveMech extends MechBase {
      * @return Rotation2d representing the raw gyro rotation
      */
     public Rotation2d getGyroYaw() {
-        return heading_;
+        return yaw_;
     }
 
+    /**
+     * Returns the gyro yaw rate in radians per second.
+     *
+     * @return yaw rate in radians per second
+     */
     public double getGyroYawRate(){
         return gyro_.getYawVelocityRadPerSec();
     }

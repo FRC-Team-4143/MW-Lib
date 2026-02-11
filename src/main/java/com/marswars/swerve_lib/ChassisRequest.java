@@ -43,9 +43,7 @@ public interface ChassisRequest {
         OperatorPerspective
     }
 
-    /*
-     * Contains everything the control requests need to calculate the module state.
-     */
+    /** Contains everything the control requests need to calculate the module state. */
     public class ChassisRequestParameters {
         public SwerveDriveKinematics kinematics;
         public ChassisSpeeds currentChassisSpeed;
@@ -77,7 +75,8 @@ public interface ChassisRequest {
         /** The type of control request to use for the steer motor. */
         public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 SwerveModuleState state =
@@ -146,7 +145,8 @@ public interface ChassisRequest {
         /** The last applied state in case we don't have anything to drive. */
         protected SwerveModuleState[] m_lastAppliedState = null;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             double toApplyX = Twist.dx;
             double toApplyY = Twist.dy;
             if (XPositiveReference == ChassisRequest.XPositiveReference.OperatorPerspective) {
@@ -315,7 +315,8 @@ public interface ChassisRequest {
         public XPositiveReference XPositiveReference =
                 ChassisRequest.XPositiveReference.OperatorPerspective;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             double toApplyX = Twist.dx;
             double toApplyY = Twist.dy;
             Rotation2d angleToFace = TargetDirection;
@@ -490,7 +491,8 @@ public interface ChassisRequest {
      * drive mechanism.
      */
     public class Idle implements ChassisRequest {
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {}
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {}
     }
 
     /** Sets the swerve drive modules to point to a specified direction. */
@@ -508,7 +510,8 @@ public interface ChassisRequest {
         /** The type of control request to use for the steer motor. */
         public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 SwerveModuleState state = new SwerveModuleState(0, ModuleDirection);
@@ -585,7 +588,8 @@ public interface ChassisRequest {
         /** The type of control request to use for the steer motor. */
         public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             double toApplyX = Twist.dx;
             double toApplyY = Twist.dy;
             double toApplyOmega = Twist.dtheta;
@@ -687,7 +691,8 @@ public interface ChassisRequest {
         /** The type of control request to use for the steer motor. */
         public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             var states = parameters.kinematics.toSwerveModuleStates(Speeds, CenterOfRotation);
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -757,7 +762,8 @@ public interface ChassisRequest {
         /** The type of control request to use for the steer motor. */
         public Module.SteerControlMode SteerRequestType = Module.SteerControlMode.CLOSED_LOOP;
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             ChassisSpeeds speeds =
                     ChassisSpeeds.discretize(
                             ChassisSpeeds.fromFieldRelativeSpeeds(
@@ -860,9 +866,10 @@ public interface ChassisRequest {
          * <p>This PID controller operates on heading radians and outputs a target rotational rate
          * in radians per second.
          */
-        public PhoenixPIDController HeadingController = new PhoenixPIDController(0, 0, 0.0);
+    public PhoenixPIDController HeadingController = new PhoenixPIDController(0, 0, 0.0);
 
-        public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
+    /** {@inheritDoc} */
+    public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             // Get the robot-relative speeds
             double toApplyVx = Speeds.vxMetersPerSecond;
             double toApplyVy = Speeds.vyMetersPerSecond;

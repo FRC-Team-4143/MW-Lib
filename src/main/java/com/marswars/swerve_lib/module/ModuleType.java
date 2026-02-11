@@ -4,6 +4,9 @@ import edu.wpi.first.wpilibj.DataLogManager;
 import com.marswars.util.ConstantsLoader;
 import java.util.Hashtable;
 
+/**
+ * Known swerve module gear ratio presets with metadata used for configuration.
+ */
 public class ModuleType {
     public final String name;
     public final double steerRatio;
@@ -69,8 +72,10 @@ public class ModuleType {
     }
 
     /**
-     * @param position String representing the module location [fl, fr, bl, br, etc..]
-     * @return ModuleType to be load the gear ratio constants from
+     * Loads module type information from JSON constants for a given module position.
+     *
+     * @param position String representing the module location [fl, fr, bl, br, etc.]
+     * @return ModuleType to load the gear ratio constants from
      */
     public static ModuleType getModuleTypeFromJSON(String position) {
         String type = LOADER.getStringValue("swerve", position, "module_type");
@@ -78,6 +83,12 @@ public class ModuleType {
         return getModuleType(type + "-" + gearing);
     }
 
+    /**
+     * Gets a module type by name, falling back to MK4I-L3 if missing.
+     *
+     * @param type Module type name (e.g. MK4I-L2)
+     * @return Resolved ModuleType
+     */
     public static ModuleType getModuleType(String type) {
         ModuleType module = ALL_MODULE_TYPES.get(type);
         if (module == null) {

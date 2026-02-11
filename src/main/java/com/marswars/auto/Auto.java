@@ -11,11 +11,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 
+/**
+ * Base class for autonomous routines that load Choreo trajectories and expose
+ * common path utilities.
+ */
 public class Auto extends SequentialCommandGroup {
 
   private ArrayList<Pose2d[]> trajectory_list_ = new ArrayList<>();
   protected LinkedHashMap<String, Trajectory<?>> trajectories = new LinkedHashMap<>();
 
+  /** Creates a new autonomous routine container with a default name. */
   public Auto() {
     this.setName(getClass().getSimpleName());
   }
@@ -34,11 +39,22 @@ public class Auto extends SequentialCommandGroup {
     if (!trajectories.containsKey(name)) trajectories.put(name, traj);
   }
 
+  /**
+   * Get a loaded trajectory by name.
+   *
+   * @param name The name of the trajectory
+   * @return The typed Choreo trajectory
+   */
   @SuppressWarnings("unchecked")
   protected Trajectory<SwerveSample> getTrajectory(String name) {
     return (Trajectory<SwerveSample>) trajectories.get(name);
   }
 
+  /**
+   * Gets the starting pose for the first loaded trajectory.
+   *
+   * @return The first pose in the first trajectory, or {@link Pose2d#kZero} if none
+   */
   public Pose2d getStartPose() {
     if (trajectory_list_.isEmpty() || trajectory_list_.get(0).length == 0) {
       return Pose2d.kZero;

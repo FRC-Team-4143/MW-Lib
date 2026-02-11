@@ -13,6 +13,8 @@ public interface Packet {
     int TIME_SEC_IDX = 1;
     /** Timestamp nanoseconds index */
     int TIME_NSEC_IDX = 5;
+    /** Total size of the common packet header (type + timestamp) */
+    int HEADER_SIZE = 9;
     
     // Legacy aliases for compatibility
     @Deprecated

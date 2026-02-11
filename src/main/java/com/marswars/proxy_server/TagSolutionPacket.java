@@ -34,13 +34,16 @@ public abstract class TagSolutionPacket implements Packet {
     public static final int TYPE_ID = 15;
     
     // Byte indices for packet data fields
-    private static final int X_POS_IDX = 9;
-    private static final int Y_POS_IDX = 13;
-    private static final int OMEGA_POS_IDX = 17;
-    private static final int DETECTED_TAG_COUNT_IDX = 21;
-    private static final int DETECTED_TAG_START_IDX = 25;
+    private static final int DOUBLE_SIZE = 8; // Size of double values in bytes
+    private static final int INT_SIZE = 4; // Size of integer values in bytes
 
-    private static final double POSITION_RESOLUTION = 1000.0;
+    private static final int X_POS_IDX = HEADER_SIZE;
+    private static final int Y_POS_IDX = X_POS_IDX + DOUBLE_SIZE;
+    private static final int OMEGA_POS_IDX = Y_POS_IDX + DOUBLE_SIZE;
+    private static final int DETECTED_TAG_COUNT_IDX = OMEGA_POS_IDX + DOUBLE_SIZE;
+    private static final int DETECTED_TAG_START_IDX = DETECTED_TAG_COUNT_IDX + INT_SIZE;
+
+    private static final double POSITION_RESOLUTION = 1E6; // Resolution for position data (e.g., 1 unit = 1 millionth of a meter)
 
 
 
@@ -59,16 +62,16 @@ public abstract class TagSolutionPacket implements Packet {
         
         // Parse position data
         Pose2d pose = new Pose2d(
-                ByteBuffer.wrap(buffer, X_POS_IDX, 4).getInt() / POSITION_RESOLUTION,
-                ByteBuffer.wrap(buffer, Y_POS_IDX, 4).getInt() / POSITION_RESOLUTION,
+                ByteBuffer.wrap(buffer, X_POS_IDX, 8).getLong() / POSITION_RESOLUTION,
+                ByteBuffer.wrap(buffer, Y_POS_IDX, 8).getLong() / POSITION_RESOLUTION,
                 new Rotation2d(
-                        ByteBuffer.wrap(buffer, OMEGA_POS_IDX, 4).getInt() / POSITION_RESOLUTION));
+                        ByteBuffer.wrap(buffer, OMEGA_POS_IDX, 8).getLong() / POSITION_RESOLUTION));
 
         // Parse detected tag IDs
         ArrayList<Integer> detectedIds = new ArrayList<>();
         int detectedTagCount = ByteBuffer.wrap(buffer, DETECTED_TAG_COUNT_IDX, 4).getInt();
         for (int i = 0; i < detectedTagCount; i++) {
-            int tagId = ByteBuffer.wrap(buffer, DETECTED_TAG_START_IDX + (i * 4), 4).getInt();
+            int tagId = ByteBuffer.wrap(buffer, DETECTED_TAG_START_IDX + (i), 1).get();
             detectedIds.add(tagId);
         }
         

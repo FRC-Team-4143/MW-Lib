@@ -1,6 +1,7 @@
 package com.marswars.proxy_server;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -14,7 +15,6 @@ import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolutionData;
 import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
-import com.marswars.util.NumUtil;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -104,19 +104,22 @@ public class ProxyServerThread extends Thread {
     public static ProxyServerThread getInstance() {
         if (instance_ == null) {
             instance_ = new ProxyServerThread();
-            instance_.configureServer();
+            instance_.start();
         }
         return instance_;
     }
 
     @Override
     public void start(){
+        instance_.configureServer();
         super.start();
     }
 
     @Override
     public void run(){
-        updateData();
+        while (true) {
+            updateData();
+        }
     }
 
     /**
@@ -298,7 +301,7 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean snapshot(String tag_name) {
-        int tag_name_length = (int) NumUtil.clamp(tag_name.length(), 400);
+        int tag_name_length = (int) MathUtil.clamp(tag_name.length(), 0, 400);
         byte[] buffer = new byte[1 + tag_name_length];
         buffer[0] = 52; // Message ID
         for (int i = 0; i < tag_name_length; i++) {

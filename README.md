@@ -82,6 +82,7 @@ This library uses GitHub Actions for automated CI/CD:
    - Builds the library with the release version
    - Publishes to GitHub Packages
    - Attaches `MWLib.json` vendor dependency to the release
+    - Publishes Javadocs to GitHub Pages (`https://frc-team-4143.github.io/MW-Lib/`)
 
 ### Manual Publishing
 You can also trigger publishing manually:

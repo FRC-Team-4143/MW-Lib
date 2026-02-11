@@ -2,7 +2,11 @@ package com.marswars.swerve_lib.module;
 
 import com.marswars.util.FxMotorConfig;
 
+/**
+ * Configuration container for a single swerve module.
+ */
 public class SwerveModuleConfig {
+    /** Encoder hardware options for the module. */
     public enum EncoderType {
         CTRE_CAN_CODER,
         ANALOG_ENCODER

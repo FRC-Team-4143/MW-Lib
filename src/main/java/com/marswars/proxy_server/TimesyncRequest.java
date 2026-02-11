@@ -35,9 +35,9 @@ public abstract class TimesyncRequest implements Packet {
     public static final int TYPE_ID = 60;
     
     // Byte indices for timesync request data fields
-    private static final int REQUEST_ID_IDX = 1;
-    private static final int CLIENT_SEND_SEC_IDX = 5;
-    private static final int CLIENT_SEND_NSEC_IDX = 9;
+    private static final int CLIENT_SEND_SEC_IDX = 1;
+    private static final int CLIENT_SEND_NSEC_IDX = 5;
+    private static final int REQUEST_ID_IDX = 9;
     
     /**
      * Parses timesync request packet data from a received byte buffer.

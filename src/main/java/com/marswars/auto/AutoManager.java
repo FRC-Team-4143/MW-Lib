@@ -11,10 +11,18 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
+/**
+ * Singleton manager for autonomous routine selection and visualization.
+ */
 public class AutoManager {
   // Singleton pattern
   private static AutoManager instance_ = null;
 
+  /**
+   * Gets the singleton AutoManager instance.
+   *
+   * @return the AutoManager instance
+   */
   public static AutoManager getInstance() {
     if (instance_ == null) {
       instance_ = new AutoManager();
@@ -29,8 +37,10 @@ public class AutoManager {
   private AutoManager() {
     // Create the auto chooser
     auto_chooser_ = new SendableChooser<Auto>();
-    // Set default option to not move and wait 15 seconds
-    auto_chooser_.setDefaultOption("Do_Nothing", new Do_Nothing());
+    // Set default option to not move and wait 30 seconds
+    Auto doNothing = new Auto();
+    doNothing.addCommands(Commands.waitSeconds(30));
+    auto_chooser_.setDefaultOption("Do_Nothing", doNothing);
     
     // Bind a callback on selected change to display auto
     auto_chooser_.onChange((auto) -> {
@@ -43,7 +53,9 @@ public class AutoManager {
       visualizeAuto(selected_auto);
     }));
 
-    
+    // Put the auto chooser and auto display on the dashboard once during initialization
+    SmartDashboard.putData("Auto Chooser", auto_chooser_);
+    SmartDashboard.putData("Selected Auto Path", auto_display);
   }
 
   /** 
@@ -55,8 +67,6 @@ public class AutoManager {
     for (Auto auto : autos) {
       auto_chooser_.addOption(auto.getClass().getSimpleName(), (Auto) auto);
     }
-    // Put the auto chooser on the dashboard
-    SmartDashboard.putData("Auto Chooser", auto_chooser_);
   }
 
   /** 
@@ -70,6 +80,11 @@ public class AutoManager {
     return auto;
   }
 
+  /**
+   * Displays the currently selected auto path on the dashboard field.
+   *
+   * @param auto The auto routine whose path should be visualized
+   */
   public void visualizeAuto(Auto auto) {
     Optional<Alliance> alliance = DriverStation.getAlliance();
 
@@ -79,7 +94,8 @@ public class AutoManager {
     }
 
     auto_display.getObject("Auto Path").setPoses(auto.getPath(alliance.get()));
-    SmartDashboard.putData("Selected Auto Path", auto_display);
+    // No need to call putData again - the Field2d object is already on SmartDashboard
+    // and will automatically update when we change its poses
   }
 
 }

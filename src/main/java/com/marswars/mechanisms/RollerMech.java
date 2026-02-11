@@ -26,6 +26,9 @@ import com.marswars.util.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
 import java.util.List;
 
+/**
+ * Mechanism implementation for rollers with position, velocity, and duty cycle control.
+ */
 public class RollerMech extends MechBase {
 
     /** Control modes for the roller mechanism */
@@ -65,6 +68,13 @@ public class RollerMech extends MechBase {
     private final DCMotorSim roller_sim_;
     private double sim_load_torque_nm_ = 0.0; // Load torque at roller shaft for simulation
 
+    /**
+     * Constructs a new RollerMech with a default inertia value.
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     */
     public RollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio) {
         this(logging_prefix, null, motor_configs, gear_ratio, 0.00001);
     }
@@ -174,6 +184,7 @@ public class RollerMech extends MechBase {
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         BaseStatusSignal.refreshAll(signals_);
@@ -239,6 +250,7 @@ public class RollerMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
@@ -256,6 +268,7 @@ public class RollerMech extends MechBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         // commands
