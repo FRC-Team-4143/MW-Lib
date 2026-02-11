@@ -15,7 +15,6 @@
 #include "chassis_proxy_client/messages/auto_snapshot/auto_snapshot.hpp"
 #include "chassis_proxy_client/messages/clock_sync/sync_response.hpp"
 #include "chassis_proxy_client/messages/match_info/match_info.hpp"
-#include "chassis_proxy_client/udp_client.hpp"
 #include "chassis_proxy_client/udp_server.hpp"
 #include "logging_msgs/srv/snapshot_request.hpp"
 
@@ -70,7 +69,6 @@ class ProxyClientNode : public basin::node_core::NodeCore {
    private:
     std::unique_ptr<ProxyClientNodeParams> params_;
 
-    std::unique_ptr<UdpClient> udp_client_;
     std::unique_ptr<UdpServer> udp_server_;
 
     sensor_msgs::msg::CameraInfo::ConstSharedPtr cam_info_;  ///< Camera info message received last

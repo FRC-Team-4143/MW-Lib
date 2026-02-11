@@ -5,10 +5,10 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <memory>
 
 #include "chassis_proxy_client/proxy_subscription.hpp"
 
@@ -19,7 +19,7 @@ using sub_map_t = std::unordered_map<uint8_t, std::unique_ptr<ProxySubscriptionB
 
 class UdpServer {
    public:
-    UdpServer(int port);
+    UdpServer(int local_port, const std::string& remote_addr, int remote_port);
 
     int processPackets();
 
@@ -28,10 +28,24 @@ class UdpServer {
         sub_map_.emplace(T().msg_id, new ProxySubscription<T>(callback));
     }
 
-   private:
-    sub_map_t sub_map_;
+    template <typename T>
+    void sendMsg(const T& msg) {
+        sendPacket(T::serialize(msg));
+    }
 
-    int socket_fd_ = -1;                  ///< file descriptor for the socket
-    struct sockaddr_in server_addr_cfg_;  ///< Local bind address config
+   protected:
+    void sendPacket(const std::vector<uint8_t>& byte_buffer);
+
+   private:
+    std::string remote_addr_;
+    int remote_port_;
+    struct sockaddr_in remote_addr_cfg_;  ///< remote address config
+
+    int local_port_;
+    struct sockaddr_in local_addr_cfg_;  ///< Local bind address config
+
+    sub_map_t sub_map_;  ///< map of message id to subscription callback
+
+    int socket_fd_ = -1;  ///< file descriptor for the socket
 };
 }  // namespace proxy_client

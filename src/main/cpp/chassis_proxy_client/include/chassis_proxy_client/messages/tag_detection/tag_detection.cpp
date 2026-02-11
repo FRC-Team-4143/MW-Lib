@@ -7,8 +7,7 @@ namespace proxy_client {
 std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
-    buffer << msg.sec;
-    buffer << msg.nanosec;
+    buffer << msg.timestamp;
 
     // pose
     buffer << msg.x_pos;
@@ -34,8 +33,7 @@ TagDetectionMsg TagDetectionMsg::deserialize(const std::vector<uint8_t>& data) {
     }
 
     buffer >> msg.msg_id;
-    buffer >> msg.sec;
-    buffer >> msg.nanosec;
+    buffer >> msg.timestamp;
 
     // pose
     buffer >> msg.x_pos;

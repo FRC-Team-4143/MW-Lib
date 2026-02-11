@@ -4,6 +4,9 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <yaml-cpp/yaml.h>
 
+#include <iomanip>
+#include <limits>
+
 #include "chassis_proxy_client/messages/clock_sync/sync_request.hpp"
 #include "chassis_proxy_client/messages/obj_det/proxy_det.hpp"
 #include "chassis_proxy_client/messages/tag_detection/tag_detection.hpp"
@@ -57,11 +60,8 @@ void ProxyClientNode::onTick() {
 
         RCLCPP_INFO(get_logger(), "Sending clock sync request to server");
 
-        const rclcpp::Time sync_now = get_clock()->now();
-        sync_req.sec = sync_now.seconds();
-        sync_req.nanosec = sync_now.nanoseconds() % static_cast<int64_t>(1e9);
-
-        udp_client_->sendMsg(sync_req);
+        sync_req.timestamp = TimeStamp::fromRosTime(get_clock()->now());
+        udp_server_->sendMsg(sync_req);
         last_sync_time_ = now;
 
         RCLCPP_INFO(get_logger(), "Sent clock sync request to server");
@@ -79,43 +79,11 @@ void ProxyClientNode::onTick() {
     }
 }
 
-void ProxyClientNode::shutdown() {
-    RCLCPP_INFO(get_logger(), "Proxy client shutting down");
-    // Cleanup resources if needed
-    udp_client_.reset();
-    udp_server_.reset();
-}
-
-void ProxyClientNode::tryConnectUdpServer() {
-    // reset existing client and server if they exist
-    udp_client_.reset();
-    udp_server_.reset();
-
-    try {
-        RCLCPP_INFO(get_logger(), "Attempting proxy connection to %s:%d", params_->server_addr.c_str(),
-                    params_->server_port);
-
-        // Now setup the server to listen for incoming packets from the proxy server
-        udp_server_ = std::make_unique<UdpServer>(params_->client_port);
-        udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
-        udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
-        udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
-
-        // Just setup the local part of the client and configure the server address
-        udp_client_ = std::make_unique<UdpClient>(params_->server_addr, params_->server_port);
-    } catch (const std::system_error& e) {
-        RCLCPP_ERROR_STREAM(get_logger(),
-                            "Failed to connect to " << params_->server_addr << ":" << params_->server_port);
-        RCLCPP_ERROR_STREAM(get_logger(), "Error: " << e.what());
-    }
-}
-
 void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSharedPtr msg) {
     RCLCPP_DEBUG_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
 
     TagDetectionMsg proxy_msg;
-    proxy_msg.sec = msg->header.stamp.sec;
-    proxy_msg.nanosec = msg->header.stamp.nanosec;
+    proxy_msg.timestamp = TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_);
     proxy_msg.tag_ids = msg->detected_tags;
 
     // convert from quaternion to euler angles in degrees
@@ -130,7 +98,7 @@ void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSh
     proxy_msg.y_pos = msg->pose.position.y;
 
     // now send it to the server
-    udp_client_->sendMsg(proxy_msg);
+    udp_server_->sendMsg(proxy_msg);
 }
 
 void ProxyClientNode::matchInfoCb(MatchInfo msg) {
@@ -171,40 +139,15 @@ void ProxyClientNode::syncResponseCb(SyncResponseMsg msg) {
     const double client_time_at_recv = get_clock()->now().seconds();
 
     // recover the client and server time from the response
-    const double client_at_send = msg.client_send_sec + (msg.client_send_nanosec / 1e9);
-    const double server_time = msg.server_recv_sec + (msg.server_recv_nanosec / 1e9);
+    const double client_at_send = msg.client_send_stamp.toSec();
+    const double server_time = msg.server_stamp.toSec();
 
     // compute the clock offset using the round trip time method
     const double half_rtt = (client_time_at_recv - client_at_send) / 2.0;
     clock_offset_sec_ = server_time - (client_at_send + half_rtt);
 
-    RCLCPP_INFO_STREAM(get_logger(), "Computed new sync offset: " << clock_offset_sec_);
-}
-
-ProxyVisionDetection loadDetection(const std_msgs::msg::Header& hdr, const vision_msgs::msg::Detection2D& msg,
-                                   uint8_t class_id, sensor_msgs::msg::CameraInfo::ConstSharedPtr cam_info, int idx,
-                                   int count) {
-    ProxyVisionDetection proxy_msg;
-    proxy_msg.sec = hdr.stamp.sec;
-    proxy_msg.nanosec = hdr.stamp.nanosec;
-    proxy_msg.detection_count = count;
-    proxy_msg.detection_idx = idx;
-    proxy_msg.class_id = class_id;
-
-    // theta = atan((x - cx) / fx)
-    proxy_msg.theta_x = (atan((msg.bbox.center.position.x - cam_info->k.at(2)) / cam_info->k.at(0)) / M_PI) * 180.0;
-    proxy_msg.theta_y = (atan((msg.bbox.center.position.y - cam_info->k.at(5)) / cam_info->k.at(4)) / M_PI) * 180.0;
-
-    return proxy_msg;
-}
-
-ProxyVisionDetection loadEmptyDetections(const std_msgs::msg::Header& hdr) {
-    ProxyVisionDetection proxy_msg;
-    proxy_msg.sec = hdr.stamp.sec;
-    proxy_msg.nanosec = hdr.stamp.nanosec;
-    proxy_msg.detection_count = 0;
-
-    return proxy_msg;
+    RCLCPP_INFO_STREAM(get_logger(), std::setprecision(std::numeric_limits<double>::max_digits10)
+                                         << "Computed new sync offset: " << clock_offset_sec_);
 }
 
 void ProxyClientNode::camInfoCb(sensor_msgs::msg::CameraInfo::ConstSharedPtr msg) { cam_info_ = msg; }
@@ -216,8 +159,11 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
     }
 
     if (msg->detections.empty()) {
-        ProxyVisionDetection proxy_msg = loadEmptyDetections(msg->header);
-        udp_client_->sendMsg(proxy_msg);
+        ProxyVisionDetection proxy_msg;
+        proxy_msg.sec = msg->header.stamp.sec;
+        proxy_msg.nanosec = msg->header.stamp.nanosec;
+        proxy_msg.detection_count = 0;
+        udp_server_->sendMsg(proxy_msg);
 
     } else {
         // filter for greatest bbox area
@@ -240,10 +186,49 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
 
         // now convert it to the packet
         uint8_t class_id = std::distance(params_->class_names.begin(), it);
-        ProxyVisionDetection proxy_msg = loadDetection(msg->header, best, class_id, cam_info_, 0, 1);
-        udp_client_->sendMsg(proxy_msg);
+        ProxyVisionDetection proxy_msg;
+        proxy_msg.sec = msg->header.stamp.sec;
+        proxy_msg.nanosec = msg->header.stamp.nanosec;
+        proxy_msg.detection_count = 1;
+        proxy_msg.detection_idx = 0;
+        proxy_msg.class_id = class_id;
+
+        // theta = atan((x - cx) / fx)
+        proxy_msg.theta_x =
+            (atan((best.bbox.center.position.x - cam_info_->k.at(2)) / cam_info_->k.at(0)) / M_PI) * 180.0;
+        proxy_msg.theta_y =
+            (atan((best.bbox.center.position.y - cam_info_->k.at(5)) / cam_info_->k.at(4)) / M_PI) * 180.0;
+
+        udp_server_->sendMsg(proxy_msg);
     }
 }
+
+void ProxyClientNode::tryConnectUdpServer() {
+    // reset existing client and server if they exist
+    udp_server_.reset();
+
+    try {
+        RCLCPP_INFO(get_logger(), "Binding local UDP port %d for proxy communication", params_->client_port);
+        RCLCPP_INFO(get_logger(), "Connecting to %s:%d", params_->server_addr.c_str(), params_->server_port);
+
+        // Now setup the server to listen for incoming packets from the proxy server
+        udp_server_ = std::make_unique<UdpServer>(params_->client_port, params_->server_addr, params_->server_port);
+        udp_server_->registerType<MatchInfo>(std::bind(&ProxyClientNode::matchInfoCb, this, _1));
+        udp_server_->registerType<AutoSnapshot>(std::bind(&ProxyClientNode::autosnapCb, this, _1));
+        udp_server_->registerType<SyncResponseMsg>(std::bind(&ProxyClientNode::syncResponseCb, this, _1));
+    } catch (const std::system_error& e) {
+        RCLCPP_ERROR_STREAM(get_logger(),
+                            "Failed to connect to " << params_->server_addr << ":" << params_->server_port);
+        RCLCPP_ERROR_STREAM(get_logger(), "Error: " << e.what());
+    }
+}
+
+void ProxyClientNode::shutdown() {
+    RCLCPP_INFO(get_logger(), "Proxy client shutting down");
+    // Cleanup resources if needed
+    udp_server_.reset();
+}
+
 }  // namespace proxy_client
 
 int main(int argc, char** argv) {

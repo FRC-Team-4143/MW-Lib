@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "chassis_proxy_client/messages/msg_common.hpp"
+
 namespace proxy_client {
 
 struct SyncRequestMsg {
@@ -10,8 +12,7 @@ struct SyncRequestMsg {
     const uint8_t msg_id{ 60u };
 
     // Timestamp when request was sent (client)
-    int32_t sec{ 0 };
-    int32_t nanosec{ 0 };
+    TimeStamp timestamp;
 
     // Request identifier to match responses
     int32_t req_id{ 0 };
