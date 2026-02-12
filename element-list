@@ -1,0 +1,14 @@
+com.marswars.auto
+com.marswars.data_structures
+com.marswars.geometry
+com.marswars.geometry.spline
+com.marswars.logging
+com.marswars.mechanisms
+com.marswars.proxy_server
+com.marswars.sensors.gyro
+com.marswars.sensors.tof
+com.marswars.subsystem
+com.marswars.swerve_lib
+com.marswars.swerve_lib.module
+com.marswars.util
+com.marswars.vision
