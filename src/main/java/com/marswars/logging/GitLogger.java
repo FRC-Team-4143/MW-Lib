@@ -22,11 +22,15 @@ public abstract class GitLogger {
    * Logs Git and build metadata to NetworkTables using reflection.
    * Extracts and publishes project name, Git SHA, date, branch, build date, and dirty status.
    * 
-   * @param buildConstants an object containing build constants with Git metadata fields
+   * @param buildConstants a Class object containing build constants with Git metadata fields
    */
   public static void logGitData(Object buildConstants) {
     try {
-      var clazz = buildConstants.getClass();
+      // If buildConstants is a Class object, use it directly; otherwise get its class
+      Class<?> clazz = (buildConstants instanceof Class<?>) 
+          ? (Class<?>) buildConstants 
+          : buildConstants.getClass();
+      
       project_name.set((String) clazz.getField("MAVEN_NAME").get(null));
       git_sha.set((String) clazz.getField("GIT_SHA").get(null));
       git_date.set((String) clazz.getField("GIT_DATE").get(null));
@@ -46,6 +50,7 @@ public abstract class GitLogger {
       }
     } catch (Exception e) {
       System.err.println("Failed to log git data: " + e.getMessage());
+      e.printStackTrace();
     }
   }
 }
