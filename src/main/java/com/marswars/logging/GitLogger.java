@@ -5,47 +5,47 @@ import edu.wpi.first.networktables.StringPublisher;
 
 public abstract class GitLogger {
 
-  private static StringPublisher project_name =
+  private static StringPublisher project_name_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/PROJECT_NAME").publish();
-  private static StringPublisher git_sha =
+  private static StringPublisher git_sha_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_SHA").publish();
-  private static StringPublisher git_date =
+  private static StringPublisher git_date_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_DATE").publish();
-  private static StringPublisher git_branch =
+  private static StringPublisher git_branch_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_BRANCH").publish();
-  private static StringPublisher build_date =
+  private static StringPublisher build_date_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/BUILD_DATE").publish();
-  private static StringPublisher dirty =
+  private static StringPublisher dirty_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
   /**
    * Logs Git and build metadata to NetworkTables using reflection.
    * Extracts and publishes project name, Git SHA, date, branch, build date, and dirty status.
    * 
-   * @param buildConstants a Class object containing build constants with Git metadata fields
+   * @param build_constants a Class object containing build constants with Git metadata fields
    */
-  public static void logGitData(Object buildConstants) {
+  public static void logGitData(Object build_constants) {
     try {
       // If buildConstants is a Class object, use it directly; otherwise get its class
-      Class<?> clazz = (buildConstants instanceof Class<?>) 
-          ? (Class<?>) buildConstants 
-          : buildConstants.getClass();
+      Class<?> clazz = (build_constants instanceof Class<?>) 
+          ? (Class<?>) build_constants 
+          : build_constants.getClass();
       
-      project_name.set((String) clazz.getField("MAVEN_NAME").get(null));
-      git_sha.set((String) clazz.getField("GIT_SHA").get(null));
-      git_date.set((String) clazz.getField("GIT_DATE").get(null));
-      git_branch.set((String) clazz.getField("GIT_BRANCH").get(null));
-      build_date.set((String) clazz.getField("BUILD_DATE").get(null));
+      project_name_pub_.set((String) clazz.getField("MAVEN_NAME").get(null));
+      git_sha_pub_.set((String) clazz.getField("GIT_SHA").get(null));
+      git_date_pub_.set((String) clazz.getField("GIT_DATE").get(null));
+      git_branch_pub_.set((String) clazz.getField("GIT_BRANCH").get(null));
+      build_date_pub_.set((String) clazz.getField("BUILD_DATE").get(null));
       int dirtyFlag = (int) clazz.getField("DIRTY").get(null);
       switch (dirtyFlag) {
         case 0:
-          dirty.set("All changes committed");
+          dirty_pub_.set("All changes committed");
           break;
         case 1:
-          dirty.set("Uncommitted changes");
+          dirty_pub_.set("Uncommitted changes");
           break;
         default:
-          dirty.set("Unknown");
+          dirty_pub_.set("Unknown");
           break;
       }
     } catch (Exception e) {

@@ -8,6 +8,8 @@ import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
+
+import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.GitLogger;
 import com.marswars.util.ConstantsLoader;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ public abstract class SubsystemManager {
         // Log robot metadata
         GitLogger.logGitData(build_constants);
         robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
+        BatteryLogger.logBatteryData();
 
         // Handle disabling subsystems
         disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
@@ -91,6 +94,8 @@ public abstract class SubsystemManager {
                 e.printStackTrace();
             }
         }
+        // Log battery data every loop
+        BatteryLogger.logBatteryData();
     }
 
     /**
