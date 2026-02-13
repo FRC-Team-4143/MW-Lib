@@ -133,14 +133,6 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-// Setup Javadocs to link back to WPILib docs
-javadoc {
-    options {
-        links "https://docs.oracle.com/en/java/javase/$javaVersion/docs/api/", 'https://github.wpilib.org/allwpilib/docs/release/java/'
-        addStringOption('Xdoclint:none', '-quiet')
-    }
-}
-
 // Disable C++ builds - Java only project
 
 // Enable publish.gradle for vendor dependency

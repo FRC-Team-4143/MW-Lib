@@ -118,6 +118,8 @@ public class ModuleTalonFX extends Module {
         } else {
             cancoder = null;
             encoder = new AnalogEncoder(config_.encoder_id);
+            // Allow time for analog encoder to stabilize before reading
+            Timer.delay(0.01);
         }
 
         // Configure drive motor
@@ -138,13 +140,13 @@ public class ModuleTalonFX extends Module {
         if (config_.encoder_type == SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
             // Use analog encoder
             Rotation2d encoder_value = Rotation2d.fromRotations(encoder.get());
-            String offset_name = "Encoder" + index + "Offset";
+            String offset_name = "Encoder" + module_index_ + "Offset";
             Rotation2d encoder_offset =
                     Rotation2d.fromRotations(
                             MWPreferences.getInstance()
                                     .getPreferenceDouble(offset_name, 0.0));
             Rotation2d zero_position = encoder_value.minus(encoder_offset);
-            System.out.println("Module" + index + " Offset Name: " + offset_name + " - Encoder Raw: " + encoder_value + " - Encoder Offset: " + encoder_offset + " - Zero Position: " + zero_position);
+            System.out.println("Module" + module_index_ + " Offset Name: " + offset_name + " - Encoder Raw: " + encoder_value + " - Encoder Offset: " + encoder_offset + " - Zero Position: " + zero_position);
             steer_talonfx_.setPosition(zero_position.getRotations());
         } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
             // Use remote CANCoder
@@ -441,7 +443,7 @@ public class ModuleTalonFX extends Module {
         } else {
             MWPreferences.getInstance()
                     .setPreference(
-                            "Encoder" + encoder.getChannel() + "Offset",
+                            "Encoder" + module_index_ + "Offset",
                             steer_absolute_position_.getRotations());
             steer_talonfx_.setPosition(0.0);
         }
