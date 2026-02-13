@@ -77,6 +77,9 @@ public class ModuleTalonFX extends Module {
     protected final StatusSignal<AngularVelocity> steer_velocity_sig_;
     protected final StatusSignal<Voltage> steer_applied_volts_sig_;
     protected final StatusSignal<Current> steer_current_sig_;
+
+    // Analog encoder input (if used)
+    protected double encoder_value_abs_;
     
     // Simulation objects (only used when IS_SIM is true)
     private DCMotorSim drive_sim_;
@@ -316,6 +319,11 @@ public class ModuleTalonFX extends Module {
         steer_disconnected_alert_.set(!steer_conn_deb_.calculate(steerStatus.isOK()));
         steer_encoder_disconnected_alert_.set(
                 !steer_encoder_conn_deb_.calculate(steerEncoderStatus.isOK()));
+
+        // Update encoder value if using analog encoder
+        if (encoder != null) {
+            encoder_value_abs_ = encoder.get();
+        }
     }
 
     /** {@inheritDoc} */
@@ -472,5 +480,7 @@ public class ModuleTalonFX extends Module {
         DogLog.log(getLoggingKey() + "Steer/VelocityRadPerSec", steer_velocity_rad_per_sec_);
         DogLog.log(getLoggingKey() + "Steer/AppliedVolts", steer_applied_volts_);
         DogLog.log(getLoggingKey() + "Steer/CurrentAmps", steer_current_amps_);
+        DogLog.log(getLoggingKey() + "NeutralMode", neutral_mode_);
+        DogLog.log(getLoggingKey() + "Encoder/AbsoluteValue", encoder_value_abs_);
     }
 }
