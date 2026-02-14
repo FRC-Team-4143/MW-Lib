@@ -64,18 +64,6 @@ jobs:
       
       - name: Build library
         run: ./gradlew build
-
-      - name: Generate Javadocs
-        run: ./gradlew javadoc
-
-      - name: Publish Javadocs to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/docs/javadoc
-          publish_branch: gh-pages
-          commit_message: "docs: publish Javadocs for v${{ inputs.version }}"
-          force_orphan: true
       
       - name: Publish to GitHub Packages
         run: ./gradlew publish --info
