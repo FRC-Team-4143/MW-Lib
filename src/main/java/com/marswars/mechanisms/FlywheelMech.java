@@ -10,7 +10,6 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.Slot1Configs;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
-import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import dev.doglog.DogLog;
@@ -116,11 +115,6 @@ public class FlywheelMech extends MechBase {
         this.gear_ratio_ = gear_ratio;
         this.wheel_inertia_ = wheel_inertia;
         this.wheel_radius_ = wheel_radius;
-
-        // Setup Followers
-        for (int i = 1; i < motors_.length; i++) {
-            motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
-        }
 
         // default the inputs
         velocity_ = 0;

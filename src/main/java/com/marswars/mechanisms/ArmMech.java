@@ -14,7 +14,6 @@ import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.PositionVoltage;
-import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
@@ -204,11 +203,6 @@ public class ArmMech extends MechBase {
 
         this.gear_ratio_ = gear_ratio;
         this.use_motion_magic_ = motor_configs.get(0).use_motion_magic;
-
-        // Setup Followers
-        for (int i = 1; i < motors_.length; i++) {
-            motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
-        }
 
         // default the inputs
         position_ = 0;

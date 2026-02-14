@@ -104,7 +104,10 @@ public abstract class MechBase implements SubsystemIoBase {
             constructed.motors[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
             ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();
 
-            // Only apply the configs to the first motor, the rest are followers
+            // Apply the configs to the motor
+            constructed.motors[i].getConfigurator().apply(cfg.config);
+
+            // Only register signals for the master motor (the first one) to avoid duplicates and save bandwidth
             if (i == 0) {
                 if (configMaster != null) {
                     cfg = configMaster.apply(cfg);
@@ -112,9 +115,6 @@ public abstract class MechBase implements SubsystemIoBase {
 
                 // also force the gear ratio to be correct
                 cfg.config.Feedback.SensorToMechanismRatio = sensor_to_mech_ratio;
-
-                constructed.motors[i].getConfigurator().apply(cfg.config);
-
                 motor_signals.add(constructed.motors[i].getPosition());
                 motor_signals.add(constructed.motors[i].getVelocity());
             } else {

@@ -13,7 +13,6 @@ import com.ctre.phoenix6.configs.Slot1Configs;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
-import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import dev.doglog.DogLog;
@@ -133,11 +132,6 @@ public class RollerMech extends MechBase {
         // convert the list to an array for easy access
         motors_ = configured_motors.motors;
         signals_ = configured_motors.signals;
-
-        // Setup Followers
-        for (int i = 1; i < motors_.length; i++) {
-            motors_[i].setControl(new StrictFollower(motors_[0].getDeviceID()));
-        }
 
         // default the inputs
         position_ = 0;
