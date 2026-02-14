@@ -10,6 +10,8 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 
 #include "chassis_proxy_client/messages/auto_snapshot/auto_snapshot.hpp"
@@ -29,16 +31,20 @@ struct ProxyClientNodeParams : public basin::node_core::NodeParams {
     std::string camera_info_topic{ "/vision/camera_info" };    ///< vision detections topic
     std::string tag_solution_topic{ "/vision/tag_solution" };  ///< tag solution topic
 
+    std::string robot_base_frame { "base_frame" };  ///< TF frame of the robot base, used for transforming tag solutions to the correct frame
+
     std::vector<std::string> class_names{};
 
     ProxyClientNodeParams(rclcpp::Node* node) : basin::node_core::NodeParams(node) {
-        BASIN_PARAM("server_port", server_port, node);
         BASIN_PARAM("server_addr", server_addr, node);
+        BASIN_PARAM("server_port", server_port, node);
         BASIN_PARAM("client_port", client_port, node);
 
         BASIN_PARAM("detections_topic", detections_topic, node);
         BASIN_PARAM("camera_info_topic", camera_info_topic, node);
         BASIN_PARAM("tag_solution_topic", tag_solution_topic, node);
+
+        BASIN_PARAM("robot_base_frame", robot_base_frame, node);
     }
 };
 
@@ -88,5 +94,10 @@ class ProxyClientNode : public basin::node_core::NodeCore {
     double clock_offset_sec_{ 0.0 };  ///< Estimated offset between local clock and server clock in seconds
 
     rclcpp::Time last_sync_time_;  ///< Last time a sync request was sent
+
+    ///< TF2 buffer for caching transforms
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    ///< TF2 listener for receiving transforms
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 }  // namespace proxy_client

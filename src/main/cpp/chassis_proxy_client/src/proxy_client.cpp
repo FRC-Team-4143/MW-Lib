@@ -6,6 +6,7 @@
 
 #include <iomanip>
 #include <limits>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include "chassis_proxy_client/messages/clock_sync/sync_request.hpp"
 #include "chassis_proxy_client/messages/obj_det/proxy_det.hpp"
@@ -21,6 +22,10 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
 
     // Always force an Unknown ID to the end of the class list
     params_->class_names.push_back("Unknown");
+
+    // Initialize TF2 buffer and listener
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     detections_sub_ = create_subscription<vision_msgs::msg::Detection2DArray>(
         params_->detections_topic, rclcpp::SensorDataQoS(), std::bind(&ProxyClientNode::detectionsCb, this, _1));
@@ -86,16 +91,31 @@ void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSh
     proxy_msg.timestamp = TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_);
     proxy_msg.tag_ids = msg->detected_tags;
 
+    // transform the message pose by base_frame to camera frame if possible
+    geometry_msgs::msg::TransformStamped base_to_cam;
+    try {
+        base_to_cam = tf_buffer_->lookupTransform(params_->robot_base_frame, msg->header.frame_id, msg->header.stamp,
+                                                  rclcpp::Duration(10ms));
+    } catch (const tf2::TransformException& e) {
+        RCLCPP_WARN_STREAM(get_logger(), "Failed to transform tag solution from " << msg->header.frame_id << " to "
+                                                                                  << params_->robot_base_frame << " : "
+                                                                                  << e.what());
+        return;
+    }
+
+    geometry_msgs::msg::Pose tag_pose_in_base;
+    tf2::doTransform(msg->pose, tag_pose_in_base, base_to_cam);
+
     // convert from quaternion to euler angles in degrees
-    tf2::Quaternion q(msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z,
-                      msg->pose.orientation.w);
+    tf2::Quaternion q(tag_pose_in_base.orientation.x, tag_pose_in_base.orientation.y, tag_pose_in_base.orientation.z,
+                      tag_pose_in_base.orientation.w);
     tf2::Matrix3x3 m(q);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
 
     proxy_msg.theta_pos = yaw;
-    proxy_msg.x_pos = msg->pose.position.x;
-    proxy_msg.y_pos = msg->pose.position.y;
+    proxy_msg.x_pos = tag_pose_in_base.position.x;
+    proxy_msg.y_pos = tag_pose_in_base.position.y;
 
     // now send it to the server
     udp_server_->sendMsg(proxy_msg);

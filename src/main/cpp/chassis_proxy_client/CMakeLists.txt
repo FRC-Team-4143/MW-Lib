@@ -11,6 +11,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(node_core REQUIRED)
 find_package(vision_msgs REQUIRED)
@@ -34,7 +35,7 @@ target_include_directories(proxy_client PUBLIC
 target_compile_features(proxy_client PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 target_link_libraries(proxy_client yaml-cpp::yaml-cpp)
 ament_target_dependencies(proxy_client geometry_msgs nav_msgs rclcpp tf2
-  tf2_geometry_msgs node_core vision_msgs sensor_msgs logging_msgs localization_msgs)
+  tf2_geometry_msgs tf2_ros node_core vision_msgs sensor_msgs logging_msgs localization_msgs)
 
 install(TARGETS proxy_client
   DESTINATION lib/${PROJECT_NAME})
