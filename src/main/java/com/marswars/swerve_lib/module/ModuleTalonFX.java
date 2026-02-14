@@ -77,6 +77,9 @@ public class ModuleTalonFX extends Module {
     protected final StatusSignal<AngularVelocity> steer_velocity_sig_;
     protected final StatusSignal<Voltage> steer_applied_volts_sig_;
     protected final StatusSignal<Current> steer_current_sig_;
+
+    // Analog encoder input (if used)
+    protected double encoder_value_abs_;
     
     // Simulation objects (only used when IS_SIM is true)
     private DCMotorSim drive_sim_;
@@ -115,6 +118,8 @@ public class ModuleTalonFX extends Module {
         } else {
             cancoder = null;
             encoder = new AnalogEncoder(config_.encoder_id);
+            // Allow time for analog encoder to stabilize before reading
+            Timer.delay(0.01);
         }
 
         // Configure drive motor
@@ -135,10 +140,11 @@ public class ModuleTalonFX extends Module {
         if (config_.encoder_type == SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
             // Use analog encoder
             Rotation2d encoder_value = Rotation2d.fromRotations(encoder.get());
+            String offset_name = "Encoder" + module_index_ + "Offset";
             Rotation2d encoder_offset =
                     Rotation2d.fromRotations(
                             MWPreferences.getInstance()
-                                    .getPreferenceDouble("Encoder" + index + "Offset", 0.0));
+                                    .getPreferenceDouble(offset_name, 0.0));
             Rotation2d zero_position = encoder_value.minus(encoder_offset);
             steer_talonfx_.setPosition(zero_position.getRotations());
         } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
@@ -316,6 +322,11 @@ public class ModuleTalonFX extends Module {
         steer_disconnected_alert_.set(!steer_conn_deb_.calculate(steerStatus.isOK()));
         steer_encoder_disconnected_alert_.set(
                 !steer_encoder_conn_deb_.calculate(steerEncoderStatus.isOK()));
+
+        // Update encoder value if using analog encoder
+        if (encoder != null) {
+            encoder_value_abs_ = encoder.get();
+        }
     }
 
     /** {@inheritDoc} */
@@ -431,7 +442,7 @@ public class ModuleTalonFX extends Module {
         } else {
             MWPreferences.getInstance()
                     .setPreference(
-                            "Encoder" + encoder.getChannel() + "Offset",
+                            "Encoder" + module_index_ + "Offset",
                             steer_absolute_position_.getRotations());
             steer_talonfx_.setPosition(0.0);
         }
@@ -472,5 +483,7 @@ public class ModuleTalonFX extends Module {
         DogLog.log(getLoggingKey() + "Steer/VelocityRadPerSec", steer_velocity_rad_per_sec_);
         DogLog.log(getLoggingKey() + "Steer/AppliedVolts", steer_applied_volts_);
         DogLog.log(getLoggingKey() + "Steer/CurrentAmps", steer_current_amps_);
+        DogLog.log(getLoggingKey() + "NeutralMode", neutral_mode_);
+        DogLog.log(getLoggingKey() + "Encoder/AbsoluteValue", encoder_value_abs_);
     }
 }
