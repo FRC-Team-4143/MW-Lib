@@ -146,7 +146,6 @@ public class ModuleTalonFX extends Module {
                             MWPreferences.getInstance()
                                     .getPreferenceDouble(offset_name, 0.0));
             Rotation2d zero_position = encoder_value.minus(encoder_offset);
-            System.out.println("Module" + module_index_ + " Offset Name: " + offset_name + " - Encoder Raw: " + encoder_value + " - Encoder Offset: " + encoder_offset + " - Zero Position: " + zero_position);
             steer_talonfx_.setPosition(zero_position.getRotations());
         } else if (config_.encoder_type == SwerveModuleConfig.EncoderType.CTRE_CAN_CODER) {
             // Use remote CANCoder
