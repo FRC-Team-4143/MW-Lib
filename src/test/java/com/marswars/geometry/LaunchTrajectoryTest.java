@@ -15,7 +15,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testVelocityLookupExactRange() {
         Translation3d target = new Translation3d(5.0, 0.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testVelocityLookupExactRange", target, 0.0, true);
 
         traj.addVelocityPoint(5.0, 15.0); // Increased velocity for realistic trajectory
 
@@ -29,7 +29,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testVelocityInterpolation() {
         Translation3d target = new Translation3d(6.0, 0.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testVelocityInterpolation", target, 0.0, true);
 
         traj.addVelocityPoint(4.0, 12.0); // Increased velocities for realistic trajectories
         traj.addVelocityPoint(6.0, 18.0);
@@ -45,8 +45,8 @@ public class LaunchTrajectoryTest {
     void testHighArcAngleGreaterThanLowArc() {
         Translation3d target = new Translation3d(5.0, 0.0, 1.474);
 
-        LaunchTrajectory highArc = new LaunchTrajectory(target, 0.0, true);
-        LaunchTrajectory lowArc = new LaunchTrajectory(target, 0.0, false);
+        LaunchTrajectory highArc = new LaunchTrajectory("testHighArcAngleGreaterThanLowArcHigh", target, 0.0, true);
+        LaunchTrajectory lowArc = new LaunchTrajectory("testHighArcAngleGreaterThanLowArcLow", target, 0.0, false);
 
         highArc.addVelocityPoint(5.0, 15.0); // Increased velocity
         lowArc.addVelocityPoint(5.0, 15.0);
@@ -62,7 +62,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testExitAngleIsFinite() {
         Translation3d target = new Translation3d(4.0, 0.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testExitAngleIsFinite", target, 0.0, true);
 
         traj.addVelocityPoint(4.0, 12.0); // Increased velocity
 
@@ -75,7 +75,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testHeadingAngleStraightAhead() {
         Translation3d target = new Translation3d(5.0, 0.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testHeadingAngleStraightAhead", target, 0.0, true);
 
         traj.addVelocityPoint(5.0, 15.0); // Increased velocity
 
@@ -88,7 +88,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testHeadingAngleQuadrant() {
         Translation3d target = new Translation3d(5.0, 5.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testHeadingAngleQuadrant", target, 0.0, true);
 
         traj.addVelocityPoint(Math.sqrt(50), 16.0); // Increased velocity
 
@@ -101,7 +101,7 @@ public class LaunchTrajectoryTest {
     @Test
     void testFullSolutionNotNull() {
         Translation3d target = new Translation3d(6.0, 2.0, 1.474);
-        LaunchTrajectory traj = new LaunchTrajectory(target, 0.0, true);
+        LaunchTrajectory traj = new LaunchTrajectory("testFullSolutionNotNull", target, 0.0, true);
 
         traj.addVelocityPoint(6.3, 16.0); // Increased velocity
 
@@ -119,7 +119,7 @@ public class LaunchTrajectoryTest {
         // Target at 2m height, launcher at 1m height -> effective height difference of 1m
         Translation3d target = new Translation3d(5.0, 0.0, 2.0);
         double launchHeight = 1.0;
-        LaunchTrajectory traj = new LaunchTrajectory(target, launchHeight, false);
+        LaunchTrajectory traj = new LaunchTrajectory("testNonZeroLaunchHeightMath", target, launchHeight, false);
 
         traj.addVelocityPoint(5.0, 15.0); // Increased velocity
 
@@ -154,7 +154,7 @@ public class LaunchTrajectoryTest {
         double launchHeight = 1.0;
         double fixedAngle = Math.toRadians(45); // 45 degree shooter
         
-        LaunchTrajectory fixedAngleTraj = new LaunchTrajectory(target, launchHeight, fixedAngle);
+        LaunchTrajectory fixedAngleTraj = new LaunchTrajectory("testFixedAngleShooter", target, launchHeight, fixedAngle);
         
         Pose2d robotPose = new Pose2d(0.0, 0.0, new Rotation2d());
         LaunchTrajectory.TrajectorySol sol = fixedAngleTraj.getSolution(robotPose);
@@ -188,10 +188,10 @@ public class LaunchTrajectoryTest {
         
         // Fixed angle at 30 degrees
         double fixedAngle = Math.toRadians(30);
-        LaunchTrajectory fixedTraj = new LaunchTrajectory(target, launchHeight, fixedAngle);
+        LaunchTrajectory fixedTraj = new LaunchTrajectory("testFixedAngleVsVariableAngleFixed", target, launchHeight, fixedAngle);
         
         // Variable angle (low arc)
-        LaunchTrajectory varTraj = new LaunchTrajectory(target, launchHeight, false);
+        LaunchTrajectory varTraj = new LaunchTrajectory("testFixedAngleVsVariableAngleVariable", target, launchHeight, false);
         varTraj.addVelocityPoint(4.0, 12.0);
         
         Pose2d robotPose = new Pose2d(0.0, 0.0, new Rotation2d());
@@ -218,7 +218,7 @@ public class LaunchTrajectoryTest {
         
         // Test valid fixed angle solution
         double validFixedAngle = Math.toRadians(45);
-        LaunchTrajectory validFixedTraj = new LaunchTrajectory(target, launchHeight, validFixedAngle);
+        LaunchTrajectory validFixedTraj = new LaunchTrajectory("testValidFixedAngleSolution", target, launchHeight, validFixedAngle);
         Pose2d robotPose = new Pose2d(0.0, 0.0, new Rotation2d());
         LaunchTrajectory.TrajectorySol validFixedSol = validFixedTraj.getSolution(robotPose);
         
@@ -227,13 +227,13 @@ public class LaunchTrajectoryTest {
         
         // Test invalid fixed angle solution (impossible trajectory)
         double invalidFixedAngle = Math.toRadians(5); // Very shallow angle unlikely to work for upward shot
-        LaunchTrajectory invalidFixedTraj = new LaunchTrajectory(target, launchHeight, invalidFixedAngle);
+        LaunchTrajectory invalidFixedTraj = new LaunchTrajectory("testInvalidFixedAngleSolution", target, launchHeight, invalidFixedAngle);
         LaunchTrajectory.TrajectorySol invalidFixedSol = invalidFixedTraj.getSolution(robotPose);
         
         assertFalse(invalidFixedSol.valid, "Invalid fixed angle trajectory should have valid=false");
         
         // Test valid variable angle solution
-        LaunchTrajectory validVarTraj = new LaunchTrajectory(target, launchHeight, false);
+        LaunchTrajectory validVarTraj = new LaunchTrajectory("testValidVariableAngleSolution", target, launchHeight, false);
         validVarTraj.addVelocityPoint(5.0, 15.0); // Increased velocity
         LaunchTrajectory.TrajectorySol validVarSol = validVarTraj.getSolution(robotPose);
         
@@ -241,7 +241,7 @@ public class LaunchTrajectoryTest {
         assertTrue(Double.isFinite(validVarSol.exit_angle));
         
         // Test invalid variable angle solution (no velocity data)
-        LaunchTrajectory invalidVarTraj = new LaunchTrajectory(target, launchHeight, false);
+        LaunchTrajectory invalidVarTraj = new LaunchTrajectory("testInvalidVariableAngleSolution", target, launchHeight, false);
         // Don't add any velocity points - this should result in invalid solution
         LaunchTrajectory.TrajectorySol invalidVarSol = invalidVarTraj.getSolution(robotPose);
         
