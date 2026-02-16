@@ -1,55 +1,66 @@
 package com.marswars.geometry;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class LaunchTrajectory {
 
+    /** Class representing a solution for the trajectory */
     public class TrajectorySol {
+        /** Launch velocity in meters per second */
         public double velocity;
+        /** Exit angle in radians */
         public double exit_angle;
+        /** Heading angle in radians */
         public double heading_angle;
+        /** Whether the solution is valid */
         public boolean valid;
     }
 
     private double height_;
     private double launch_height_;
-    private boolean highArc_;
+    private boolean high_arc_;
     private Translation3d target_;
     private InterpolatingDoubleTreeMap range_to_velocity_;
-    private boolean useFixedAngle_;
-    private double fixedAngle_;
-    private static final double g = 9.81;
+    private boolean use_fixed_angle_;
+    private double fixed_angle_;
+    private String logging_prefix_;
+    private static final double GRAVITY = 9.81;
     /**
      * Constructor for LaunchTrajectory with variable angle
+     * @param logging_prefix Prefix string for logging purposes
      * @param target Where you want to shoot (X, Y and Z) in the form of a Translation3d
      * @param launch_height The height of the launcher in meters
-     * @param highArc Whether you want the higher arc or the lower arc (true for higher)
+     * @param high_arc Whether you want the higher arc or the lower arc (true for higher)
      */
-    public LaunchTrajectory(Translation3d target, double launch_height, boolean highArc) {
+    public LaunchTrajectory(String logging_prefix, Translation3d target, double launch_height, boolean high_arc) {
         target_ = target;
         launch_height_ = launch_height;
         height_ = target_.getZ() - launch_height; 
         range_to_velocity_ = new InterpolatingDoubleTreeMap();
-        highArc_ = highArc;
-        useFixedAngle_ = false;
-        fixedAngle_ = 0.0;
+        high_arc_ = high_arc;
+        use_fixed_angle_ = false;
+        fixed_angle_ = 0.0;
+        logging_prefix_ = logging_prefix;
     }
 
     /**
      * Constructor for LaunchTrajectory with fixed angle shooter
+     * @param logging_prefix Prefix string for logging purposes
      * @param target Where you want to shoot (X, Y and Z) in the form of a Translation3d
      * @param launch_height The height of the launcher in meters
      * @param fixedAngle The fixed exit angle of the shooter in radians
      */
-    public LaunchTrajectory(Translation3d target, double launch_height, double fixedAngle) {
+    public LaunchTrajectory(String logging_prefix, Translation3d target, double launch_height, double fixedAngle) {
         target_ = target;
         height_ = target_.getZ() - launch_height; 
         range_to_velocity_ = new InterpolatingDoubleTreeMap();
-        useFixedAngle_ = true;
-        fixedAngle_ = fixedAngle;
-        highArc_ = false; // Not used in fixed angle mode
+        use_fixed_angle_ = true;
+        fixed_angle_ = fixedAngle;
+        high_arc_ = false; // Not used in fixed angle mode
+        logging_prefix_ = logging_prefix;
     }
 
     /**
@@ -58,6 +69,30 @@ public class LaunchTrajectory {
      * @param velocity exit velocity for given distance in meters / second
      */
     public void addVelocityPoint(double range, double velocity) {
+        // Only use DogLog when not in unit test environment
+        // Detect unit tests by checking if junit is in the classpath
+        boolean isUnitTest = false;
+        try {
+            Class.forName("org.junit.jupiter.api.Test");
+            isUnitTest = true;
+        } catch (ClassNotFoundException e) {
+            // Not a test environment
+        }
+        
+
+        // Add tunable point to DogLog for live tuning if not in unit test environment
+        if (!isUnitTest) {
+            DogLog.tunable(logging_prefix_ + "/" + range, velocity, (val) -> updateVelocityPoint(range, val));
+        }
+        range_to_velocity_.put(range, velocity);
+    }
+
+    /**
+     * Updates a velocity point in the interpolation table (used for live tuning with DogLog)
+     * @param range distance from target in meters
+     * @param velocity exit velocity for given distance in meters / second
+     */
+    synchronized private void updateVelocityPoint(double range, double velocity) {
         range_to_velocity_.put(range, velocity);
     }
 
@@ -66,7 +101,7 @@ public class LaunchTrajectory {
      * @return true if using fixed angle, false if using variable angle
      */
     public boolean isFixedAngle() {
-        return useFixedAngle_;
+        return use_fixed_angle_;
     }
 
     /**
@@ -74,7 +109,7 @@ public class LaunchTrajectory {
      * @return the fixed angle in radians
      */
     public double getFixedAngle() {
-        return fixedAngle_;
+        return fixed_angle_;
     }
 
     /**
@@ -82,7 +117,7 @@ public class LaunchTrajectory {
      * @param position robot position (X and Y) in the form of a Pose2d
      * @return launch velocity in meters / second, NaN if impossible
      */
-    private double calculateLaunchVelocity(Pose2d position) {
+    synchronized private double calculateLaunchVelocity(Pose2d position) {
         double range = target_.toTranslation2d().getDistance(position.getTranslation());
         Double velocity = range_to_velocity_.get(range);
         return velocity != null ? velocity : Double.NaN;
@@ -106,7 +141,7 @@ public class LaunchTrajectory {
             return Double.NaN; // invalid trajectory for this angle
         }
 
-        double v_squared = (g * x * x) / denominator;
+        double v_squared = (GRAVITY * x * x) / denominator;
         if (v_squared <= 0) {
             return Double.NaN;
         }
@@ -123,19 +158,19 @@ public class LaunchTrajectory {
         double x = target_.toTranslation2d().getDistance(position.getTranslation());
         
         // Check if trajectory is possible with the given velocity
-        double discriminant = v * v * v * v - g * (g * x * x + 2 * height_ * v * v);
+        double discriminant = v * v * v * v - GRAVITY * (GRAVITY * x * x + 2 * height_ * v * v);
         if (discriminant < 0) {
             return Double.NaN; // Impossible trajectory
         }
         
         double numerator;
-        if(highArc_ == true){
+        if(high_arc_ == true){
             numerator = v * v + Math.sqrt(discriminant);
         }
         else{
             numerator = v * v - Math.sqrt(discriminant);
         }
-        double denomenator = g * x;
+        double denomenator = GRAVITY * x;
 
         return Math.atan2(numerator, denomenator);
     }
@@ -164,11 +199,11 @@ public class LaunchTrajectory {
     }
 
     /**
-     * Setter for highArc; change the arc type live (only valid for variable angle shooters)
-     * @param highArc true for higher arc, false for lower arc
+     * Setter for high_arc; change the arc type live (only valid for variable angle shooters)
+     * @param high_arc true for higher arc, false for lower arc
      */
-    public void setHighArc(boolean highArc) {
-        highArc_ = highArc;
+    public void setHighArc(boolean high_arc) {
+        high_arc_ = high_arc;
     }
 
     /**
@@ -179,10 +214,10 @@ public class LaunchTrajectory {
     public TrajectorySol getSolution(Pose2d position) {
         TrajectorySol solution = new TrajectorySol();
         
-        if (useFixedAngle_) {
+        if (use_fixed_angle_) {
             // Fixed angle mode: calculate required velocity for the fixed angle
-            solution.exit_angle = fixedAngle_;
-            solution.velocity = calculateVelocityForAngle(position, fixedAngle_);
+            solution.exit_angle = fixed_angle_;
+            solution.velocity = calculateVelocityForAngle(position, fixed_angle_);
             // Valid if velocity is finite and positive
             solution.valid = Double.isFinite(solution.velocity) && solution.velocity > 0;
         } else {
@@ -223,7 +258,7 @@ public class LaunchTrajectory {
         double sinHeading = Math.sin(solution.heading_angle);
         
         // Use original launch velocity without robot velocity adjustment
-        double launchAngle = useFixedAngle_ ? fixedAngle_ : 
+        double launchAngle = use_fixed_angle_ ? fixed_angle_ : 
             calculateLaunchAngle(position, solution.velocity);
         
         if (!Double.isFinite(launchAngle)) {
@@ -235,12 +270,12 @@ public class LaunchTrajectory {
         double vy = solution.velocity * Math.sin(launchAngle);
         
         // Time when projectile hits target height: t = (vy + sqrt(vy^2 + 2*g*height_)) / g
-        double discriminant = vy * vy + 2 * g * height_;
+        double discriminant = vy * vy + 2 * GRAVITY * height_;
         if (discriminant < 0) {
             return new Translation3d[0];
         }
         
-        double timeOfFlight = (vy + Math.sqrt(discriminant)) / g;
+        double timeOfFlight = (vy + Math.sqrt(discriminant)) / GRAVITY;
         if (timeOfFlight <= 0) {
             return new Translation3d[0];
         }
@@ -254,7 +289,7 @@ public class LaunchTrajectory {
             
             // Calculate position at time t
             double horizontalDistance = vx * t;
-            double verticalPosition = launch_height_ + vy * t - 0.5 * g * t * t;
+            double verticalPosition = launch_height_ + vy * t - 0.5 * GRAVITY * t * t;
             
             // Convert to world coordinates
             double x = position.getX() + horizontalDistance * cosHeading;
