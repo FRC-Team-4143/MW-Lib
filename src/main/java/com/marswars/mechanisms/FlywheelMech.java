@@ -10,6 +10,7 @@ import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.Slot1Configs;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 import dev.doglog.DogLog;
@@ -30,6 +31,7 @@ public class FlywheelMech extends MechBase {
     /** Control modes for the flywheel mechanism */
     protected enum ControlMode {
         VELOCITY,
+        MOTION_MAGIC_VELOCITY,
         DUTY_CYCLE
     }
 
@@ -39,8 +41,10 @@ public class FlywheelMech extends MechBase {
     private final TalonFX motors_[];
 
     // control and status
-    private final VelocityVoltage velocity_request_;
-    private final DutyCycleOut duty_cycle_request_;
+    protected final VelocityVoltage velocity_request_;
+    protected final MotionMagicVelocityVoltage motion_magic_velocity_request_;
+    protected final DutyCycleOut duty_cycle_request_;
+    protected final boolean use_motion_magic_;
     protected final BaseStatusSignal[] signals_;
 
     // Simulation info
@@ -100,6 +104,7 @@ public class FlywheelMech extends MechBase {
 
         // Create control requests
         this.velocity_request_ = new VelocityVoltage(0).withSlot(1);
+        this.motion_magic_velocity_request_ = new MotionMagicVelocityVoltage(0).withSlot(1);
         this.duty_cycle_request_ = new DutyCycleOut(0);
 
         // MW-Lib convention: gear_ratio is motor/mechanism
@@ -115,6 +120,7 @@ public class FlywheelMech extends MechBase {
         this.gear_ratio_ = gear_ratio;
         this.wheel_inertia_ = wheel_inertia;
         this.wheel_radius_ = wheel_radius;
+        this.use_motion_magic_ = motor_configs.get(0).use_motion_magic;
 
         // default the inputs
         velocity_ = 0;
@@ -222,6 +228,8 @@ public class FlywheelMech extends MechBase {
             case VELOCITY:
                 motors_[0].setControl(velocity_request_);
                 break;
+            case MOTION_MAGIC_VELOCITY:
+                motors_[0].setControl(motion_magic_velocity_request_);
             case DUTY_CYCLE:
                 motors_[0].setControl(duty_cycle_request_);
                 break;
@@ -287,9 +295,24 @@ public class FlywheelMech extends MechBase {
      * @param velocity_rad_per_sec the target velocity in radians per second
      */
     public void setTargetVelocity(double velocity_rad_per_sec) {
-        control_mode_ = ControlMode.VELOCITY;
+        if(use_motion_magic_) {
+            setTargetVelocityMotionMagic(velocity_rad_per_sec);
+            return;
+        } else {
+            control_mode_ = ControlMode.VELOCITY;
+            velocity_target_ = velocity_rad_per_sec;
+            velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+        }
+    }
+
+    /**
+     * Sets the target velocity of the flywheel in radians per second using motion magic control mode
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
+    public void setTargetVelocityMotionMagic(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.MOTION_MAGIC_VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
-        velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+        motion_magic_velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }
 
     /**

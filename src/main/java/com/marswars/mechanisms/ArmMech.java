@@ -440,12 +440,21 @@ public class ArmMech extends MechBase {
     public void setTargetPosition(double position_rad) {
         position_target_ = position_rad;
         if (use_motion_magic_) {
-            control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
-            motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
+            setTargetPositionMotionMagic(position_rad);
         } else {
             control_mode_ = ControlMode.POSITION;
             position_request_.Position = Units.radiansToRotations(position_rad);
         }
+    }
+
+    /**
+     * Sets the target position of the arm in radians using motion magic control mode
+     * @param position_rad the target position in radians
+     */
+    public void setTargetPositionMotionMagic(double position_rad) {
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        position_target_ = position_rad;
+        motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
     }
 
     /**

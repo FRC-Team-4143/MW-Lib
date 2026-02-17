@@ -487,12 +487,22 @@ public class ElevatorMech extends MechBase {
     public void setTargetPosition(double position_m) {
         position_target_ = position_m;
         if (use_motion_magic_) {
-            control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
-            motion_magic_position_request_.Position = position_m / position_to_rotations_;
+            setTargetPositionMotionMagic(position_m);
         } else {
             control_mode_ = ControlMode.POSITION;
             position_request_.Position = position_m / position_to_rotations_;
         }
+    }
+
+    /**
+     * Sets the target position of the elevator in meters using motion magic control mode
+     *
+     * @param position_m the target position in meters
+     */
+    public void setTargetPositionMotionMagic(double position_m) {
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        position_target_ = position_m;
+        motion_magic_position_request_.Position = position_m / position_to_rotations_;
     }
 
     /**
