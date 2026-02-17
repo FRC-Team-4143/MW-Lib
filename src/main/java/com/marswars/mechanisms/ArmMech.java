@@ -27,7 +27,8 @@ import com.marswars.util.TunablePid;
 import java.util.List;
 
 /**
- * Mechanism implementation for a single-jointed arm with position, velocity, and duty control.
+ * Mechanism implementation for a single-jointed arm with position, velocity,
+ * and duty control.
  */
 public class ArmMech extends MechBase {
 
@@ -60,6 +61,7 @@ public class ArmMech extends MechBase {
     // sensor inputs
     protected double position_ = 0;
     protected double position_target_ = 0;
+    protected double position_feedforward_ = 0;
     protected double velocity_ = 0;
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
@@ -181,10 +183,11 @@ public class ArmMech extends MechBase {
         duty_cycle_request_ = new DutyCycleOut(0);
 
         // MW-Lib convention: gear_ratio is motor/mechanism
-        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism =
+        // motor/mechanism
         // These are the same, so we can use gear_ratio directly
         double sensor_to_mech_ratio = gear_ratio;
-        
+
         ConstructedMotors configured_motors = configMotors(
                 motor_configs,
                 sensor_to_mech_ratio,
@@ -280,18 +283,18 @@ public class ArmMech extends MechBase {
 
             // Get the voltage the motor controller wants to apply
             double controller_voltage = motors_[0].getSimState().getMotorVoltage();
-            
+
             // Calculate the torque required to overcome the load at the motor shaft
             // (load torque at arm * gear ratio = load torque at motor)
             double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
-            
+
             // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
-            
+
             // The voltage actually seen by the motor after the load consumes some current
             // is reduced by the voltage drop across the resistance due to load current
             double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
-            
+
             // Apply the effective voltage to the simulation
             arm_sim_.setInput(effective_voltage);
 
@@ -306,10 +309,10 @@ public class ArmMech extends MechBase {
             // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
             double mechanismPositionRad = arm_sim_.getAngleRads();
             double mechanismVelocityRadPerSec = arm_sim_.getVelocityRadPerSec();
-            
+
             double motorPositionRad = mechanismPositionRad * gear_ratio_;
             double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
-            
+
             double motorPosition = Radians.of(motorPositionRad).in(Rotations);
             double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
 
@@ -347,6 +350,7 @@ public class ArmMech extends MechBase {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
         DogLog.log(getLoggingKey() + "control/position/target", position_target_);
+        DogLog.log(getLoggingKey() + "control/postion/feedforward", position_feedforward_);
         DogLog.log(getLoggingKey() + "control/position/actual", position_);
         DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_);
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_);
@@ -434,17 +438,31 @@ public class ArmMech extends MechBase {
 
     /**
      * Set the target position of the arm
-     *
+     * 
      * @param position_rad the target position in radians
      */
     public void setTargetPosition(double position_rad) {
+        setTargetPositionPlusFF(position_rad, 0.0);
+    }
+
+    /**
+     * Set the target position of the arm plus a feed forward voltage
+     * 
+     * @param position_rad the target position in radians
+     * @param FFVoltage    the feedforward voltage in volts
+     */
+
+    public void setTargetPositionPlusFF(double position_rad, double FFVoltage) {
         position_target_ = position_rad;
+        position_feedforward_ = FFVoltage;
         if (use_motion_magic_) {
             control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
             motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
+            motion_magic_position_request_.FeedForward = FFVoltage;
         } else {
             control_mode_ = ControlMode.POSITION;
             position_request_.Position = Units.radiansToRotations(position_rad);
+            position_request_.FeedForward = FFVoltage;
         }
     }
 
@@ -475,7 +493,8 @@ public class ArmMech extends MechBase {
      * This method should be called during the simulation update cycle to apply
      * external loads (like friction, compression forces, etc.) to the mechanism.
      *
-     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
+     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output
+     *                  shaft.
      *                  Positive values oppose motion in the positive direction.
      */
     public void applyLoadTorque(double torque_nm) {
