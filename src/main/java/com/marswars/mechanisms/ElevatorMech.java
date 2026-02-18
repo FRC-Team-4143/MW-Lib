@@ -67,11 +67,27 @@ public class ElevatorMech implements SubsystemIoBase {
         }
     }
 
-    public void setTargetPositionMotionMagic(double position_m) {
+    public void setTargetPositionMotionProfile(double position_m) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
-            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPositionMotionMagic(position_m);
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPositionMotionProfile(position_m);
         } else {
-            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionMagic");
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfile");
+        }
+    }
+
+    public void setTargetPositionWithFF(double position_m, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPositionWithFF(position_m, arbitrary_feedforward);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionWithFF");
+        }
+    }
+
+    public void setTargetPositionMotionProfileWithFF(double position_m, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPositionMotionProfileWithFF(position_m, arbitrary_feedforward);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfileWithFF");
         }
     }
 

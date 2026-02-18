@@ -36,7 +36,7 @@ public class FxArmMech extends FxMechBase {
 
     /** Control modes for the arm mechanism */
     protected enum ControlMode {
-        MOTION_MAGIC_POSITION,
+        MOTION_PROFILE_POSITION,
         POSITION,
         VELOCITY,
         DUTY_CYCLE
@@ -356,7 +356,7 @@ public class FxArmMech extends FxMechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
-            case MOTION_MAGIC_POSITION:
+            case MOTION_PROFILE_POSITION:
                 motors_[0].setControl(motion_magic_position_request_);
                 break;
             case POSITION:
@@ -491,27 +491,27 @@ public class FxArmMech extends FxMechBase {
     }
 
     /**
-     * Set the target position of the arm using motion magic control
+     * Set the target position of the arm using motion profile control
      *
      * @param position_rad the target position in radians
      */
-    public void setTargetPositionMotionMagic(double position_rad) {
+    public void setTargetPositionMotionProfile(double position_rad) {
         position_target_ = position_rad;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
     /**
-     * Set the target position of the arm with arbitrary feed forward using motion magic control.
+     * Set the target position of the arm with arbitrary feed forward using motion profile control.
      * This allows additional control output while holding a position.
      *
      * @param position_rad the target position in radians
      * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
      */
-    public void setTargetPositionMotionMagicWithFF(double position_rad, double arbitrary_feedforward) {
+    public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }

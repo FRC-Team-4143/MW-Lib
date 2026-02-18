@@ -78,6 +78,22 @@ public class FlywheelMech implements SubsystemIoBase {
         }
     }
 
+    public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
+            ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocityMotionProfile");
+        }
+    }
+
+    public void setTargetDutyCycle(double duty_cycle) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
+            ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
+        }
+    }
+
     public double getCurrentVelocity() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             return ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).getCurrentVelocity();

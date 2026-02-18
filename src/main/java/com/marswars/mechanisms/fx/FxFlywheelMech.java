@@ -33,7 +33,7 @@ public class FxFlywheelMech extends FxMechBase {
 
     /** Control modes for the flywheel mechanism */
     protected enum ControlMode {
-        MOTION_MAGIC_VELOCITY,
+        MOTION_PROFILE_VELOCITY,
         VELOCITY,
         DUTY_CYCLE
     }
@@ -257,7 +257,7 @@ public class FxFlywheelMech extends FxMechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
-            case MOTION_MAGIC_VELOCITY:
+            case MOTION_PROFILE_VELOCITY:
                 motors_[0].setControl(motion_magic_velocity_request_);
                 break;
             case VELOCITY:
@@ -334,12 +334,12 @@ public class FxFlywheelMech extends FxMechBase {
     }
 
     /**
-     * Sets the target velocity of the flywheel in radians per second using motion magic velocity control
+     * Sets the target velocity of the flywheel in radians per second using motion profile velocity control
      *
      * @param velocity_rad_per_sec the target velocity in radians per second
      */
-    public void setTargetVelocityMotionMagic(double velocity_rad_per_sec) {
-        control_mode_ = ControlMode.MOTION_MAGIC_VELOCITY;
+    public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.MOTION_PROFILE_VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         motion_magic_velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }

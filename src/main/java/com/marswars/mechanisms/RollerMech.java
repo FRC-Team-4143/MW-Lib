@@ -75,11 +75,43 @@ public class RollerMech implements SubsystemIoBase {
         }
     }
 
+    public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionWithFF");
+        }
+    }
+
+    public void setTargetPositionMotionProfile(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionMotionProfile(position_rad);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfile");
+        }
+    }
+
+    public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionMotionProfileWithFF(position_rad, arbitrary_feedforward);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfileWithFF");
+        }
+    }
+
     public void setTargetVelocity(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
+        }
+    }
+
+    public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocityMotionProfile");
         }
     }
 
