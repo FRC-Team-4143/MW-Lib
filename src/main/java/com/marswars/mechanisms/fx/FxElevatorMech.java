@@ -1,0 +1,598 @@
+package com.marswars.mechanisms.fx;
+
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.Slot1Configs;
+import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionVoltage;
+import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.GravityTypeValue;
+import dev.doglog.DogLog;
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.simulation.ElevatorSim;
+import com.marswars.util.FxMotorConfig;
+import com.marswars.util.FxMotorConfig.FxMotorType;
+import com.marswars.util.TunablePid;
+import java.util.List;
+
+/**
+ * Mechanism implementation for elevators with position, velocity, and duty cycle control.
+ */
+public class FxElevatorMech extends FxMechBase {
+
+    /** Control modes for the elevator mechanism */
+    protected enum ControlMode {
+        MOTION_MAGIC_POSITION,
+        POSITION,
+        VELOCITY,
+        DUTY_CYCLE
+    }
+
+    protected ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
+
+    // Temperature threshold for alerts (Celsius)
+    private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
+
+    // Always assume that we have the leader motor in index 0
+    protected final TalonFX motors_[];
+    protected final PositionVoltage position_request_;
+    protected final MotionMagicVoltage motion_magic_position_request_;
+    protected final VelocityVoltage velocity_request_;
+    protected final DutyCycleOut duty_cycle_request_;
+    protected final BaseStatusSignal[] signals_;
+
+    // Alerts for motor monitoring
+    protected final Alert[] motor_disconnected_alerts_;
+    protected final Alert[] motor_temp_alerts_;
+    protected final Debouncer[] motor_conn_debouncers_;
+
+    // Simulation
+    private final ElevatorSim elevator_sim_;
+    private final double gear_ratio_;
+    private final double drum_radius_;
+    private final double position_to_rotations_;
+    private final DCMotor motor_type_;
+    private double sim_load_torque_nm_ = 0.0; // Load torque at drum shaft for simulation
+
+    // sensor inputs
+    protected double position_ = 0;
+    protected double position_target_ = 0;
+    protected double velocity_ = 0;
+    protected double velocity_target_ = 0;
+    protected double duty_cycle_target_ = 0;
+    protected double[] applied_voltage_;
+    protected double[] current_draw_;
+    protected double[] motor_temp_c_;
+    protected double[] bus_voltage_;
+
+    /**
+     * Constructs a new ElevatorMech (assumes vertical elevator)
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     */
+    public FxElevatorMech(
+            String logging_prefix,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension) {
+        this(
+                logging_prefix,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                1.0);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     */
+    public FxElevatorMech(
+            String logging_prefix,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio) {
+        this(
+                logging_prefix,
+                null,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                rigging_ratio,
+                true);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     */
+    public FxElevatorMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio) {
+        this(
+                logging_prefix,
+                mech_name,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                rigging_ratio,
+                true);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     * @param is_vertical Whether the elevator is vertical (affects gravity compensation in
+     *     simulation)
+     */
+    public FxElevatorMech(
+            String logging_prefix,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio,
+            boolean is_vertical) {
+        this(
+                logging_prefix,
+                null,
+                motor_configs,
+                gear_ratio,
+                drum_radius,
+                carriage_mass_kg,
+                max_extension,
+                rigging_ratio,
+                is_vertical);
+    }
+
+    /**
+     * Constructs a new ElevatorMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param rigging_ratio Rigging ratio of the elevator
+     * @param is_vertical Whether the elevator is vertical (affects gravity compensation in
+     *     simulation)
+     */
+    public FxElevatorMech(
+            String logging_prefix,
+            String mech_name,
+            List<FxMotorConfig> motor_configs,
+            double gear_ratio,
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            double rigging_ratio,
+            boolean is_vertical) {
+        super(logging_prefix, mech_name);
+
+        position_request_ = new PositionVoltage(0).withSlot(0);
+        motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
+        velocity_request_ = new VelocityVoltage(0).withSlot(1);
+        duty_cycle_request_ = new DutyCycleOut(0);
+
+        // MW-Lib convention: gear_ratio is motor/mechanism
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio;
+        
+        // load the motors
+        FxMechBase.ConstructedFxMotors configured_motors =
+                (FxMechBase.ConstructedFxMotors) configMotors(
+                        motor_configs,
+                        sensor_to_mech_ratio,
+                        (cfg) -> {
+                            // Configure the motor for position & velocity control with gravity
+                            // compensation
+                            cfg.config.Slot0.GravityType = GravityTypeValue.Elevator_Static;
+                            cfg.config.Slot1.GravityType = GravityTypeValue.Elevator_Static;
+                            cfg.config.Slot2.GravityType = GravityTypeValue.Elevator_Static;
+
+                            // set the kG value if we are not vertical
+                            if (!is_vertical) {
+                                cfg.config.Slot0.kG = 0;
+                                cfg.config.Slot1.kG = 0;
+                                cfg.config.Slot2.kG = 0;
+                            }
+
+                            return cfg;
+                        });
+        motors_ = configured_motors.motors;
+        signals_ = configured_motors.signals;
+
+        this.gear_ratio_ = gear_ratio;
+        this.drum_radius_ = drum_radius;
+        this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
+
+        // default the inputs
+        position_ = 0;
+        velocity_ = 0;
+        applied_voltage_ = new double[motors_.length];
+        current_draw_ = new double[motors_.length];
+        motor_temp_c_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
+
+        // Initialize alerts and debouncers for each motor
+        motor_disconnected_alerts_ = new Alert[motors_.length];
+        motor_temp_alerts_ = new Alert[motors_.length];
+        motor_conn_debouncers_ = new Debouncer[motors_.length];
+        for (int i = 0; i < motors_.length; i++) {
+            motor_disconnected_alerts_[i] = new Alert(
+                    "Disconnected motor " + i + " in " + getLoggingKey(),
+                    AlertType.kError);
+            motor_temp_alerts_[i] = new Alert(
+                    "High temperature on motor " + i + " in " + getLoggingKey(),
+                    AlertType.kWarning);
+            motor_conn_debouncers_[i] = new Debouncer(0.5);
+        }
+
+        //////////////////////////
+        /// SIMULATION SETUP ///
+        //////////////////////////
+
+        if (motor_configs.get(0).motor_type == FxMotorType.X60) {
+            motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
+            motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
+        } else {
+            throw new IllegalArgumentException("Unsupported motor type");
+        }
+
+        // construct the simulation object
+        elevator_sim_ =
+                new ElevatorSim(
+                        motor_type_, // Motor type
+                        gear_ratio,
+                        carriage_mass_kg, // Carriage mass (kg)
+                        drum_radius, // Drum radius (m)
+                        0,
+                        max_extension, // Max height (m)
+                        is_vertical, // Simulate gravity
+                        0 // Starting height (m)
+                        );
+
+        // Setup tunable PIDs
+        TunablePid.create(
+                getLoggingKey() + "PositionGains",
+                this::configPositionSlot,
+                SlotConfigs.from(motor_configs.get(0).config.Slot0));
+        DogLog.tunable(
+                getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
+        TunablePid.create(
+                getLoggingKey() + "VelocityGains",
+                this::configVelocitySlot,
+                SlotConfigs.from(motor_configs.get(0).config.Slot1));
+        DogLog.tunable(
+                getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
+        DogLog.tunable(
+                getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void readInputs(double timestamp) {
+        BaseStatusSignal.refreshAll(signals_);
+
+        // always read the sensor data
+        position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Rotations);
+        velocity_ =
+                position_to_rotations_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
+        for (int i = 0; i < motors_.length; i++) {
+            applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
+            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
+            bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
+            
+            // Update alerts for each motor
+            motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
+            motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
+        }
+
+        // run the simulation update step here if we are simulating
+        if (IS_SIM) {
+            // Get the voltage the motor controller wants to apply
+            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            
+            // Calculate the torque required to overcome the load at the motor shaft
+            // (load torque at drum * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
+            
+            // Calculate the current needed to produce this load torque
+            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            
+            // The voltage actually seen by the motor after the load consumes some current
+            // is reduced by the voltage drop across the resistance due to load current
+            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            
+            // Apply the effective voltage to the simulation
+            elevator_sim_.setInput(effective_voltage);
+
+            // Update simulation by 20ms
+            elevator_sim_.update(0.020);
+
+            // Reset the load torque after applying it (impulse load)
+            // This must be called again each cycle for sustained load
+            sim_load_torque_nm_ = 0.0;
+
+            // Convert mechanism position to motor position
+            // position_to_rotations_ converts meters to mechanism rotations
+            // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
+            double mechanismRotations = elevator_sim_.getPositionMeters() * position_to_rotations_;
+            double mechanismRotationsPerSec = 
+                    elevator_sim_.getVelocityMetersPerSecond() * position_to_rotations_;
+            
+            double motorPosition = mechanismRotations * gear_ratio_;
+            double motorVelocity = mechanismRotationsPerSec * gear_ratio_;
+
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(motorPosition);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+                
+                // Simulation is always "connected" and at safe temperature
+                motor_disconnected_alerts_[i].set(false);
+                motor_temp_alerts_[i].set(false);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeOutputs(double timestamp) {
+        switch (control_mode_) {
+            case MOTION_MAGIC_POSITION:
+                motors_[0].setControl(motion_magic_position_request_);
+                break;
+            case POSITION:
+                motors_[0].setControl(position_request_);
+                break;
+            case VELOCITY:
+                motors_[0].setControl(velocity_request_);
+                break;
+            case DUTY_CYCLE:
+                motors_[0].setControl(duty_cycle_request_);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected control mode: " + control_mode_);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void logData() {
+        // commands
+        DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "m");
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, "m");
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "m/s");
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "m/s");
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+
+        // per motor data
+        for (int i = 0; i < motors_.length; i++) {
+            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], "volts");
+        }
+    }
+
+    /**
+     * Configures the position slot with the given config
+     *
+     * @param config the slot config to apply
+     */
+    private void configPositionSlot(SlotConfigs config) {
+        configSlot(0, config);
+    }
+
+    /**
+     * Configures the velocity slot with the given config
+     *
+     * @param config the slot config to apply
+     */
+    private void configVelocitySlot(SlotConfigs config) {
+        configSlot(1, config);
+    }
+
+    /**
+     * Configures the given slot with the given config
+     *
+     * @param slot the slot to configure
+     * @param config the slot config to apply
+     */
+    public void configSlot(int slot, SlotConfigs config) {
+        if (slot == 0) {
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+        } else if (slot == 1) {
+            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+        } else {
+            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+        }
+    }
+
+    /**
+     * Sets the current position of the elevator (for zeroing purposes)
+     *
+     * @param position the position to set in meters
+     */
+    public void setCurrentPosition(double position) {
+        motors_[0].setPosition(position);
+    }
+
+    /**
+     * Gets the current position of the elevator in meters
+     *
+     * @return the current position in meters
+     */
+    public double getCurrentPosition() {
+        return position_;
+    }
+
+    /**
+     * Gets the current velocity of the elevator in meters per second
+     *
+     * @return the current velocity in meters per second
+     */
+    public double getCurrentVelocity() {
+        return velocity_;
+    }
+
+    /**
+     * Gets the current draw of the leader motor in amps
+     *
+     * @return the current draw of the leader motor in amps
+     */
+    public double getLeaderCurrent() {
+        return current_draw_[0];
+    }
+
+    /**
+     * Sets the target position of the elevator in meters using standard position control
+     *
+     * @param position_m the target position in meters
+     */
+    public void setTargetPosition(double position_m) {
+        position_target_ = position_m;
+        control_mode_ = ControlMode.POSITION;
+        position_request_.Position = position_m / position_to_rotations_;
+        position_request_.FeedForward = 0.0; // Clear any feed forward
+    }
+
+    /**
+     * Sets the target position of the elevator with arbitrary feed forward.
+     * This allows additional control output while holding a position.
+     *
+     * @param position_m the target position in meters
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     */
+    public void setTargetPositionWithFF(double position_m, double arbitrary_feedforward) {
+        position_target_ = position_m;
+        control_mode_ = ControlMode.POSITION;
+        position_request_.Position = position_m / position_to_rotations_;
+        position_request_.FeedForward = arbitrary_feedforward;
+    }
+
+    /**
+     * Sets the target position of the elevator in meters using motion magic control
+     *
+     * @param position_m the target position in meters
+     */
+    public void setTargetPositionMotionMagic(double position_m) {
+        position_target_ = position_m;
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        motion_magic_position_request_.Position = position_m / position_to_rotations_;
+        motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
+    }
+
+    /**
+     * Sets the target position of the elevator with arbitrary feed forward using motion magic control.
+     * This allows additional control output while holding a position.
+     *
+     * @param position_m the target position in meters
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     */
+    public void setTargetPositionMotionMagicWithFF(double position_m, double arbitrary_feedforward) {
+        position_target_ = position_m;
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        motion_magic_position_request_.Position = position_m / position_to_rotations_;
+        motion_magic_position_request_.FeedForward = arbitrary_feedforward;
+    }
+
+    /**
+     * Sets the target velocity of the elevator in meters per second
+     *
+     * @param velocity_mps the target velocity in meters per second
+     */
+    public void setTargetVelocity(double velocity_mps) {
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_mps;
+        velocity_request_.Velocity = velocity_mps / position_to_rotations_;
+    }
+
+    /**
+     * Sets the target duty cycle of the elevator
+     *
+     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
+     */
+    public void setTargetDutyCycle(double duty_cycle) {
+        control_mode_ = ControlMode.DUTY_CYCLE;
+        duty_cycle_target_ = duty_cycle;
+        duty_cycle_request_.Output = duty_cycle; 
+    }
+
+    /**
+     * Applies a load torque to the elevator mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm) at the drum output shaft.
+     *                  Positive values oppose motion in the positive direction.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        sim_load_torque_nm_ = torque_nm;
+    }
+}

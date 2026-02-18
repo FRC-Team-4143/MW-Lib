@@ -1,0 +1,497 @@
+package com.marswars.mechanisms.fx;
+
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
+
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.Slot1Configs;
+import com.ctre.phoenix6.configs.SlotConfigs;
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionVoltage;
+import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import dev.doglog.DogLog;
+import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import com.marswars.util.FxMotorConfig;
+import com.marswars.util.FxMotorConfig.FxMotorType;
+import com.marswars.util.TunablePid;
+import java.util.List;
+
+/**
+ * TalonFX-based mechanism implementation for rollers with position, velocity, and duty cycle control.
+ */
+public class FxRollerMech extends FxMechBase {
+
+    /** Control modes for the roller mechanism */
+    protected enum ControlMode {
+        MOTION_MAGIC_POSITION,
+        POSITION,
+        MOTION_MAGIC_VELOCITY,
+        VELOCITY,
+        DUTY_CYCLE
+    }
+
+    private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
+
+    // Temperature threshold for alerts (Celsius)
+    private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
+
+    // Always assume that we have the leader motor in index 0
+    private final TalonFX motors_[];
+    private final PositionVoltage position_request_;
+    protected final MotionMagicVoltage motion_magic_position_request_;
+    private final VelocityVoltage velocity_request_;
+    protected final MotionMagicVelocityVoltage motion_magic_velocity_request_;
+    private final DutyCycleOut duty_cycle_request_;
+    protected final BaseStatusSignal[] signals_;
+
+    // Alerts for motor monitoring
+    protected final Alert[] motor_disconnected_alerts_;
+    protected final Alert[] motor_temp_alerts_;
+    protected final Debouncer[] motor_conn_debouncers_;
+
+    // sensor inputs
+    protected double position_ = 0;
+    protected double position_target_ = 0;
+    protected double velocity_ = 0;
+    protected double velocity_target_ = 0;
+    protected double duty_cycle_target_ = 0;
+    protected double[] applied_voltage_;
+    protected double[] current_draw_;
+    protected double[] motor_temp_c_;
+    protected double[] bus_voltage_;
+
+
+    // System parameters
+    private final double gear_ratio_;
+    private final double roller_inertia_;
+
+    // Simulation
+    private final DCMotor motor_type_;
+    private final DCMotorSim roller_sim_;
+    private double sim_load_torque_nm_ = 0.0; // Load torque at roller shaft for simulation
+
+    /**
+     * Constructs a new RollerMech with a default inertia value.
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     */
+    public FxRollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio) {
+        this(logging_prefix, null, motor_configs, gear_ratio, 0.00001);
+    }
+
+    /**
+     * Constructs a new RollerMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     */
+    public FxRollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio) {
+        this(logging_prefix, mech_name, motor_configs, gear_ratio, 0.00001);
+    }
+
+    /**
+     * Constructs a new RollerMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
+     */
+    public FxRollerMech(String logging_prefix, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
+        this(logging_prefix, null, motor_configs, gear_ratio, roller_inertia);
+    }
+
+    /**
+     * Constructs a new RollerMech
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name Name of the mechanism
+     * @param motor_configs Configuration for the roller motor
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param roller_inertia Inertia of the roller in kg*m^2 (Simulation only)
+     */
+    public FxRollerMech(String logging_prefix, String mech_name, List<FxMotorConfig> motor_configs, double gear_ratio, double roller_inertia) {
+        super(logging_prefix, mech_name);
+
+        gear_ratio_ = gear_ratio;
+        roller_inertia_ = roller_inertia;
+
+        // MW-Lib convention: gear_ratio is motor/mechanism
+        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
+        // These are the same, so we can use gear_ratio directly
+        double sensor_to_mech_ratio = gear_ratio_;
+        
+        FxMechBase.ConstructedFxMotors configured_motors = 
+                (FxMechBase.ConstructedFxMotors) configMotors(motor_configs, sensor_to_mech_ratio);
+
+        // Store system parameters
+        position_request_ = new PositionVoltage(0).withSlot(0);
+        motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
+        velocity_request_ = new VelocityVoltage(0).withSlot(1);
+        motion_magic_velocity_request_ = new MotionMagicVelocityVoltage(0).withSlot(1);
+        duty_cycle_request_ = new DutyCycleOut(0);
+
+        // convert the list to an array for easy access
+        motors_ = configured_motors.motors;
+        signals_ = configured_motors.signals;
+
+        // default the inputs
+        position_ = 0;
+        velocity_ = 0;
+        applied_voltage_ = new double[motors_.length];
+        current_draw_ = new double[motors_.length];
+        motor_temp_c_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
+
+        // Initialize alerts and debouncers for each motor
+        motor_disconnected_alerts_ = new Alert[motors_.length];
+        motor_temp_alerts_ = new Alert[motors_.length];
+        motor_conn_debouncers_ = new Debouncer[motors_.length];
+        for (int i = 0; i < motors_.length; i++) {
+            motor_disconnected_alerts_[i] = new Alert(
+                    "Disconnected motor " + i + " in " + getLoggingKey(),
+                    AlertType.kError);
+            motor_temp_alerts_[i] = new Alert(
+                    "High temperature on motor " + i + " in " + getLoggingKey(),
+                    AlertType.kWarning);
+            motor_conn_debouncers_[i] = new Debouncer(0.5);
+        }
+
+        //////////////////////////
+        /// SIMULATION SETUP ///
+        //////////////////////////
+
+        if (motor_configs.get(0).motor_type == FxMotorType.X60) {
+            motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
+            motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
+            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
+        } else {
+            throw new IllegalArgumentException("Unsupported motor type");
+        }
+
+        roller_sim_ =
+                new DCMotorSim(
+                        LinearSystemId.createDCMotorSystem(
+                                motor_type_, roller_inertia_, gear_ratio_),
+                        motor_type_);
+
+        // Setup tunable PIDs
+        TunablePid.create(
+                getLoggingKey() + "PositionGains",
+                this::configPositionSlot,
+                SlotConfigs.from(motor_configs.get(0).config.Slot0));
+        DogLog.tunable(
+                getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
+        TunablePid.create(
+                getLoggingKey() + "VelocityGains",
+                this::configVelocitySlot,
+                SlotConfigs.from(motor_configs.get(0).config.Slot1));
+        DogLog.tunable(
+                getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
+        DogLog.tunable(
+                getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void readInputs(double timestamp) {
+        BaseStatusSignal.refreshAll(signals_);
+
+        // always read the sensor data
+        position_ = motors_[0].getPosition().getValue().in(Radians);
+        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        for (int i = 0; i < motors_.length; i++) {
+            applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
+            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
+            bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
+            
+            // Update alerts for each motor
+            motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
+            motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
+        }
+
+        // run the simulation update step here if we are simulating
+        if (IS_SIM) {
+            // Provide a battery voltage to the TalonFX sim so controller output is
+            // meaningful
+            for (int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setSupplyVoltage(12.0);
+            }
+
+            // Get the voltage the motor controller wants to apply
+            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            
+            // Calculate the torque required to overcome the load at the motor shaft
+            // (load torque at roller * gear ratio = load torque at motor)
+            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
+            
+            // Calculate the current needed to produce this load torque
+            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            
+            // The voltage actually seen by the motor after the load consumes some current
+            // is reduced by the voltage drop across the resistance due to load current
+            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            
+            // Apply the effective voltage to the simulation
+            roller_sim_.setInput(effective_voltage);
+
+            // Update simulation by 20ms
+            roller_sim_.update(0.020);
+
+            // Reset the load torque after applying it (impulse load)
+            // This must be called again each cycle for sustained load
+            sim_load_torque_nm_ = 0.0;
+
+            // The simulation gives mechanism (output) position/velocity in radians
+            // setRawRotorPosition expects raw rotor (motor) position in rotations
+            // Since gear_ratio_ = motor/mechanism, we need motor = mechanism * gear_ratio_
+            double mechanismPositionRad = roller_sim_.getAngularPositionRad();
+            double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
+            
+            double motorPositionRad = mechanismPositionRad * gear_ratio_;
+            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
+            
+            double motorPosition = Radians.of(motorPositionRad).in(Rotations);
+            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
+
+            for(int i = 0; i < motors_.length; i++) {
+                motors_[i].getSimState().setRawRotorPosition(motorPosition);
+                motors_[i].getSimState().setRotorVelocity(motorVelocity);
+                
+                // Simulation is always "connected" and at safe temperature
+                motor_disconnected_alerts_[i].set(false);
+                motor_temp_alerts_[i].set(false);
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeOutputs(double timestamp) {
+        switch (control_mode_) {
+            case MOTION_MAGIC_POSITION:
+                motors_[0].setControl(motion_magic_position_request_);
+                break;
+            case POSITION:
+                motors_[0].setControl(position_request_);
+                break;
+            case MOTION_MAGIC_VELOCITY:
+                motors_[0].setControl(motion_magic_velocity_request_);
+                break;
+            case VELOCITY:
+                motors_[0].setControl(velocity_request_);
+                break;
+            case DUTY_CYCLE:
+                motors_[0].setControl(duty_cycle_request_);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected control mode: " + control_mode_);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void logData() {
+        // commands
+        DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "rad");
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, "rad");
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+
+        DogLog.log(getLoggingKey() + "motor/applied_voltage", applied_voltage_, "volts");
+        DogLog.log(getLoggingKey() + "motor/current_draw", current_draw_, "amps");
+        DogLog.log(getLoggingKey() + "motor/temp", motor_temp_c_, "C");
+        DogLog.log(getLoggingKey() + "motor/bus_voltage", bus_voltage_, "volts");
+    }
+
+    /**
+     * Configures the position slot with the given config
+     *
+     * @param config the slot config to apply
+     */
+    private void configPositionSlot(SlotConfigs config) {
+        configSlot(0, config);
+    }
+
+    /**
+     * Configures the velocity slot with the given config
+     *
+     * @param config the slot config to apply
+     */
+    private void configVelocitySlot(SlotConfigs config) {
+        configSlot(1, config);
+    }
+
+    /**
+     * Configures the given slot with the given config
+     *
+     * @param slot the slot index to configure
+     * @param config the slot config to apply
+     */
+    public void configSlot(int slot, SlotConfigs config) {
+        if (slot == 0) {
+            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
+        } else if (slot == 1) {
+            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
+        } else {
+            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
+        }
+    }
+
+    /**
+     * Sets the current position of the roller mechanism (for resetting encoders, etc.)
+     *
+     * @param position_rad the position in radians
+     */
+    public void setCurrentPosition(double position_rad) {
+        motors_[0].setPosition(Units.radiansToRotations(position_rad));
+    }
+
+    /**
+     * Gets the current position of the roller mechanism in radians
+     *
+     * @return the position in radians
+     */
+    public double getCurrentPosition() {
+        return position_;
+    }
+
+    /**
+     * Gets the current velocity of the roller mechanism in radians per second
+     *
+     * @return the velocity in radians per second
+     */
+    public double getCurrentVelocity() {
+        return velocity_;
+    }
+
+    /**
+     * Gets the current draw of the leader motor in amps
+     *
+     * @return the current draw in amps
+     */
+    public double getLeaderCurrent() {
+        return current_draw_[0];
+    }
+
+    /**
+     * Sets the target position of the roller mechanism in radians using standard position control
+     *
+     * @param position_rad the target position in radians
+     */
+    public void setTargetPosition(double position_rad) {
+        position_target_ = position_rad;
+        control_mode_ = ControlMode.POSITION;
+        position_request_.Position = Units.radiansToRotations(position_rad);
+        position_request_.FeedForward = 0.0; // Clear any feed forward
+    }
+
+    /**
+     * Sets the target position of the roller mechanism with arbitrary feed forward.
+     * This allows additional control output while holding a position (e.g., for a hood that adds backspin).
+     *
+     * @param position_rad the target position in radians
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     */
+    public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
+        position_target_ = position_rad;
+        control_mode_ = ControlMode.POSITION;
+        position_request_.Position = Units.radiansToRotations(position_rad);
+        position_request_.FeedForward = arbitrary_feedforward;
+    }
+
+    /**
+     * Sets the target position of the roller mechanism in radians using motion magic control
+     *
+     * @param position_rad the target position in radians
+     */
+    public void setTargetPositionMotionMagic(double position_rad) {
+        position_target_ = position_rad;
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
+        motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
+    }
+
+    /**
+     * Sets the target position of the roller mechanism with arbitrary feed forward using motion magic control.
+     * This allows additional control output while holding a position (e.g., for a hood that adds backspin).
+     *
+     * @param position_rad the target position in radians
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     */
+    public void setTargetPositionMotionMagicWithFF(double position_rad, double arbitrary_feedforward) {
+        position_target_ = position_rad;
+        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
+        motion_magic_position_request_.FeedForward = arbitrary_feedforward;
+    }
+
+    /**
+     * Sets the target velocity of the roller mechanism in radians per second using standard velocity control
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
+    public void setTargetVelocity(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_rad_per_sec;
+        velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+    }
+
+    /**
+     * Sets the target velocity of the roller mechanism in radians per second using motion magic velocity control
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
+    public void setTargetVelocityMotionMagic(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.MOTION_MAGIC_VELOCITY;
+        velocity_target_ = velocity_rad_per_sec;
+        motion_magic_velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+    }
+
+    /**
+     * Sets the target duty cycle of the roller mechanism
+     *
+     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
+     */
+    public void setTargetDutyCycle(double duty_cycle) {
+        control_mode_ = ControlMode.DUTY_CYCLE;
+        duty_cycle_target_ = duty_cycle;
+        duty_cycle_request_.Output = duty_cycle;
+    }
+
+    /**
+     * Applies a load torque to the roller mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm) at the roller output shaft.
+     *                  Positive values oppose motion in the positive direction.
+     */
+    public void applyLoadTorque(double torque_nm) {
+        sim_load_torque_nm_ = torque_nm;
+    }
+}

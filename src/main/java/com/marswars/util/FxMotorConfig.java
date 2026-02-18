@@ -19,15 +19,12 @@ public class FxMotorConfig {
 
     public FxMotorType motor_type = FxMotorType.X60;
 
-    public boolean use_motion_magic = false;
-
     public TalonFXConfiguration config = new TalonFXConfiguration();
 
     public FxMotorConfig(FxMotorConfig config) {
         this.canbus_name = config.canbus_name;
         this.can_id = config.can_id;
         this.motor_type = config.motor_type;
-        this.use_motion_magic = config.use_motion_magic;
         this.config = config.config;
     }
 
@@ -90,7 +87,6 @@ public class FxMotorConfig {
         // Load the motion magic configs
         if (loader.getBoolValue(
                 ConstantsLoader.combinePath(base_steps, "motion_magic", "enabled"))) {
-            use_motion_magic = true;
             config.MotionMagic.MotionMagicCruiseVelocity =
                     loader.getDoubleValue(
                             ConstantsLoader.combinePath(

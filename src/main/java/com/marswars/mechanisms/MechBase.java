@@ -1,24 +1,22 @@
 package com.marswars.mechanisms;
 
-import com.ctre.phoenix6.BaseStatusSignal;
-import com.ctre.phoenix6.controls.StrictFollower;
-import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.wpilibj.RobotBase;
 import com.marswars.subsystem.SubsystemIoBase;
-import com.marswars.util.FxMotorConfig;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
 /**
  * Base class for mechanism IO implementations with common motor configuration helpers.
+ * This is a generic template class that can be specialized for different motor controller types.
+ *
+ * @param <TMotor> The motor controller type (e.g., TalonFX, ThriftyNova)
+ * @param <TConfig> The motor configuration type (e.g., FxMotorConfig, NovaMotorConfig)
  */
-public abstract class MechBase implements SubsystemIoBase {
+public abstract class MechBase<TMotor, TConfig> implements SubsystemIoBase {
 
-    /** Container for constructed motor controllers and their status signals. */
+    /** Container for constructed motor controllers. */
     public class ConstructedMotors {
-        public TalonFX motors[];
-        public BaseStatusSignal signals[];
+        public TMotor motors[];
     }
 
     private String mech_name_;
@@ -77,7 +75,8 @@ public abstract class MechBase implements SubsystemIoBase {
     }
 
     /**
-     * Configures the motors based on the given motor configs
+     * Configures the motors based on the given motor configs.
+     * Subclasses must implement this to handle motor-specific configuration.
      *
      * @param motor_configs the list of motor configs
      * @param sensor_to_mech_ratio the sensor to mechanism ratio
@@ -85,77 +84,23 @@ public abstract class MechBase implements SubsystemIoBase {
      * @return the constructed motors and their signals
      */
     public ConstructedMotors configMotors(
-            List<FxMotorConfig> motor_configs,
+            List<TConfig> motor_configs,
             double sensor_to_mech_ratio,
-            Function<FxMotorConfig, FxMotorConfig> configMaster) {
-        // throw a fit if we don't have any motors
-        if (motor_configs == null || motor_configs.size() == 0) {
-            throw new IllegalArgumentException("Motor configs is null or empty");
-        }
-        ConstructedMotors constructed = new ConstructedMotors();
-        List<BaseStatusSignal> all_signals_list = new ArrayList<>();
-        constructed.motors = new TalonFX[motor_configs.size()];
-        for (int i = 0; i < motor_configs.size(); i++) {
-            FxMotorConfig cfg = motor_configs.get(i);
-            if (cfg.canbus_name == null || cfg.canbus_name.isEmpty()) {
-                throw new IllegalArgumentException("Motor canbus name is null or empty");
-            }
-
-            constructed.motors[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
-            ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();
-
-            if (configMaster != null) {
-                cfg = configMaster.apply(cfg);
-            }
-
-            // also force the gear ratio to be correct
-            cfg.config.Feedback.SensorToMechanismRatio = sensor_to_mech_ratio;
-            // Apply the configs to the motor
-            constructed.motors[i].getConfigurator().apply(cfg.config);
-
-            // Only register signals for the master motor (the first one) to avoid duplicates and save bandwidth
-            if (i == 0) {
-                motor_signals.add(constructed.motors[i].getPosition());
-                motor_signals.add(constructed.motors[i].getVelocity());
-            } else {
-                // make the rest of the motors followers
-                constructed.motors[i].setControl(
-                        new StrictFollower(constructed.motors[0].getDeviceID()));
-            }
-
-            motor_signals.add(constructed.motors[i].getMotorVoltage());
-            motor_signals.add(constructed.motors[i].getSupplyCurrent());
-            motor_signals.add(constructed.motors[i].getDeviceTemp());
-            // motor_signals.add(constructed.motors[i].getSupplyVoltage()); // skip
-            // refreshing voltage
-            // to keep bandwidth low
-
-            // Optimize bus usage to the signals we want
-            for (BaseStatusSignal s : motor_signals) {
-                s.setUpdateFrequency(50); // 50 Hz update rate
-            }
-            constructed.motors[i].optimizeBusUtilization();
-
-            // keep a master list of signals for refreshing later
-            all_signals_list.addAll(motor_signals);
-        }
-
-        // convert the list to an array for easy access
-        constructed.signals = new BaseStatusSignal[all_signals_list.size()];
-        constructed.signals = all_signals_list.toArray(constructed.signals);
-
-        return constructed;
+            Function<TConfig, TConfig> configMaster) {
+        throw new UnsupportedOperationException(
+                "configMotors not implemented for " + getClass().getSimpleName() +
+                ". If you're extending MechBase without using configMotors, consider using FxMechBase or NovaMechBase.");
     }
 
     /**
-     * Configures the motors based on the given motor configs
+     * Configures the motors based on the given motor configs.
      *
      * @param motor_configs the list of motor configs
      * @param sensor_to_mech_ratio the sensor to mechanism ratio
      * @return the constructed motors and their signals
      */
     public ConstructedMotors configMotors(
-            List<FxMotorConfig> motor_configs, double sensor_to_mech_ratio) {
+            List<TConfig> motor_configs, double sensor_to_mech_ratio) {
         return configMotors(motor_configs, sensor_to_mech_ratio, null);
     }
 }
