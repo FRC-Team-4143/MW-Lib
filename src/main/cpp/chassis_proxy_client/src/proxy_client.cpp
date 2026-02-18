@@ -1,7 +1,6 @@
 #include "chassis_proxy_client/proxy_client.hpp"
 
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Transform.h>
 #include <yaml-cpp/yaml.h>
 
 #include <iomanip>
@@ -36,6 +35,8 @@ ProxyClientNode::ProxyClientNode() : basin::node_core::NodeCore("proxy_client") 
         params_->tag_solution_topic, rclcpp::SystemDefaultsQoS(), std::bind(&ProxyClientNode::tagSolutionCb, this, _1));
 
     log_metadata_pub_ = create_publisher<logging_msgs::msg::LogMetadata>("/log/metadata", rclcpp::SystemDefaultsQoS());
+
+    tag_pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>("/vision/tag_pose", rclcpp::SystemDefaultsQoS());
 
     snapshot_client_ = create_client<logging_msgs::srv::SnapshotRequest>("/log/snapshot_request");
 
@@ -87,37 +88,44 @@ void ProxyClientNode::onTick() {
 void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSharedPtr msg) {
     RCLCPP_DEBUG_STREAM(get_logger(), "Received Tag Solution with " << msg->detected_tags.size() << " detections");
 
-    TagDetectionMsg proxy_msg;
-    proxy_msg.timestamp = TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_);
-    proxy_msg.tag_ids = msg->detected_tags;
+    // msg->pose is the camera pose in the field frame
+    // We need to transform it to get the base pose in the field frame
 
-    // transform the message pose by base_frame to camera frame if possible
-    geometry_msgs::msg::TransformStamped base_to_cam;
+    // Convert poses to tf2::Transform for proper transform math
+    tf2::Transform camera_pose_in_field;
+    tf2::fromMsg(msg->pose, camera_pose_in_field);
+
+    // Look up the transform from base to camera (static transform describing camera mounting)
+    tf2::Transform camera_to_base_tf;
+
     try {
-        base_to_cam = tf_buffer_->lookupTransform(params_->robot_base_frame, msg->header.frame_id, msg->header.stamp,
+        geometry_msgs::msg::TransformStamped cam_to_base;
+        cam_to_base = tf_buffer_->lookupTransform(msg->header.frame_id, params_->robot_base_frame, rclcpp::Time(0),
                                                   rclcpp::Duration(10ms));
+        tf2::fromMsg(cam_to_base.transform, camera_to_base_tf);
     } catch (const tf2::TransformException& e) {
-        RCLCPP_WARN_STREAM(get_logger(), "Failed to transform tag solution from " << msg->header.frame_id << " to "
-                                                                                  << params_->robot_base_frame << " : "
-                                                                                  << e.what());
+        RCLCPP_WARN_STREAM(get_logger(), "Failed to get transform from " << params_->robot_base_frame << " to "
+                                                                         << msg->header.frame_id << " : " << e.what());
         return;
     }
+    // Calculate base pose in field: base_in_field = camera_in_field * camera_in_base
+    tf2::Transform base_pose_in_field = camera_pose_in_field * camera_to_base_tf;
 
-    geometry_msgs::msg::Pose tag_pose_in_base;
-    tf2::doTransform(msg->pose, tag_pose_in_base, base_to_cam);
+    // Convert back to geometry_msgs
+    geometry_msgs::msg::Pose base_pose;
+    tf2::toMsg(base_pose_in_field, base_pose);
 
-    // convert from quaternion to euler angles in degrees
-    tf2::Quaternion q(tag_pose_in_base.orientation.x, tag_pose_in_base.orientation.y, tag_pose_in_base.orientation.z,
-                      tag_pose_in_base.orientation.w);
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-
-    proxy_msg.theta_pos = yaw;
-    proxy_msg.x_pos = tag_pose_in_base.position.x;
-    proxy_msg.y_pos = tag_pose_in_base.position.y;
+    // Publish the base pose as a PoseStamped message
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = msg->header.stamp;
+    pose_msg.header.frame_id = params_->field_frame;
+    pose_msg.pose = base_pose;
+    tag_pose_pub_->publish(pose_msg);
 
     // now send it to the server
+    TagDetectionMsg proxy_msg;
+    proxy_msg.loadFromMsg(msg->detected_tags, base_pose,
+                          TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_));
     udp_server_->sendMsg(proxy_msg);
 }
 

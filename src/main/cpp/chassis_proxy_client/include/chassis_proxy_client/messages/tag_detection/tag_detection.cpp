@@ -1,8 +1,28 @@
 #include "chassis_proxy_client/messages/tag_detection/tag_detection.hpp"
 
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+
 #include "chassis_proxy_client/messages/msg_common.hpp"
 
 namespace proxy_client {
+
+void TagDetectionMsg::loadFromMsg(const std::vector<uint8_t>& detected_tag_ids, const geometry_msgs::msg::Pose& tag_pose_in_base,
+                                  const TimeStamp& stamp) {
+    timestamp = stamp;
+    tag_ids = detected_tag_ids;
+
+    // convert from quaternion to euler angles in degrees
+    tf2::Quaternion q(tag_pose_in_base.orientation.x, tag_pose_in_base.orientation.y, tag_pose_in_base.orientation.z,
+                      tag_pose_in_base.orientation.w);
+    tf2::Matrix3x3 m(q);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    theta_pos = yaw;
+    x_pos = tag_pose_in_base.position.x;
+    y_pos = tag_pose_in_base.position.y;
+}
 
 std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     BinOStream buffer;
