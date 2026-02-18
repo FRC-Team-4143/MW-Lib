@@ -57,4 +57,77 @@ public class ElevatorMech implements SubsystemIoBase {
     public SubsystemIoBase getDelegate() {
         return delegate_;
     }
+
+    // Delegation methods for common operations
+    public void setTargetPosition(double position_m) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPosition(position_m);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPosition");
+        }
+    }
+
+    public void setTargetPositionMotionMagic(double position_m) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetPositionMotionMagic(position_m);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionMagic");
+        }
+    }
+
+    public void setTargetVelocity(double velocity_mps) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetVelocity(velocity_mps);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
+        }
+    }
+
+    public void setTargetDutyCycle(double duty_cycle) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
+        }
+    }
+
+    public double getCurrentPosition() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            return ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).getCurrentPosition();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentPosition");
+        }
+    }
+
+    public double getCurrentVelocity() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            return ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).getCurrentVelocity();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentVelocity");
+        }
+    }
+
+    public void setCurrentPosition(double position_m) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).setCurrentPosition(position_m);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setCurrentPosition");
+        }
+    }
+
+    public double getLeaderCurrent() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            return ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).getLeaderCurrent();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getLeaderCurrent");
+        }
+    }
+
+    public void applyLoadTorque(double torque_nm) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxElevatorMech) {
+            ((com.marswars.mechanisms.fx.FxElevatorMech) delegate_).applyLoadTorque(torque_nm);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support applyLoadTorque");
+        }
+    }
 }

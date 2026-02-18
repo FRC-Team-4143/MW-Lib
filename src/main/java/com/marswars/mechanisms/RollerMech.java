@@ -65,4 +65,69 @@ public class RollerMech implements SubsystemIoBase {
     public SubsystemIoBase getDelegate() {
         return delegate_;
     }
+
+    // Delegation methods for common operations
+    public void setTargetPosition(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPosition(position_rad);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPosition");
+        }
+    }
+
+    public void setTargetVelocity(double velocity_rad_per_sec) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
+        }
+    }
+
+    public void setTargetDutyCycle(double duty_cycle) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
+        }
+    }
+
+    public double getCurrentPosition() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getCurrentPosition();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentPosition");
+        }
+    }
+
+    public double getCurrentVelocity() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getCurrentVelocity();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentVelocity");
+        }
+    }
+
+    public void setCurrentPosition(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setCurrentPosition(position_rad);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setCurrentPosition");
+        }
+    }
+
+    public double getLeaderCurrent() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getLeaderCurrent();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getLeaderCurrent");
+        }
+    }
+
+    public void applyLoadTorque(double torque_nm) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
+            ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).applyLoadTorque(torque_nm);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support applyLoadTorque");
+        }
+    }
 }

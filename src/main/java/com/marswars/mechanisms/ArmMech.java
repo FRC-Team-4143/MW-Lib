@@ -67,4 +67,65 @@ public class ArmMech implements SubsystemIoBase {
     public SubsystemIoBase getDelegate() {
         return delegate_;
     }
+
+    // Delegation methods for common operations
+    public void setTargetPosition(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPosition(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).setTargetPosition(position_rad);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPosition");
+        }
+    }
+
+    public void setTargetVelocity(double velocity_rad_per_sec) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
+        }
+    }
+
+    public void setTargetDutyCycle(double duty_cycle) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
+        }
+    }
+
+    public double getCurrentPosition() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getCurrentPosition();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            return ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).getCurrentPosition();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentPosition");
+        }
+    }
+
+    public double getCurrentVelocity() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getCurrentVelocity();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            return ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).getCurrentVelocity();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getCurrentVelocity");
+        }
+    }
+
+    public void setCurrentPosition(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setCurrentPosition(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).setCurrentPosition(position_rad);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setCurrentPosition");
+        }
+    }
 }
