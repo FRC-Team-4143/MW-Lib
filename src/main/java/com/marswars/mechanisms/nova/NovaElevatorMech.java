@@ -6,10 +6,9 @@ import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
+import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import com.marswars.util.NovaMotorConfig;
 import com.marswars.util.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
@@ -17,17 +16,17 @@ import com.marswars.util.TunablePid;
 import java.util.List;
 
 /**
- * Mechanism implementation for a single-jointed arm with position, velocity, and duty control.
+ * ThriftyNova-based mechanism implementation for elevators with position, velocity, and duty cycle control.
  * Uses ThriftyNova motor controllers.
  * 
  * @apiNote ThriftyNova controllers do not support:
- *          - Motion Magic
+ *          - Motion Magic/Motion Profile
  *          - Status Signals
  *          - Simulation (sim fields left in place for potential future workarounds)
  */
-public class NovaArmMech extends NovaMechBase {
+public class NovaElevatorMech extends NovaMechBase {
 
-    /** Control modes for the arm mechanism */
+    /** Control modes for the elevator mechanism */
     protected enum ControlMode {
         POSITION,
         VELOCITY,
@@ -50,11 +49,12 @@ public class NovaArmMech extends NovaMechBase {
     protected final Debouncer[] motor_conn_debouncers_;
 
     // Simulation (not currently supported by ThriftyNova, but left in place for potential future use)
-    private final SingleJointedArmSim arm_sim_;
+    private final ElevatorSim elevator_sim_;
     private final double gear_ratio_;
+    private final double drum_radius_;
+    private final double position_to_rotations_;
     private final DCMotor motor_type_;
-    private final double moi_;
-    private double sim_load_torque_nm_ = 0.0; // Load torque at arm shaft for simulation
+    private double sim_load_torque_nm_ = 0.0; // Load torque at drum shaft for simulation
 
     // sensor inputs
     protected double position_ = 0;
@@ -68,108 +68,49 @@ public class NovaArmMech extends NovaMechBase {
     protected double[] motor_temp_c_;
 
     /**
-     * Constructs a new NovaArmMech
+     * Constructs a new NovaElevatorMech (assumes vertical elevator)
      *
      * @param logging_prefix String prefix for logging
-     * @param motor_configs  List of motor configurations
-     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
-     * @param length         Length of the arm in meters (Simulation only - not currently supported)
-     * @param mass_kg        Mass of the arm in kg (Simulation only - not currently supported)
-     * @param min_angle      Minimum angle of the arm in radians (Simulation only - not currently supported)
-     * @param max_angle      Maximum angle of the arm in radians (Simulation only - not currently supported)
-     *
-     * @apiNote Gravity compensation is not supported by ThriftyNova
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
      */
-    public NovaArmMech(
+    public NovaElevatorMech(
             String logging_prefix,
             List<NovaMotorConfig> motor_configs,
             double gear_ratio,
-            double length,
-            double mass_kg,
-            double min_angle,
-            double max_angle) {
-        this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, false);
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension) {
+        this(logging_prefix, null, motor_configs, gear_ratio, drum_radius, carriage_mass_kg, max_extension, true);
     }
 
     /**
-     * Constructs a new NovaArmMech
+     * Constructs a new NovaElevatorMech
      *
      * @param logging_prefix String prefix for logging
-     * @param mech_name      Name of the mechanism
-     * @param motor_configs  List of motor configurations
-     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
-     * @param length         Length of the arm in meters (Simulation only - not currently supported)
-     * @param mass_kg        Mass of the arm in kg (Simulation only - not currently supported)
-     * @param min_angle      Minimum angle of the arm in radians (Simulation only - not currently supported)
-     * @param max_angle      Maximum angle of the arm in radians (Simulation only - not currently supported)
-     *
-     * @apiNote Gravity compensation is not supported by ThriftyNova
+     * @param mech_name Name of the mechanism
+     * @param motor_configs List of motor configurations
+     * @param gear_ratio Gear ratio as motor rotations / mechanism rotations
+     * @param drum_radius Radius of the drum in meters
+     * @param carriage_mass_kg Mass of the elevator carriage in kg (Simulation only)
+     * @param max_extension Maximum extension of the elevator in meters (Simulation only)
+     * @param is_vertical Whether the elevator is vertical (for gravity compensation)
      */
-    public NovaArmMech(
+    public NovaElevatorMech(
             String logging_prefix,
             String mech_name,
             List<NovaMotorConfig> motor_configs,
             double gear_ratio,
-            double length,
-            double mass_kg,
-            double min_angle,
-            double max_angle) {
-        this(logging_prefix, mech_name, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle, false);
-    }
-
-    /**
-     * Constructs a new NovaArmMech
-     *
-     * @param logging_prefix     String prefix for logging
-     * @param motor_configs      List of motor configurations
-     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
-     * @param length             Length of the arm in meters (Simulation only - not currently supported)
-     * @param mass_kg            Mass of the arm in kg (Simulation only - not currently supported)
-     * @param min_angle          Minimum angle of the arm in radians (Simulation only - not currently supported)
-     * @param max_angle          Maximum angle of the arm in radians (Simulation only - not currently supported)
-     * @param gravity_compensate Ignored - gravity compensation not supported by ThriftyNova
-     */
-    public NovaArmMech(
-            String logging_prefix,
-            List<NovaMotorConfig> motor_configs,
-            double gear_ratio,
-            double length,
-            double mass_kg,
-            double min_angle,
-            double max_angle,
-            boolean gravity_compensate) {
-        this(logging_prefix, null, motor_configs, gear_ratio, length, mass_kg, min_angle, max_angle,
-                gravity_compensate);
-
-    }
-
-    /**
-     * Constructs a new NovaArmMech
-     *
-     * @param logging_prefix     String prefix for logging
-     * @param mech_name          Name of the mechanism
-     * @param motor_configs      List of motor configurations
-     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
-     * @param length             Length of the arm in meters (Simulation only - not currently supported)
-     * @param mass_kg            Mass of the arm in kg (Simulation only - not currently supported)
-     * @param min_angle          Minimum angle of the arm in radians (Simulation only - not currently supported)
-     * @param max_angle          Maximum angle of the arm in radians (Simulation only - not currently supported)
-     * @param gravity_compensate Ignored - gravity compensation not supported by ThriftyNova
-     */
-    public NovaArmMech(
-            String logging_prefix,
-            String mech_name,
-            List<NovaMotorConfig> motor_configs,
-            double gear_ratio,
-            double length,
-            double mass_kg,
-            double min_angle,
-            double max_angle,
-            boolean gravity_compensate) {
+            double drum_radius,
+            double carriage_mass_kg,
+            double max_extension,
+            boolean is_vertical) {
         super(logging_prefix, mech_name);
 
         // MW-Lib convention: gear_ratio is motor/mechanism
-        // We'll need to handle unit conversions manually since ThriftyNova doesn't have built-in conversion
         double sensor_to_mech_ratio = gear_ratio;
         
         NovaMechBase.ConstructedMotors configured_motors = 
@@ -184,6 +125,8 @@ public class NovaArmMech extends NovaMechBase {
         motors_ = configured_motors.motors;
 
         this.gear_ratio_ = gear_ratio;
+        this.drum_radius_ = drum_radius;
+        this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
 
         // default the inputs
         position_ = 0;
@@ -223,17 +166,18 @@ public class NovaArmMech extends NovaMechBase {
             throw new IllegalArgumentException("Unsupported motor type");
         }
 
-        moi_ = SingleJointedArmSim.estimateMOI(length, mass_kg);
-        arm_sim_ = new SingleJointedArmSim(
-                motor_type_, // Motor type
-                gear_ratio,
-                moi_,
-                length, // Length of the arm (meters)
-                min_angle, // Minimum angle (radians)
-                max_angle, // Maximum angle (radians)
-                gravity_compensate, // Simulate gravity
-                0 // Starting angle (radians)
-        );
+        // construct the simulation object
+        elevator_sim_ =
+                new ElevatorSim(
+                        motor_type_, // Motor type
+                        gear_ratio,
+                        carriage_mass_kg, // Carriage mass (kg)
+                        drum_radius, // Drum radius (m)
+                        0,
+                        max_extension, // Max height (m)
+                        is_vertical, // Simulate gravity
+                        0 // Starting height (m)
+                );
 
         // Setup tunable PIDs
         TunablePid.create(
@@ -258,13 +202,13 @@ public class NovaArmMech extends NovaMechBase {
         // ThriftyNova does not use status signals - direct method calls instead
         
         // Read position and velocity from leader motor
-        // ThriftyNova returns values in rotations, so we need to convert to radians
-        // Position is in motor rotations, so divide by gear ratio to get mechanism radians
+        // ThriftyNova returns values in rotations, so we need to convert to meters
+        // Position is in motor rotations, divide by gear ratio and convert using position_to_rotations_
         double motor_position_rot = motors_[0].getPosition();
         double motor_velocity_rps = motors_[0].getVelocity();
         
-        position_ = Units.rotationsToRadians(motor_position_rot) / gear_ratio_;
-        velocity_ = Units.rotationsToRadians(motor_velocity_rps) / gear_ratio_;
+        position_ = (motor_position_rot / gear_ratio_) / position_to_rotations_;
+        velocity_ = (motor_velocity_rps / gear_ratio_) / position_to_rotations_;
         
         // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
@@ -297,19 +241,17 @@ public class NovaArmMech extends NovaMechBase {
             double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
             
             // Apply the effective voltage to the simulation
-            arm_sim_.setInput(effective_voltage);
-            arm_sim_.update(0.020);
+            elevator_sim_.setInput(effective_voltage);
+            elevator_sim_.update(0.020);
             
             // Reset the load torque after applying it
             sim_load_torque_nm_ = 0.0;
 
             // Update motor positions from sim
-            double mechanismPositionRad = arm_sim_.getAngleRads();
-            double mechanismVelocityRadPerSec = arm_sim_.getVelocityRadPerSec();
-            double motorPositionRad = mechanismPositionRad * gear_ratio_;
-            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
-            double motorPosition = Units.radiansToRotations(motorPositionRad);
-            double motorVelocity = Units.radiansToRotations(motorVelocityRadPerSec);
+            double mechanismPositionMeters = elevator_sim_.getPositionMeters();
+            double mechanismVelocityMPS = elevator_sim_.getVelocityMetersPerSecond();
+            double motorPosition = mechanismPositionMeters * position_to_rotations_ * gear_ratio_;
+            double motorVelocity = mechanismVelocityMPS * position_to_rotations_ * gear_ratio_;
             
             // Would need to update ThriftyNova sim state here
             */
@@ -322,13 +264,13 @@ public class NovaArmMech extends NovaMechBase {
         // ThriftyNova uses direct method calls instead of control request objects
         switch (control_mode_) {
             case POSITION:
-                // Convert target position (radians) to motor rotations
-                double motor_position_rot = Units.radiansToRotations(position_target_ * gear_ratio_);
+                // Convert target position (meters) to motor rotations
+                double motor_position_rot = position_target_ * position_to_rotations_ * gear_ratio_;
                 motors_[0].setPosition(motor_position_rot, feedforward_volts_);
                 break;
             case VELOCITY:
-                // Convert target velocity (rad/s) to motor RPS
-                double motor_velocity_rps = Units.radiansToRotations(velocity_target_ * gear_ratio_);
+                // Convert target velocity (m/s) to motor RPS
+                double motor_velocity_rps = velocity_target_ * position_to_rotations_ * gear_ratio_;
                 motors_[0].setVelocity(motor_velocity_rps);
                 break;
             case DUTY_CYCLE:
@@ -344,12 +286,13 @@ public class NovaArmMech extends NovaMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "rad");
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, "rad");
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "m");
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, "m");
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "m/s");
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "m/s");
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
         DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/feedforward", feedforward_volts_, "volts");
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
@@ -384,86 +327,110 @@ public class NovaArmMech extends NovaMechBase {
     }
 
     /**
-     * Set the current position of the arm (for zeroing)
+     * Sets the current position of the elevator (for zeroing purposes)
      *
-     * @param position_rad the current position in radians
+     * @param position_m the position to set in meters
      */
-    public void setCurrentPosition(double position_rad) {
-        // Convert mechanism position (radians) to motor rotations
-        // motor_rotations = mechanism_radians * gear_ratio / (2*pi)
-        double motor_position_rot = Units.radiansToRotations(position_rad * gear_ratio_);
+    public void setCurrentPosition(double position_m) {
+        // Convert mechanism position (meters) to motor rotations
+        double motor_position_rot = position_m * position_to_rotations_ * gear_ratio_;
         motors_[0].setEncoderPosition(motor_position_rot);
     }
 
     /**
-     * Get the current position of the arm
+     * Gets the current position of the elevator in meters
      *
-     * @return the current position in radians
+     * @return the current position in meters
      */
     public double getCurrentPosition() {
         return position_;
     }
 
     /**
-     * Get the current velocity of the arm
+     * Gets the current velocity of the elevator in meters per second
      *
-     * @return the current velocity in radians per second
+     * @return the current velocity in meters per second
      */
     public double getCurrentVelocity() {
         return velocity_;
     }
 
     /**
-     * Get the current draw of the leader motor
+     * Gets the current draw of the leader motor in amps
      *
-     * @return the current draw in amps
+     * @return the current draw of the leader motor in amps
      */
     public double getLeaderCurrent() {
         return current_draw_[0];
     }
 
     /**
-     * Set the target position of the arm
+     * Sets the target position of the elevator in meters using standard position control
      *
-     * @param position_rad the target position in radians
+     * @param position_m the target position in meters
      * 
-     * @apiNote ThriftyNova does not support Motion Magic
+     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile
      */
-    public void setTargetPosition(double position_rad) {
+    public void setTargetPosition(double position_m) {
         motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT0); // Use slot 0 for position control
-        position_target_ = position_rad;
+        position_target_ = position_m;
         feedforward_volts_ = 0.0;
         control_mode_ = ControlMode.POSITION;
     }
 
     /**
-     * Set the target position of the arm with feedforward
+     * Sets the target position of the elevator in meters using motion profile control.
+     * Since ThriftyNova does not support motion profiling, this falls back to standard position control.
      *
-     * @param position_rad the target position in radians
-     * @param feedforward_volts the feedforward voltage to apply (0-12V)
+     * @param position_m the target position in meters
      * 
-     * @apiNote ThriftyNova does not support Motion Magic
+     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile - falls back to standard position control
      */
-    public void setTargetPositionWithFF(double position_rad, double feedforward_volts) {
+    public void setTargetPositionMotionProfile(double position_m) {
+        setTargetPosition(position_m);
+    }
+
+    /**
+     * Sets the target position of the elevator with arbitrary feed forward.
+     *
+     * @param position_m the target position in meters
+     * @param feedforward_volts arbitrary feed forward value in volts (0-12V)
+     * 
+     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile
+     */
+    public void setTargetPositionWithFF(double position_m, double feedforward_volts) {
         motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT0); // Use slot 0 for position control
-        position_target_ = position_rad;
+        position_target_ = position_m;
         feedforward_volts_ = feedforward_volts;
         control_mode_ = ControlMode.POSITION;
     }
 
     /**
-     * Set the target velocity of the arm
+     * Sets the target position of the elevator with arbitrary feed forward using motion profile control.
+     * Since ThriftyNova does not support motion profiling, this falls back to standard position control with feedforward.
      *
-     * @param velocity_rad_per_sec the target velocity in radians per second
+     * @param position_m the target position in meters
+     * @param feedforward_volts arbitrary feed forward value in volts (0-12V)
+     * 
+     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile - falls back to standard position control with feedforward
      */
-    public void setTargetVelocity(double velocity_rad_per_sec) {
-        motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT1); // Use slot 1 for velocity control
-        control_mode_ = ControlMode.VELOCITY;
-        velocity_target_ = velocity_rad_per_sec;
+    public void setTargetPositionMotionProfileWithFF(double position_m, double feedforward_volts) {
+        setTargetPositionWithFF(position_m, feedforward_volts);
     }
 
     /**
-     * Set the target duty cycle of the arm
+     * Sets the target velocity of the elevator in meters per second
+     *
+     * @param velocity_mps the target velocity in meters per second
+     */
+    public void setTargetVelocity(double velocity_mps) {
+        motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT1); // Use slot 1 for velocity control
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_mps;
+    }
+
+    /**
+     * Sets the target duty cycle of the elevator
      *
      * @param duty_cycle the target duty cycle (-1.0 to 1.0)
      */
@@ -473,11 +440,11 @@ public class NovaArmMech extends NovaMechBase {
     }
 
     /**
-     * Applies a load torque to the arm mechanism for simulation purposes.
+     * Applies a load torque to the elevator mechanism for simulation purposes.
      * This method should be called during the simulation update cycle to apply
      * external loads (like friction, compression forces, etc.) to the mechanism.
      *
-     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
+     * @param torque_nm The load torque in Newton-meters (Nm) at the drum output shaft.
      *                  Positive values oppose motion in the positive direction.
      */
     public void applyLoadTorque(double torque_nm) {

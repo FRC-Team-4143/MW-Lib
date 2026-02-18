@@ -1,6 +1,7 @@
 package com.marswars.mechanisms;
 
 import com.marswars.mechanisms.fx.FxRollerMech;
+import com.marswars.mechanisms.nova.NovaRollerMech;
 import com.marswars.subsystem.SubsystemIoBase;
 import com.marswars.util.FxMotorConfig;
 import com.marswars.util.NovaMotorConfig;
@@ -39,8 +40,9 @@ public class RollerMech implements SubsystemIoBase {
                     logging_prefix, mech_name, (List<FxMotorConfig>) motor_configs, 
                     gear_ratio, roller_inertia);
         } else if (firstConfig instanceof NovaMotorConfig) {
-            throw new UnsupportedOperationException(
-                    "NovaRollerMech is not yet implemented.");
+            delegate_ = new NovaRollerMech(
+                    logging_prefix, mech_name, (List<NovaMotorConfig>) motor_configs, 
+                    gear_ratio, roller_inertia);
         } else {
             throw new IllegalArgumentException(
                     "Unsupported motor config type: " + firstConfig.getClass().getName());
@@ -70,6 +72,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetPosition(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPosition(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetPosition(position_rad);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetPosition");
         }
@@ -78,6 +82,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetPositionWithFF");
         }
@@ -86,6 +92,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetPositionMotionProfile(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionMotionProfile(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetPositionMotionProfile(position_rad);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfile");
         }
@@ -94,6 +102,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetPositionMotionProfileWithFF(position_rad, arbitrary_feedforward);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetPositionMotionProfileWithFF(position_rad, arbitrary_feedforward);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfileWithFF");
         }
@@ -102,6 +112,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetVelocity(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
         }
@@ -110,6 +122,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetVelocityMotionProfile");
         }
@@ -118,6 +132,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setTargetDutyCycle(double duty_cycle) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setTargetDutyCycle(duty_cycle);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
         }
@@ -126,6 +142,8 @@ public class RollerMech implements SubsystemIoBase {
     public double getCurrentPosition() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getCurrentPosition();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            return ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).getCurrentPosition();
         } else {
             throw new UnsupportedOperationException("Delegate does not support getCurrentPosition");
         }
@@ -134,6 +152,8 @@ public class RollerMech implements SubsystemIoBase {
     public double getCurrentVelocity() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getCurrentVelocity();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            return ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).getCurrentVelocity();
         } else {
             throw new UnsupportedOperationException("Delegate does not support getCurrentVelocity");
         }
@@ -142,6 +162,8 @@ public class RollerMech implements SubsystemIoBase {
     public void setCurrentPosition(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).setCurrentPosition(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).setCurrentPosition(position_rad);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setCurrentPosition");
         }
@@ -150,6 +172,8 @@ public class RollerMech implements SubsystemIoBase {
     public double getLeaderCurrent() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             return ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).getLeaderCurrent();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            return ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).getLeaderCurrent();
         } else {
             throw new UnsupportedOperationException("Delegate does not support getLeaderCurrent");
         }
@@ -158,6 +182,8 @@ public class RollerMech implements SubsystemIoBase {
     public void applyLoadTorque(double torque_nm) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxRollerMech) {
             ((com.marswars.mechanisms.fx.FxRollerMech) delegate_).applyLoadTorque(torque_nm);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaRollerMech) {
+            ((com.marswars.mechanisms.nova.NovaRollerMech) delegate_).applyLoadTorque(torque_nm);
         } else {
             throw new UnsupportedOperationException("Delegate does not support applyLoadTorque");
         }

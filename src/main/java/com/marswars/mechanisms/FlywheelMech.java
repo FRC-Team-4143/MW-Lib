@@ -1,6 +1,7 @@
 package com.marswars.mechanisms;
 
 import com.marswars.mechanisms.fx.FxFlywheelMech;
+import com.marswars.mechanisms.nova.NovaFlywheelMech;
 import com.marswars.subsystem.SubsystemIoBase;
 import com.marswars.util.FxMotorConfig;
 import com.marswars.util.NovaMotorConfig;
@@ -42,8 +43,9 @@ public class FlywheelMech implements SubsystemIoBase {
                     logging_prefix, mech_name, (List<FxMotorConfig>) motor_configs, 
                     gear_ratio, wheel_inertia, wheel_radius);
         } else if (firstConfig instanceof NovaMotorConfig) {
-            throw new UnsupportedOperationException(
-                    "NovaFlywheelMech is not yet implemented. Use FxFlywheelMech directly for TalonFX motors.");
+            delegate_ = new NovaFlywheelMech(
+                    logging_prefix, mech_name, (List<NovaMotorConfig>) motor_configs, 
+                    gear_ratio, wheel_inertia, wheel_radius);
         } else {
             throw new IllegalArgumentException(
                     "Unsupported motor config type: " + firstConfig.getClass().getName());
@@ -73,6 +75,8 @@ public class FlywheelMech implements SubsystemIoBase {
     public void setTargetVelocity(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetVelocity");
         }
@@ -81,6 +85,8 @@ public class FlywheelMech implements SubsystemIoBase {
     public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetVelocityMotionProfile");
         }
@@ -89,6 +95,8 @@ public class FlywheelMech implements SubsystemIoBase {
     public void setTargetDutyCycle(double duty_cycle) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetDutyCycle(duty_cycle);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).setTargetDutyCycle(duty_cycle);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetDutyCycle");
         }
@@ -97,6 +105,8 @@ public class FlywheelMech implements SubsystemIoBase {
     public double getCurrentVelocity() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             return ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).getCurrentVelocity();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            return ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).getCurrentVelocity();
         } else {
             throw new UnsupportedOperationException("Delegate does not support getCurrentVelocity");
         }
@@ -105,6 +115,8 @@ public class FlywheelMech implements SubsystemIoBase {
     public void applyLoadTorque(double torque_nm) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).applyLoadTorque(torque_nm);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).applyLoadTorque(torque_nm);
         } else {
             throw new UnsupportedOperationException("Delegate does not support applyLoadTorque");
         }
