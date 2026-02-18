@@ -1,0 +1,79 @@
+package com.marswars.mechanisms.nova;
+
+import com.thethriftybot.devices.ThriftyNova;
+import com.marswars.mechanisms.MechBase;
+import com.marswars.util.NovaMotorConfig;
+import java.util.List;
+import java.util.function.Function;
+
+/**
+ * ThriftyNova-specific mechanism base class.
+ * Provides motor configuration helpers for Thrifty Nova motor controllers.
+ */
+public abstract class NovaMechBase extends MechBase<ThriftyNova, NovaMotorConfig> {
+
+    /**
+     * Creates a new ThriftyNova-based mechanism
+     * @param logging_prefix the logging prefix for this mechanism
+     */
+    public NovaMechBase(String logging_prefix) {
+        super(logging_prefix);
+    }
+
+    /**
+     * Creates a new ThriftyNova-based mechanism with a specified mechanism name
+     * @param logging_prefix the logging prefix for this mechanism
+     * @param mech_name the name of the mechanism (used for multiple instances of the same mech)
+     */
+    public NovaMechBase(String logging_prefix, String mech_name) {
+        super(logging_prefix, mech_name);
+    }
+
+    /**
+     * Configures the ThriftyNova motors based on the given motor configs
+     *
+     * @param motor_configs the list of motor configs
+     * @param sensor_to_mech_ratio the sensor to mechanism ratio (gear ratio)
+     * @param configMaster a function to modify the master motor config before applying it
+     * @return the constructed motors
+     */
+    @Override
+    public ConstructedMotors configMotors(
+            List<NovaMotorConfig> motor_configs,
+            double sensor_to_mech_ratio,
+            Function<NovaMotorConfig, NovaMotorConfig> configMaster) {
+        // throw a fit if we don't have any motors
+        if (motor_configs == null || motor_configs.size() == 0) {
+            throw new IllegalArgumentException("Motor configs is null or empty");
+        }
+        ConstructedMotors constructed = new ConstructedMotors();
+        constructed.motors = new ThriftyNova[motor_configs.size()];
+        
+        for (int i = 0; i < motor_configs.size(); i++) {
+            NovaMotorConfig cfg = motor_configs.get(i);
+            if (cfg.canbus_name == null || cfg.canbus_name.isEmpty()) {
+                throw new IllegalArgumentException("Motor canbus name is null or empty");
+            }
+
+            constructed.motors[i] = new ThriftyNova(cfg.can_id);
+
+            if (configMaster != null) {
+                cfg = configMaster.apply(cfg);
+            }
+
+            // Note: Unlike TalonFX, ThriftyNova does not have built-in support for conversion factors.
+            // The sensor_to_mech_ratio parameter is provided for API consistency but may need to be applied differently based on ThriftyLib API.
+            
+            // Apply the configs to the motor
+            constructed.motors[i].applyConfig(cfg.config);
+
+            // Make follower motors (non-master motors)
+            if (i > 0) {
+                // ThriftyNova follow() takes the CAN ID of the motor to follow
+                constructed.motors[i].follow(motor_configs.get(0).can_id);
+            }
+        }
+
+        return constructed;
+    }
+}
