@@ -5,6 +5,7 @@ import dev.doglog.DogLogOptions;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.DataLogManager;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
@@ -35,13 +36,17 @@ public abstract class SubsystemManager {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
+        DogLogOptions options =
+                new DogLogOptions()
+                        .withNtPublish(true)
+                        .withCaptureNt(true)
+                        .withNtTunables(true)
+                        .withCaptureDs(true)
+                        .withLogExtras(false)
+                        .withLogEntryQueueCapacity(1500);
+
         // setup all logging
-        if (RobotBase.isSimulation()) {
-            DogLog.setOptions(new DogLogOptions().withNtPublish(true).withCaptureDs(true));
-        } else {
-            DogLog.setOptions(new DogLogOptions().withCaptureNt(true).withCaptureDs(true));
-            DogLog.setPdh(null);
-        }
+        DogLog.setOptions(options);
         DogLog.setEnabled(true);
 
         // Log robot metadata
