@@ -1,9 +1,8 @@
 package com.marswars.geometry;
 
-import dev.doglog.DogLog;
+import com.marswars.data_structures.TunableDoubleMap;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 public class LaunchTrajectory {
 
@@ -23,10 +22,9 @@ public class LaunchTrajectory {
     private double launch_height_;
     private boolean high_arc_;
     private Translation3d target_;
-    private InterpolatingDoubleTreeMap range_to_velocity_;
+    private TunableDoubleMap range_to_velocity_;
     private boolean use_fixed_angle_;
     private double fixed_angle_;
-    private String logging_prefix_;
     private static final double GRAVITY = 9.81;
     /**
      * Constructor for LaunchTrajectory with variable angle
@@ -39,11 +37,10 @@ public class LaunchTrajectory {
         target_ = target;
         launch_height_ = launch_height;
         height_ = target_.getZ() - launch_height; 
-        range_to_velocity_ = new InterpolatingDoubleTreeMap();
+        range_to_velocity_ = new TunableDoubleMap(logging_prefix + "LaunchCalculator/RangeToVelocity");
         high_arc_ = high_arc;
         use_fixed_angle_ = false;
         fixed_angle_ = 0.0;
-        logging_prefix_ = logging_prefix;
     }
 
     /**
@@ -56,11 +53,10 @@ public class LaunchTrajectory {
     public LaunchTrajectory(String logging_prefix, Translation3d target, double launch_height, double fixedAngle) {
         target_ = target;
         height_ = target_.getZ() - launch_height; 
-        range_to_velocity_ = new InterpolatingDoubleTreeMap();
+        range_to_velocity_ = new TunableDoubleMap(logging_prefix + "LaunchCalculator/RangeToVelocity");
         use_fixed_angle_ = true;
         fixed_angle_ = fixedAngle;
         high_arc_ = false; // Not used in fixed angle mode
-        logging_prefix_ = logging_prefix;
     }
 
     /**
@@ -69,30 +65,6 @@ public class LaunchTrajectory {
      * @param velocity exit velocity for given distance in meters / second
      */
     public void addVelocityPoint(double range, double velocity) {
-        // Only use DogLog when not in unit test environment
-        // Detect unit tests by checking if junit is in the classpath
-        boolean isUnitTest = false;
-        try {
-            Class.forName("org.junit.jupiter.api.Test");
-            isUnitTest = true;
-        } catch (ClassNotFoundException e) {
-            // Not a test environment
-        }
-        
-
-        // Add tunable point to DogLog for live tuning if not in unit test environment
-        if (!isUnitTest) {
-            DogLog.tunable(logging_prefix_ + "/" + range, velocity, (val) -> updateVelocityPoint(range, val));
-        }
-        range_to_velocity_.put(range, velocity);
-    }
-
-    /**
-     * Updates a velocity point in the interpolation table (used for live tuning with DogLog)
-     * @param range distance from target in meters
-     * @param velocity exit velocity for given distance in meters / second
-     */
-    synchronized private void updateVelocityPoint(double range, double velocity) {
         range_to_velocity_.put(range, velocity);
     }
 
@@ -119,8 +91,8 @@ public class LaunchTrajectory {
      */
     synchronized private double calculateLaunchVelocity(Pose2d position) {
         double range = target_.toTranslation2d().getDistance(position.getTranslation());
-        Double velocity = range_to_velocity_.get(range);
-        return velocity != null ? velocity : Double.NaN;
+        double velocity = range_to_velocity_.get(range);
+        return velocity;
     }
 
     /**
