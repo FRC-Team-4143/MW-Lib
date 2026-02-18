@@ -12,7 +12,8 @@ public class NovaMotorConfig {
     public enum NovaMotorType {
         VORTEX,
         NEO_550,
-        PULSAR_775
+        PULSAR_775,
+        MINION,
     }
 
     public String canbus_name = "rio";
@@ -22,7 +23,7 @@ public class NovaMotorConfig {
     public NovaMotorType motor_type = NovaMotorType.VORTEX;
 
     private boolean supply_current_limit_enabled = false;
-
+    
     public ThriftyNovaConfig config = new ThriftyNovaConfig();
 
     public NovaMotorConfig(NovaMotorConfig config) {
@@ -46,6 +47,8 @@ public class NovaMotorConfig {
             motor_type = NovaMotorType.NEO_550;
         } else if (motor_type_str.equals("PULSAR_775")) {
             motor_type = NovaMotorType.PULSAR_775;
+        } else if (motor_type_str.equals("MINION")) {
+            motor_type = NovaMotorType.MINION;
         } else {
             throw new RuntimeException("Unknown motor type: " + motor_type_str);
         }

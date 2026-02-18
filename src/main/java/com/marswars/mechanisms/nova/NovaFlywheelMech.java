@@ -1,18 +1,8 @@
-package com.marswars.mechanisms.fx;
+package com.marswars.mechanisms.nova;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Celsius;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import com.thethriftybot.devices.ThriftyNova;
+import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 
-import com.ctre.phoenix6.BaseStatusSignal;
-import com.ctre.phoenix6.configs.Slot0Configs;
-import com.ctre.phoenix6.configs.Slot1Configs;
-import com.ctre.phoenix6.configs.SlotConfigs;
-import com.ctre.phoenix6.controls.DutyCycleOut;
-import com.ctre.phoenix6.controls.MotionMagicVelocityVoltage;
-import com.ctre.phoenix6.controls.VelocityVoltage;
-import com.ctre.phoenix6.hardware.TalonFX;
 import dev.doglog.DogLog;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -21,19 +11,25 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
-import com.marswars.util.FxMotorConfig;
-import com.marswars.util.FxMotorConfig.FxMotorType;
+import com.marswars.util.NovaMotorConfig;
+import com.marswars.util.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
+
 import java.util.List;
 
 /**
- * TalonFX-based mechanism implementation for flywheels with velocity and duty cycle control.
+ * ThriftyNova-based mechanism implementation for flywheels with velocity and duty cycle control.
+ * Uses ThriftyNova motor controllers.
+ * 
+ * @apiNote ThriftyNova controllers do not support:
+ *          - Motion Magic/Motion Profile
+ *          - Status Signals
+ *          - Simulation (sim fields left in place for potential future workarounds)
  */
-public class FxFlywheelMech extends FxMechBase {
+public class NovaFlywheelMech extends NovaMechBase {
 
     /** Control modes for the flywheel mechanism */
     protected enum ControlMode {
-        MOTION_PROFILE_VELOCITY,
         VELOCITY,
         DUTY_CYCLE
     }
@@ -44,20 +40,16 @@ public class FxFlywheelMech extends FxMechBase {
     private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
 
     // Always assume that we have the leader motor in index 0
-    private final TalonFX motors_[];
-
-    // control and status
-    private final VelocityVoltage velocity_request_;
-    protected final MotionMagicVelocityVoltage motion_magic_velocity_request_;
-    private final DutyCycleOut duty_cycle_request_;
-    protected final BaseStatusSignal[] signals_;
+    private final ThriftyNova motors_[];
 
     // Alerts for motor monitoring
-    protected final Alert[] motor_disconnected_alerts_;
     protected final Alert[] motor_temp_alerts_;
+    protected final Alert[] motor_disconnected_alerts_;
+    
+    // Debouncers for connection detection
     protected final Debouncer[] motor_conn_debouncers_;
 
-    // Simulation info
+    // Simulation info (not currently supported by ThriftyNova, but left in place for potential future use)
     protected final FlywheelSim flywheel_sim_;
     protected final double gear_ratio_;
     protected final double wheel_inertia_;
@@ -73,10 +65,9 @@ public class FxFlywheelMech extends FxMechBase {
     protected double[] applied_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
-    protected double[] bus_voltage_;
 
     /**
-     * Constructs a new FxFlywheelMech
+     * Constructs a new NovaFlywheelMech
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
@@ -84,9 +75,9 @@ public class FxFlywheelMech extends FxMechBase {
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
-    public FxFlywheelMech(
+    public NovaFlywheelMech(
             String logging_prefix,
-            List<FxMotorConfig> motor_configs,
+            List<NovaMotorConfig> motor_configs,
             double gear_ratio,
             double wheel_inertia,
             double wheel_radius) {
@@ -94,7 +85,7 @@ public class FxFlywheelMech extends FxMechBase {
     }
 
     /**
-     * Constructs a new FxFlywheelMech
+     * Constructs a new NovaFlywheelMech
      *
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
@@ -103,81 +94,82 @@ public class FxFlywheelMech extends FxMechBase {
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
-    public FxFlywheelMech(
+    public NovaFlywheelMech(
             String logging_prefix,
             String mech_name,
-            List<FxMotorConfig> motor_configs,
+            List<NovaMotorConfig> motor_configs,
             double gear_ratio,
             double wheel_inertia,
             double wheel_radius) {
         super(logging_prefix, mech_name);
 
-        // Create control requests
-        this.velocity_request_ = new VelocityVoltage(0).withSlot(1);
-        this.motion_magic_velocity_request_ = new MotionMagicVelocityVoltage(0).withSlot(1);
-        this.duty_cycle_request_ = new DutyCycleOut(0);
-
         // MW-Lib convention: gear_ratio is motor/mechanism
-        // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
-        // These are the same, so we can use gear_ratio directly
         double sensor_to_mech_ratio = gear_ratio;
         
-        FxMechBase.ConstructedFxMotors configured_motors = 
-                (FxMechBase.ConstructedFxMotors) configMotors(motor_configs, sensor_to_mech_ratio);
+        NovaMechBase.ConstructedMotors configured_motors = 
+                (NovaMechBase.ConstructedMotors) configMotors(
+                motor_configs,
+                sensor_to_mech_ratio,
+                (cfg) -> {
+                    // ThriftyNova doesn't support additional configuration
+                    return cfg;
+                });
         motors_ = configured_motors.motors;
-        signals_ = configured_motors.signals;
 
-        // set the system constants
         this.gear_ratio_ = gear_ratio;
         this.wheel_inertia_ = wheel_inertia;
         this.wheel_radius_ = wheel_radius;
 
         // default the inputs
+        position_ = 0;
         velocity_ = 0;
         applied_voltage_ = new double[motors_.length];
         current_draw_ = new double[motors_.length];
         motor_temp_c_ = new double[motors_.length];
-        bus_voltage_ = new double[motors_.length];
 
-        // Initialize alerts and debouncers for each motor
-        motor_disconnected_alerts_ = new Alert[motors_.length];
+        // Initialize alerts for each motor
         motor_temp_alerts_ = new Alert[motors_.length];
+        motor_disconnected_alerts_ = new Alert[motors_.length];
         motor_conn_debouncers_ = new Debouncer[motors_.length];
         for (int i = 0; i < motors_.length; i++) {
-            motor_disconnected_alerts_[i] = new Alert(
-                    "Disconnected motor " + i + " in " + getLoggingKey(),
-                    AlertType.kError);
             motor_temp_alerts_[i] = new Alert(
                     "High temperature on motor " + i + " in " + getLoggingKey(),
                     AlertType.kWarning);
+            motor_disconnected_alerts_[i] = new Alert(
+                    "Disconnected motor " + i + " in " + getLoggingKey(),
+                    AlertType.kError);
             motor_conn_debouncers_[i] = new Debouncer(0.5);
         }
 
         ////////////////////////
         /// SIMULATION SETUP ///
         ////////////////////////
-        
-        if (motor_configs.get(0).motor_type == FxMotorType.X60) {
-            motor_type_ = DCMotor.getKrakenX60(motor_configs.size());
-        } else if (motor_configs.get(0).motor_type == FxMotorType.X44) {
-            motor_type_ = DCMotor.getKrakenX44(motor_configs.size());
-        } else if (motor_configs.get(0).motor_type == FxMotorType.FALCON500) {
-            motor_type_ = DCMotor.getFalcon500(motor_configs.size());
+        // Note: ThriftyNova does not support simulation at this time
+        // Simulation fields are left in place for potential future workarounds
+
+        if (motor_configs.get(0).motor_type == NovaMotorType.VORTEX) {
+            motor_type_ = DCMotor.getNeoVortex(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == NovaMotorType.NEO_550) {
+            motor_type_ = DCMotor.getNeo550(motor_configs.size());
+        } else if (motor_configs.get(0).motor_type == NovaMotorType.PULSAR_775) {
+            // Pulsar 775 - use a close approximation (CTRE Minion has similar characteristics)
+            motor_type_ = DCMotor.getMinion(motor_configs.size());
         } else {
             throw new IllegalArgumentException("Unsupported motor type");
         }
-        
+
+        // construct the simulation object
         flywheel_sim_ =
                 new FlywheelSim(
                         LinearSystemId.createFlywheelSystem(
-                                motor_type_, wheel_inertia_, gear_ratio_),
+                                motor_type_, wheel_inertia, gear_ratio),
                         motor_type_);
 
         // Setup tunable PIDs
         TunablePid.create(
                 getLoggingKey() + "VelocityGains",
-                this::configVelocitySlot,
-                SlotConfigs.from(motor_configs.get(0).config.Slot1));
+                (gains) -> configVelocitySlot(gains),
+                motor_configs.get(0).config.pid1);
         DogLog.tunable(
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
         DogLog.tunable(
@@ -187,84 +179,75 @@ public class FxFlywheelMech extends FxMechBase {
     /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
-        BaseStatusSignal.refreshAll(signals_);
-
-        // always read the sensor data
-        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        // ThriftyNova does not use status signals - direct method calls instead
+        
+        // Read velocity from leader motor
+        // ThriftyNova returns values in rotations per second, so we need to convert to radians per second
+        // Velocity is in motor RPS, so divide by gear ratio to get mechanism rad/s
+        double motor_velocity_rps = motors_[0].getVelocity();
+        
+        velocity_ = Units.rotationsToRadians(motor_velocity_rps) / gear_ratio_;
+        
+        // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
-            applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
-            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
-            bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
+            applied_voltage_[i] = motors_[i].getVoltage();
+            current_draw_[i] = motors_[i].getSupplyCurrent();
+            motor_temp_c_[i] = motors_[i].getTemperature();
             
-            // Update alerts for each motor
-            motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
+            // Update temperature alerts for each motor
             motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
+            
+            // Update connection alerts using temperature as a proxy (non-zero temp indicates connection)
+            // ThriftyNova doesn't have a direct isConnected() method, so we use temperature != 0 as a heuristic
+            motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motor_temp_c_[i] != 0.0));
         }
 
-        // run the simulation update step here if we are simulating
+        // Simulation is not currently supported by ThriftyNova
+        // The simulation code below is left in place for potential future use
         if (IS_SIM) {
-            // Provide a battery voltage to the TalonFX sim so controller output is
-            // meaningful
-            for (int i = 0; i < motors_.length; i++) {
-                motors_[i].getSimState().setSupplyVoltage(12.0);
-            }
-
+            // TODO: Implement simulation support if ThriftyLib adds sim capabilities
+            // For now, we could potentially use a software simulation approach
+            
+            // Commented out - not functional without ThriftyNova sim support
+            /*
             // Get the voltage the motor controller wants to apply
-            double controller_voltage = motors_[0].getSimState().getMotorVoltage();
+            double controller_voltage = ... // Would need sim state access
             
             // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at flywheel * gear ratio = load torque at motor)
             double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
-            
-            // Calculate the current needed to produce this load torque
             double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
-            
-            // The voltage actually seen by the motor after the load consumes some current
-            // is reduced by the voltage drop across the resistance due to load current
             double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
             
             // Apply the effective voltage to the simulation
             flywheel_sim_.setInput(effective_voltage);
-
-            // Update simulation by 20ms
             flywheel_sim_.update(0.020);
-
-            // Reset the load torque after applying it (impulse load)
-            // This must be called again each cycle for sustained load
+            
+            // Reset the load torque after applying it
             sim_load_torque_nm_ = 0.0;
 
-            // Convert mechanism velocity to motor velocity
-            // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
+            // Update motor velocity from sim
             double mechanismVelocityRadPerSec = flywheel_sim_.getAngularVelocityRadPerSec();
             double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
-            
-            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
+            double motorVelocity = Units.radiansToRotations(motorVelocityRadPerSec);
             position_ += motorVelocity * 0.020;
-
-            for(int i = 0; i < motors_.length; i++) {
-                motors_[i].getSimState().setRawRotorPosition(position_);
-                motors_[i].getSimState().setRotorVelocity(motorVelocity);
-                
-                // Simulation is always "connected" and at safe temperature
-                motor_disconnected_alerts_[i].set(false);
-                motor_temp_alerts_[i].set(false);
-            }
+            
+            // Would need to update ThriftyNova sim state here
+            */
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
+        // ThriftyNova uses direct method calls instead of control request objects
         switch (control_mode_) {
-            case MOTION_PROFILE_VELOCITY:
-                motors_[0].setControl(motion_magic_velocity_request_);
-                break;
             case VELOCITY:
-                motors_[0].setControl(velocity_request_);
+                // Convert target velocity (rad/s) to motor RPS
+                double motor_velocity_rps = Units.radiansToRotations(velocity_target_ * gear_ratio_);
+                motors_[0].setVelocity(motor_velocity_rps);
                 break;
             case DUTY_CYCLE:
-                motors_[0].setControl(duty_cycle_request_);
+                motors_[0].setPercent(duty_cycle_target_);
                 break;
             default:
                 throw new IllegalStateException("Unexpected control mode: " + control_mode_);
@@ -286,33 +269,19 @@ public class FxFlywheelMech extends FxMechBase {
             DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
             DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
             DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
-            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], "volts");
         }
     }
 
     /**
-     * Configures the velocity slot with the given config
+     * Configures the velocity slot (slot 1) with the given PID config
      *
-     * @param config the slot config to apply
+     * @param config the PID config to apply
      */
-    private void configVelocitySlot(SlotConfigs config) {
-        configSlot(1, config);
-    }
-
-    /**
-     * Configures the given slot with the given config
-     *
-     * @param slot the slot index to configure
-     * @param config the slot config to apply
-     */
-    public void configSlot(int slot, SlotConfigs config) {
-        if (slot == 0) {
-            motors_[0].getConfigurator().apply(Slot0Configs.from(config));
-        } else if (slot == 1) {
-            motors_[0].getConfigurator().apply(Slot1Configs.from(config));
-        } else {
-            throw new IllegalArgumentException("Slot must be 0, 1, or 2");
-        }
+    private void configVelocitySlot(PIDConfiguration config) {
+        motors_[0].pid1.setP(config.p);
+        motors_[0].pid1.setI(config.i);
+        motors_[0].pid1.setD(config.d);
+        motors_[0].pid1.setFF(config.f);
     }
 
     /**
@@ -330,18 +299,18 @@ public class FxFlywheelMech extends FxMechBase {
     public void setTargetVelocity(double velocity_rad_per_sec) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
-        velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }
 
     /**
-     * Sets the target velocity of the flywheel in radians per second using motion profile velocity control
+     * Sets the target velocity of the flywheel in radians per second using motion profile velocity control.
+     * Since ThriftyNova does not support motion profiling, this falls back to standard velocity control.
      *
      * @param velocity_rad_per_sec the target velocity in radians per second
+     * 
+     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile - falls back to standard velocity control
      */
     public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
-        control_mode_ = ControlMode.MOTION_PROFILE_VELOCITY;
-        velocity_target_ = velocity_rad_per_sec;
-        motion_magic_velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+        setTargetVelocity(velocity_rad_per_sec);
     }
 
     /**
@@ -352,7 +321,6 @@ public class FxFlywheelMech extends FxMechBase {
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
-        duty_cycle_request_.Output = duty_cycle;
     }
 
     /**

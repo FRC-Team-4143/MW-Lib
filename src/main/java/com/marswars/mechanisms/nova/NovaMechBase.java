@@ -3,6 +3,8 @@ package com.marswars.mechanisms.nova;
 import com.thethriftybot.devices.ThriftyNova;
 import com.marswars.mechanisms.MechBase;
 import com.marswars.util.NovaMotorConfig;
+import com.marswars.util.NovaMotorConfig.NovaMotorType;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -55,7 +57,15 @@ public abstract class NovaMechBase extends MechBase<ThriftyNova, NovaMotorConfig
                 throw new IllegalArgumentException("Motor canbus name is null or empty");
             }
 
-            constructed.motors[i] = new ThriftyNova(cfg.can_id);
+            // Create motor with appropriate motor type
+            // Map our NovaMotorType to ThriftyNova.MotorType
+            // MINION motors need the MINION type, all REV motors (VORTEX, NEO_550, PULSAR_775) use default (NEO)
+            if (cfg.motor_type == NovaMotorType.MINION) {
+                constructed.motors[i] = new ThriftyNova(cfg.can_id, ThriftyNova.MotorType.MINION);
+            } else {
+                // VORTEX, NEO_550, PULSAR_775 all use default NEO motor type
+                constructed.motors[i] = new ThriftyNova(cfg.can_id, ThriftyNova.MotorType.NEO);
+            }
 
             if (configMaster != null) {
                 cfg = configMaster.apply(cfg);

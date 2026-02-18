@@ -128,4 +128,54 @@ public class ArmMech implements SubsystemIoBase {
             throw new UnsupportedOperationException("Delegate does not support setCurrentPosition");
         }
     }
+
+    public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            throw new UnsupportedOperationException("NovaArmMech does not support feed forward position control");
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionWithFF");
+        }
+    }
+
+    public void setTargetPositionMotionProfile(double position_rad) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionMotionProfile(position_rad);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            throw new UnsupportedOperationException("NovaArmMech does not support Motion Profile");
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfile");
+        }
+    }
+
+    public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionMotionProfileWithFF(position_rad, arbitrary_feedforward);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            throw new UnsupportedOperationException("NovaArmMech does not support Motion Profile");
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetPositionMotionProfileWithFF");
+        }
+    }
+
+    public double getLeaderCurrent() {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getLeaderCurrent();
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            return ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).getLeaderCurrent();
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support getLeaderCurrent");
+        }
+    }
+
+    public void applyLoadTorque(double torque_nm) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
+            ((com.marswars.mechanisms.fx.FxArmMech) delegate_).applyLoadTorque(torque_nm);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).applyLoadTorque(torque_nm);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support applyLoadTorque");
+        }
+    }
 }

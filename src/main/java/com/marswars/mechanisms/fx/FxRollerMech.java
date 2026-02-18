@@ -37,9 +37,9 @@ public class FxRollerMech extends FxMechBase {
 
     /** Control modes for the roller mechanism */
     protected enum ControlMode {
-        MOTION_MAGIC_POSITION,
+        MOTION_PROFILE_POSITION,
         POSITION,
-        MOTION_MAGIC_VELOCITY,
+        MOTION_PROFILE_VELOCITY,
         VELOCITY,
         DUTY_CYCLE
     }
@@ -290,13 +290,13 @@ public class FxRollerMech extends FxMechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
-            case MOTION_MAGIC_POSITION:
+            case MOTION_PROFILE_POSITION:
                 motors_[0].setControl(motion_magic_position_request_);
                 break;
             case POSITION:
                 motors_[0].setControl(position_request_);
                 break;
-            case MOTION_MAGIC_VELOCITY:
+            case MOTION_PROFILE_VELOCITY:
                 motors_[0].setControl(motion_magic_velocity_request_);
                 break;
             case VELOCITY:
@@ -425,27 +425,27 @@ public class FxRollerMech extends FxMechBase {
     }
 
     /**
-     * Sets the target position of the roller mechanism in radians using motion magic control
+     * Sets the target position of the roller mechanism in radians using motion profile control
      *
      * @param position_rad the target position in radians
      */
-    public void setTargetPositionMotionMagic(double position_rad) {
+    public void setTargetPositionMotionProfile(double position_rad) {
         position_target_ = position_rad;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
     /**
-     * Sets the target position of the roller mechanism with arbitrary feed forward using motion magic control.
+     * Sets the target position of the roller mechanism with arbitrary feed forward using motion profile control.
      * This allows additional control output while holding a position (e.g., for a hood that adds backspin).
      *
      * @param position_rad the target position in radians
      * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
      */
-    public void setTargetPositionMotionMagicWithFF(double position_rad, double arbitrary_feedforward) {
+    public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }
@@ -462,12 +462,12 @@ public class FxRollerMech extends FxMechBase {
     }
 
     /**
-     * Sets the target velocity of the roller mechanism in radians per second using motion magic velocity control
+     * Sets the target velocity of the roller mechanism in radians per second using motion profile velocity control
      *
      * @param velocity_rad_per_sec the target velocity in radians per second
      */
-    public void setTargetVelocityMotionMagic(double velocity_rad_per_sec) {
-        control_mode_ = ControlMode.MOTION_MAGIC_VELOCITY;
+    public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
+        control_mode_ = ControlMode.MOTION_PROFILE_VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         motion_magic_velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }

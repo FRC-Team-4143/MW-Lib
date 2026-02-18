@@ -33,13 +33,13 @@ public class FxElevatorMech extends FxMechBase {
 
     /** Control modes for the elevator mechanism */
     protected enum ControlMode {
-        MOTION_MAGIC_POSITION,
+        MOTION_PROFILE_POSITION,
         POSITION,
         VELOCITY,
         DUTY_CYCLE
     }
 
-    protected ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
+    private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Temperature threshold for alerts (Celsius)
     private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
@@ -402,7 +402,7 @@ public class FxElevatorMech extends FxMechBase {
     @Override
     public void writeOutputs(double timestamp) {
         switch (control_mode_) {
-            case MOTION_MAGIC_POSITION:
+            case MOTION_PROFILE_POSITION:
                 motors_[0].setControl(motion_magic_position_request_);
                 break;
             case POSITION:
@@ -537,27 +537,27 @@ public class FxElevatorMech extends FxMechBase {
     }
 
     /**
-     * Sets the target position of the elevator in meters using motion magic control
+     * Sets the target position of the elevator in meters using motion profile control
      *
      * @param position_m the target position in meters
      */
-    public void setTargetPositionMotionMagic(double position_m) {
+    public void setTargetPositionMotionProfile(double position_m) {
         position_target_ = position_m;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = position_m / position_to_rotations_;
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
     /**
-     * Sets the target position of the elevator with arbitrary feed forward using motion magic control.
+     * Sets the target position of the elevator with arbitrary feed forward using motion profile control.
      * This allows additional control output while holding a position.
      *
      * @param position_m the target position in meters
      * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
      */
-    public void setTargetPositionMotionMagicWithFF(double position_m, double arbitrary_feedforward) {
+    public void setTargetPositionMotionProfileWithFF(double position_m, double arbitrary_feedforward) {
         position_target_ = position_m;
-        control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
         motion_magic_position_request_.Position = position_m / position_to_rotations_;
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }
