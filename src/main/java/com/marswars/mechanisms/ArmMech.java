@@ -47,6 +47,7 @@ public class ArmMech extends MechBase {
     private final PositionVoltage position_request_;
     protected final MotionMagicVoltage motion_magic_position_request_;
     protected final boolean use_motion_magic_;
+    protected final boolean temp_motion_magic_;
     private final VelocityVoltage velocity_request_;
     private final DutyCycleOut duty_cycle_request_;
     protected final BaseStatusSignal[] signals_;
@@ -451,19 +452,28 @@ public class ArmMech extends MechBase {
      * @param position_rad the target position in radians
      * @param FFVoltage    the feedforward voltage in volts
      */
-
-    public void setTargetPositionPlusFF(double position_rad, double FFVoltage) {
+    public void setTargetPositionPlusFF(double position_rad, double ff_voltage) {
         position_target_ = position_rad;
-        position_feedforward_ = FFVoltage;
-        if (use_motion_magic_) {
-            control_mode_ = ControlMode.MOTION_MAGIC_POSITION;
+        position_feedforward_ = ff_voltage;
+        if (use_motion_magic_ || temp_motion_magic_) {
+            temp_motion_magic_ = false;
+            ControlMode.MOTION_MAGIC_POSITION;
+            motion_magic_position_request_.FeedForward = ff_voltage;
             motion_magic_position_request_.Position = Units.radiansToRotations(position_rad);
-            motion_magic_position_request_.FeedForward = FFVoltage;
         } else {
             control_mode_ = ControlMode.POSITION;
             position_request_.Position = Units.radiansToRotations(position_rad);
-            position_request_.FeedForward = FFVoltage;
+            position_request_.FeedForward = ff_voltage;
         }
+    }
+
+    /**
+     * Sets the target position of the arm in radians using motion magic control mode
+     * @param position_rad the target position in radians
+     */
+    public void setTargetPositionMotionMagic(double position_rad) {
+        temp_motion_magic_ = true;
+        setTargetPositionPlusFF(position_rad, 0.0);
     }
 
     /**
