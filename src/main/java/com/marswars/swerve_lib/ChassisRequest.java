@@ -289,6 +289,9 @@ public interface ChassisRequest {
 
         /** The maximum absolute rotational rate of the request. */
         public double MaxAbsRotationalRate = 0;
+        
+        /** Feedforward rotational velocity in rad/s to add to the PID output. */
+        public double HeadingFeedforward = 0.0;
 
         /**
          * The center of rotation the robot should rotate around. This is (0,0) by default, which
@@ -337,6 +340,11 @@ public interface ChassisRequest {
                             currentRobotPose.getRotation().getRadians(),
                             angleToFace.getRadians(),
                             parameters.timestamp);
+            
+            // Add feedforward to improve tracking performance
+            rotationRate += HeadingFeedforward;
+            // Reset feedforward after use to prevent carryover to next loop
+            HeadingFeedforward = 0.0;
 
             double toApplyOmega = rotationRate;
             if (Math.sqrt(toApplyX * toApplyX + toApplyY * toApplyY) < Deadband) {
@@ -482,6 +490,18 @@ public interface ChassisRequest {
         public FieldCentricFacingAngle withHeadingController(
                 PhoenixPIDController headingController) {
             this.HeadingController = headingController;
+            return this;
+        }
+        
+        /**
+         * Sets the feedforward rotational velocity to add to the PID output.
+         * This improves tracking performance when the target heading is changing.
+         *
+         * @param headingFeedforward Feedforward rotational velocity in rad/s
+         * @return this request
+         */
+        public FieldCentricFacingAngle withHeadingFeedforward(double headingFeedforward) {
+            this.HeadingFeedforward = headingFeedforward;
             return this;
         }
     }
@@ -846,6 +866,9 @@ public interface ChassisRequest {
 
         /** The maximum absolute rotational rate of the request. */
         public double MaxAbsRotationalRate = 0;
+        
+        /** Feedforward rotational velocity in rad/s to add to the PID output. */
+        public double HeadingFeedforward = 0.0;
 
         /**
          * The center of rotation the robot should rotate around. This is (0,0) by default, which
@@ -887,6 +910,11 @@ public interface ChassisRequest {
                             currentRobotPose.getRotation().getRadians(),
                             angleToFace.getRadians(),
                             parameters.timestamp);
+            
+            // Add feedforward to improve tracking performance
+            rotationRate += HeadingFeedforward;
+            // Reset feedforward after use to prevent carryover to next loop
+            HeadingFeedforward = 0.0;
 
             double toApplyOmega = rotationRate;
             if (Math.abs(toApplyOmega) < RotationalDeadband) {
@@ -1010,6 +1038,18 @@ public interface ChassisRequest {
         public RobotCentricFacingAngle withHeadingController(
                 PhoenixPIDController headingController) {
             this.HeadingController = headingController;
+            return this;
+        }
+        
+        /**
+         * Sets the feedforward rotational velocity to add to the PID output.
+         * This improves tracking performance when the target heading is changing.
+         *
+         * @param headingFeedforward Feedforward rotational velocity in rad/s
+         * @return this request
+         */
+        public RobotCentricFacingAngle withHeadingFeedforward(double headingFeedforward) {
+            this.HeadingFeedforward = headingFeedforward;
             return this;
         }
     }
