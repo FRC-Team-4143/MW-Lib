@@ -111,14 +111,11 @@ public class TunableDoubleMap {
      * Formats a key for display in DogLog
      * 
      * @param key The key to format
-     * @return Formatted string
+     * @return Formatted string with consistent decimal places for proper sorting
      */
     private String formatKey(double key) {
-        // Remove trailing zeros and decimal point if integer
-        if (key == Math.floor(key)) {
-            return String.valueOf((int) key);
-        } else {
-            return String.format("%.3f", key).replaceAll("0+$", "").replaceAll("\\.$", "");
-        }
+        // Always use 3 decimal places for consistent sorting
+        // This ensures "4.090" comes before "4.400" when sorted as strings
+        return String.format("%.3f", key);
     }
 }
