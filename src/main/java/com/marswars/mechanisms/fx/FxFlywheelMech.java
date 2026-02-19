@@ -2,8 +2,10 @@ package com.marswars.mechanisms.fx;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Percent;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -276,17 +278,17 @@ public class FxFlywheelMech extends FxMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
-            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], "volts");
+            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
         }
     }
 
@@ -331,6 +333,20 @@ public class FxFlywheelMech extends FxMechBase {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+    }
+
+    /**
+     * Sets the target velocity of the flywheel with arbitrary feed forward.
+     * This allows additional control output while maintaining velocity.
+     *
+     * @param velocity_rad_per_sec  the target velocity in radians per second
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     */
+    public void setTargetVelocityWithFF(double velocity_rad_per_sec, double arbitrary_feedforward) {
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_rad_per_sec;
+        velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
+        velocity_request_.FeedForward = arbitrary_feedforward;
     }
 
     /**

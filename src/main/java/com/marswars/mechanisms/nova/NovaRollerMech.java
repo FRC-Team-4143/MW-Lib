@@ -15,6 +15,13 @@ import com.marswars.util.NovaMotorConfig;
 import com.marswars.util.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Percent;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Volts;
+
 import java.util.List;
 
 /**
@@ -66,7 +73,7 @@ public class NovaRollerMech extends NovaMechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double feedforward_volts_ = 0.0;
-    protected double[] applied_voltage_;
+    protected double[] bus_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
 
@@ -117,7 +124,7 @@ public class NovaRollerMech extends NovaMechBase {
         // default the inputs
         position_ = 0;
         velocity_ = 0;
-        applied_voltage_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
         current_draw_ = new double[motors_.length];
         motor_temp_c_ = new double[motors_.length];
 
@@ -191,7 +198,7 @@ public class NovaRollerMech extends NovaMechBase {
         
         // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
-            applied_voltage_[i] = motors_[i].getVoltage();
+            bus_voltage_[i] = motors_[i].getVoltage();
             current_draw_[i] = motors_[i].getSupplyCurrent();
             motor_temp_c_[i] = motors_[i].getTemperature();
             
@@ -267,19 +274,17 @@ public class NovaRollerMech extends NovaMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "rad");
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, "rad");
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
-        DogLog.log(getLoggingKey() + "control/feedforward", feedforward_volts_, "volts");
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, Radians);
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, Radians);
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
         }
     }
 

@@ -72,6 +72,12 @@ public class FlywheelMech implements SubsystemIoBase {
     }
 
     // Delegation methods for common operations
+    
+    /**
+     * Sets the target velocity of the flywheel in radians per second using standard velocity control
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
     public void setTargetVelocity(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
@@ -82,6 +88,28 @@ public class FlywheelMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Sets the target velocity of the flywheel with feed forward.
+     * This allows additional control output while maintaining velocity.
+     *
+     * @param velocity_rad_per_sec  the target velocity in radians per second
+     * @param arbitrary_feedforward feedforward value (volts for Nova, arbitrary units for FX depending on slot gains configuration)
+     */
+    public void setTargetVelocityWithFF(double velocity_rad_per_sec, double arbitrary_feedforward) {
+        if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
+            ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocityWithFF(velocity_rad_per_sec, arbitrary_feedforward);
+        } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaFlywheelMech) {
+            ((com.marswars.mechanisms.nova.NovaFlywheelMech) delegate_).setTargetVelocityWithFF(velocity_rad_per_sec, arbitrary_feedforward);
+        } else {
+            throw new UnsupportedOperationException("Delegate does not support setTargetVelocityWithFF");
+        }
+    }
+
+    /**
+     * Sets the target velocity of the flywheel in radians per second using motion profile velocity control
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
     public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetVelocityMotionProfile(velocity_rad_per_sec);
@@ -92,6 +120,11 @@ public class FlywheelMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Sets the target duty cycle of the flywheel
+     *
+     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
+     */
     public void setTargetDutyCycle(double duty_cycle) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).setTargetDutyCycle(duty_cycle);
@@ -102,6 +135,9 @@ public class FlywheelMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * @return The current velocity of the flywheel in radians per second
+     */
     public double getCurrentVelocity() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             return ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).getCurrentVelocity();
@@ -112,6 +148,14 @@ public class FlywheelMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Applies a load torque to the flywheel mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm) at the flywheel output shaft.
+     *                  Positive values oppose motion in the positive direction.
+     */
     public void applyLoadTorque(double torque_nm) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxFlywheelMech) {
             ((com.marswars.mechanisms.fx.FxFlywheelMech) delegate_).applyLoadTorque(torque_nm);

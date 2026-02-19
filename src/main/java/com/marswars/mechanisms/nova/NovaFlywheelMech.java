@@ -15,6 +15,12 @@ import com.marswars.util.NovaMotorConfig;
 import com.marswars.util.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
 
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Percent;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Volts;
+
 import java.util.List;
 
 /**
@@ -61,8 +67,9 @@ public class NovaFlywheelMech extends NovaMechBase {
     protected double position_ = 0; // only used in sim
     protected double velocity_ = 0;
     protected double velocity_target_ = 0;
+    protected double velocity_feedforward_volts_ = 0.0;
     protected double duty_cycle_target_ = 0;
-    protected double[] applied_voltage_;
+    protected double[] bus_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
 
@@ -123,7 +130,7 @@ public class NovaFlywheelMech extends NovaMechBase {
         // default the inputs
         position_ = 0;
         velocity_ = 0;
-        applied_voltage_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
         current_draw_ = new double[motors_.length];
         motor_temp_c_ = new double[motors_.length];
 
@@ -190,7 +197,7 @@ public class NovaFlywheelMech extends NovaMechBase {
         
         // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
-            applied_voltage_[i] = motors_[i].getVoltage();
+            bus_voltage_[i] = motors_[i].getVoltage();
             current_draw_[i] = motors_[i].getSupplyCurrent();
             motor_temp_c_[i] = motors_[i].getTemperature();
             
@@ -244,7 +251,7 @@ public class NovaFlywheelMech extends NovaMechBase {
             case VELOCITY:
                 // Convert target velocity (rad/s) to motor RPS
                 double motor_velocity_rps = Units.radiansToRotations(velocity_target_ * gear_ratio_);
-                motors_[0].setVelocity(motor_velocity_rps);
+                motors_[0].setVelocity(motor_velocity_rps, velocity_feedforward_volts_);
                 break;
             case DUTY_CYCLE:
                 motors_[0].setPercent(duty_cycle_target_);
@@ -259,16 +266,15 @@ public class NovaFlywheelMech extends NovaMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
         }
     }
 
@@ -299,6 +305,22 @@ public class NovaFlywheelMech extends NovaMechBase {
     public void setTargetVelocity(double velocity_rad_per_sec) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
+        velocity_feedforward_volts_ = 0.0;
+    }
+
+    /**
+     * Sets the target velocity of the flywheel with voltage feedforward.
+     * This allows additional control output while maintaining velocity.
+     *
+     * @param velocity_rad_per_sec  the target velocity in radians per second
+     * @param feedforward_volts     feedforward voltage to apply (0-12V)
+     * 
+     * @apiNote ThriftyNova uses voltage feedforward.
+     */
+    public void setTargetVelocityWithFF(double velocity_rad_per_sec, double feedforward_volts) {
+        control_mode_ = ControlMode.VELOCITY;
+        velocity_target_ = velocity_rad_per_sec;
+        velocity_feedforward_volts_ = feedforward_volts;
     }
 
     /**

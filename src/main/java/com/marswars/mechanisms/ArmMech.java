@@ -15,18 +15,66 @@ public class ArmMech implements SubsystemIoBase {
 
     private final SubsystemIoBase delegate_;
 
+    /**
+     * Constructs a new ArmMech with gravity compensation enabled by default
+     *
+     * @param logging_prefix String prefix for logging
+     * @param motor_configs  List of motor configurations (FxMotorConfig or NovaMotorConfig)
+     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
+     * @param arm_length     Length of the arm in meters (Simulation only)
+     * @param arm_mass       Mass of the arm in kg (Simulation only)
+     * @param min_angle      Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle      Maximum angle of the arm in radians (Simulation only)
+     */
     public ArmMech(String logging_prefix, List<?> motor_configs, double gear_ratio, double arm_length, double arm_mass, double min_angle, double max_angle) {
         this(logging_prefix, null, motor_configs, gear_ratio, arm_length, arm_mass, min_angle, max_angle, true);
     }
 
+    /**
+     * Constructs a new ArmMech with a mechanism name and gravity compensation enabled by default
+     *
+     * @param logging_prefix String prefix for logging
+     * @param mech_name      Name of the mechanism (used for multiple instances of the same mech)
+     * @param motor_configs  List of motor configurations (FxMotorConfig or NovaMotorConfig)
+     * @param gear_ratio     Gear ratio as motor rotations / mechanism rotations
+     * @param arm_length     Length of the arm in meters (Simulation only)
+     * @param arm_mass       Mass of the arm in kg (Simulation only)
+     * @param min_angle      Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle      Maximum angle of the arm in radians (Simulation only)
+     */
     public ArmMech(String logging_prefix, String mech_name, List<?> motor_configs, double gear_ratio, double arm_length, double arm_mass, double min_angle, double max_angle) {
         this(logging_prefix, mech_name, motor_configs, gear_ratio, arm_length, arm_mass, min_angle, max_angle, true);
     }
 
+    /**
+     * Constructs a new ArmMech with configurable gravity compensation
+     *
+     * @param logging_prefix     String prefix for logging
+     * @param motor_configs      List of motor configurations (FxMotorConfig or NovaMotorConfig)
+     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
+     * @param arm_length         Length of the arm in meters (Simulation only)
+     * @param arm_mass           Mass of the arm in kg (Simulation only)
+     * @param min_angle          Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation only)
+     * @param gravity_compensate true to enable gravity compensation, false otherwise
+     */
     public ArmMech(String logging_prefix, List<?> motor_configs, double gear_ratio, double arm_length, double arm_mass, double min_angle, double max_angle, boolean gravity_compensate) {
         this(logging_prefix, null, motor_configs, gear_ratio, arm_length, arm_mass, min_angle, max_angle, gravity_compensate);
     }
 
+    /**
+     * Constructs a new ArmMech with a mechanism name and configurable gravity compensation
+     *
+     * @param logging_prefix     String prefix for logging
+     * @param mech_name          Name of the mechanism (used for multiple instances of the same mech)
+     * @param motor_configs      List of motor configurations (FxMotorConfig or NovaMotorConfig)
+     * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
+     * @param arm_length         Length of the arm in meters (Simulation only)
+     * @param arm_mass           Mass of the arm in kg (Simulation only)
+     * @param min_angle          Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation only)
+     * @param gravity_compensate true to enable gravity compensation, false otherwise
+     */
     @SuppressWarnings("unchecked")
     public ArmMech(String logging_prefix, String mech_name, List<?> motor_configs, double gear_ratio, double arm_length, double arm_mass, double min_angle, double max_angle, boolean gravity_compensate) {
         if (motor_configs == null || motor_configs.isEmpty()) {
@@ -49,26 +97,38 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
         delegate_.readInputs(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
         delegate_.writeOutputs(timestamp);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void logData() {
         delegate_.logData();
     }
 
+    /**
+     * Gets the underlying delegate mechanism implementation
+     *
+     * @return the delegate mechanism (FxArmMech or NovaArmMech)
+     */
     public SubsystemIoBase getDelegate() {
         return delegate_;
     }
 
-    // Delegation methods for common operations
+    /**
+     * Set the target position of the arm using standard position control
+     *
+     * @param position_rad the target position in radians
+     */
     public void setTargetPosition(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPosition(position_rad);
@@ -79,6 +139,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Set the target velocity of the arm
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
     public void setTargetVelocity(double velocity_rad_per_sec) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetVelocity(velocity_rad_per_sec);
@@ -89,6 +154,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Set the target duty cycle of the arm
+     *
+     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
+     */
     public void setTargetDutyCycle(double duty_cycle) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetDutyCycle(duty_cycle);
@@ -99,6 +169,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Get the current position of the arm
+     *
+     * @return the current position in radians
+     */
     public double getCurrentPosition() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getCurrentPosition();
@@ -109,6 +184,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Get the current velocity of the arm
+     *
+     * @return the current velocity in radians per second
+     */
     public double getCurrentVelocity() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getCurrentVelocity();
@@ -119,6 +199,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Set the current position of the arm (for zeroing)
+     *
+     * @param position_rad the current position in radians
+     */
     public void setCurrentPosition(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setCurrentPosition(position_rad);
@@ -129,16 +214,29 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Set the target position of the arm with arbitrary feed forward.
+     * This allows additional control output while holding a position.
+     *
+     * @param position_rad          the target position in radians
+     * @param arbitrary_feedforward arbitrary feed forward value (volts for Nova, arbitrary units for FX depending on slot gains configuration)
+     */
     public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
         } else if (delegate_ instanceof com.marswars.mechanisms.nova.NovaArmMech) {
-            throw new UnsupportedOperationException("NovaArmMech does not support feed forward position control");
+            ((com.marswars.mechanisms.nova.NovaArmMech) delegate_).setTargetPositionWithFF(position_rad, arbitrary_feedforward);
         } else {
             throw new UnsupportedOperationException("Delegate does not support setTargetPositionWithFF");
         }
     }
 
+    /**
+     * Set the target position of the arm using motion profile control
+     *
+     * @param position_rad the target position in radians
+     * @throws UnsupportedOperationException if using NovaArmMech (not supported)
+     */
     public void setTargetPositionMotionProfile(double position_rad) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionMotionProfile(position_rad);
@@ -149,6 +247,14 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Set the target position of the arm with arbitrary feed forward using motion profile control.
+     * This allows additional control output while holding a position.
+     *
+     * @param position_rad          the target position in radians
+     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
+     * @throws UnsupportedOperationException if using NovaArmMech (not supported)
+     */
     public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).setTargetPositionMotionProfileWithFF(position_rad, arbitrary_feedforward);
@@ -159,6 +265,11 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Get the current draw of the leader motor
+     *
+     * @return the current draw in amps
+     */
     public double getLeaderCurrent() {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             return ((com.marswars.mechanisms.fx.FxArmMech) delegate_).getLeaderCurrent();
@@ -169,6 +280,14 @@ public class ArmMech implements SubsystemIoBase {
         }
     }
 
+    /**
+     * Applies a load torque to the arm mechanism for simulation purposes.
+     * This method should be called during the simulation update cycle to apply
+     * external loads (like friction, compression forces, etc.) to the mechanism.
+     *
+     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
+     *                  Positive values oppose motion in the positive direction.
+     */
     public void applyLoadTorque(double torque_nm) {
         if (delegate_ instanceof com.marswars.mechanisms.fx.FxArmMech) {
             ((com.marswars.mechanisms.fx.FxArmMech) delegate_).applyLoadTorque(torque_nm);
