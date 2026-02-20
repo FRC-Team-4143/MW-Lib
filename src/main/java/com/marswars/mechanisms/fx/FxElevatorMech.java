@@ -2,8 +2,12 @@ package com.marswars.mechanisms.fx;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Percent;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -424,19 +428,19 @@ public class FxElevatorMech extends FxMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "m");
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, "m");
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "m/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "m/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, Meters);
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, Meters);
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, MetersPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, MetersPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
-            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], "volts");
+            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
         }
     }
 

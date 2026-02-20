@@ -2,10 +2,12 @@ package com.marswars.mechanisms.fx;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Percent;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -79,7 +81,7 @@ public class FxArmMech extends FxMechBase {
     protected double[] bus_voltage_;
 
     /**
-     * Constructs a new ArmMech
+     * Constructs a new FxArmMech with gravity compensation enabled by default
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs  List of motor configurations
@@ -88,8 +90,6 @@ public class FxArmMech extends FxMechBase {
      * @param mass_kg        Mass of the arm in kg (Simulation only)
      * @param min_angle      Minimum angle of the arm in radians (Simulation only)
      * @param max_angle      Maximum angle of the arm in radians (Simulation only)
-     *
-     * @apiNote This constructor enables gravity compensation by default
      */
     public FxArmMech(
             String logging_prefix,
@@ -103,7 +103,7 @@ public class FxArmMech extends FxMechBase {
     }
 
     /**
-     * Constructs a new ArmMech
+     * Constructs a new FxArmMech with a mechanism name and gravity compensation enabled by default
      *
      * @param logging_prefix String prefix for logging
      * @param mech_name      Name of the mechanism
@@ -113,8 +113,6 @@ public class FxArmMech extends FxMechBase {
      * @param mass_kg        Mass of the arm in kg (Simulation only)
      * @param min_angle      Minimum angle of the arm in radians (Simulation only)
      * @param max_angle      Maximum angle of the arm in radians (Simulation only)
-     *
-     * @apiNote This constructor enables gravity compensation by default
      */
     public FxArmMech(
             String logging_prefix,
@@ -129,19 +127,16 @@ public class FxArmMech extends FxMechBase {
     }
 
     /**
-     * Constructs a new ArmMech
+     * Constructs a new FxArmMech with configurable gravity compensation
      *
      * @param logging_prefix     String prefix for logging
      * @param motor_configs      List of motor configurations
      * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
      * @param length             Length of the arm in meters (Simulation only)
      * @param mass_kg            Mass of the arm in kg (Simulation only)
-     * @param min_angle          Minimum angle of the arm in radians (Simulation
-     *                           only)
-     * @param max_angle          Maximum angle of the arm in radians (Simulation
-     *                           only)
-     * @param gravity_compensate true to enable gravity compensation, false
-     *                           otherwise
+     * @param min_angle          Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation only)
+     * @param gravity_compensate true to enable gravity compensation, false otherwise
      */
     public FxArmMech(
             String logging_prefix,
@@ -158,20 +153,17 @@ public class FxArmMech extends FxMechBase {
     }
 
     /**
-     * Constructs a new ArmMech
+     * Constructs a new FxArmMech with a mechanism name and configurable gravity compensation
      *
      * @param logging_prefix     String prefix for logging
-     * @param mech_name          Name of the mechanism
+     * @param mech_name          Name of the mechanism (used for multiple instances of the same mech)
      * @param motor_configs      List of motor configurations
      * @param gear_ratio         Gear ratio as motor rotations / mechanism rotations
      * @param length             Length of the arm in meters (Simulation only)
      * @param mass_kg            Mass of the arm in kg (Simulation only)
-     * @param min_angle          Minimum angle of the arm in radians (Simulation
-     *                           only)
-     * @param max_angle          Maximum angle of the arm in radians (Simulation
-     *                           only)
-     * @param gravity_compensate true to enable gravity compensation, false
-     *                           otherwise
+     * @param min_angle          Minimum angle of the arm in radians (Simulation only)
+     * @param max_angle          Maximum angle of the arm in radians (Simulation only)
+     * @param gravity_compensate true to enable gravity compensation, false otherwise
      */
     public FxArmMech(
             String logging_prefix,
@@ -378,19 +370,19 @@ public class FxArmMech extends FxMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "rad");
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, "rad");
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, Radians);
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, Radians);
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
-            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], "volts");
+            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
         }
     }
 
@@ -428,47 +420,27 @@ public class FxArmMech extends FxMechBase {
         }
     }
 
-    /**
-     * Set the current position of the arm (for zeroing)
-     *
-     * @param position_rad the current position in radians
-     */
+    /** {@inheritDoc} */
     public void setCurrentPosition(double position_rad) {
         motors_[0].setPosition(Units.radiansToRotations(position_rad));
     }
 
-    /**
-     * Get the current position of the arm
-     *
-     * @return the current position in radians
-     */
+    /** {@inheritDoc} */
     public double getCurrentPosition() {
         return position_;
     }
 
-    /**
-     * Get the current velocity of the arm
-     *
-     * @return the current velocity in radians per second
-     */
+    /** {@inheritDoc} */
     public double getCurrentVelocity() {
         return velocity_;
     }
 
-    /**
-     * Get the current draw of the leader motor
-     *
-     * @return the current draw in amps
-     */
+    /** {@inheritDoc} */
     public double getLeaderCurrent() {
         return current_draw_[0];
     }
 
-    /**
-     * Set the target position of the arm using standard position control
-     *
-     * @param position_rad the target position in radians
-     */
+    /** {@inheritDoc} */
     public void setTargetPosition(double position_rad) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.POSITION;
@@ -476,13 +448,7 @@ public class FxArmMech extends FxMechBase {
         position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
-    /**
-     * Set the target position of the arm with arbitrary feed forward.
-     * This allows additional control output while holding a position.
-     *
-     * @param position_rad the target position in radians
-     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
-     */
+    /** {@inheritDoc} */
     public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.POSITION;
@@ -490,11 +456,7 @@ public class FxArmMech extends FxMechBase {
         position_request_.FeedForward = arbitrary_feedforward;
     }
 
-    /**
-     * Set the target position of the arm using motion profile control
-     *
-     * @param position_rad the target position in radians
-     */
+    /** {@inheritDoc} */
     public void setTargetPositionMotionProfile(double position_rad) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
@@ -502,13 +464,7 @@ public class FxArmMech extends FxMechBase {
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
-    /**
-     * Set the target position of the arm with arbitrary feed forward using motion profile control.
-     * This allows additional control output while holding a position.
-     *
-     * @param position_rad the target position in radians
-     * @param arbitrary_feedforward arbitrary feed forward value (units depend on slot gains configuration)
-     */
+    /** {@inheritDoc} */
     public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
@@ -516,36 +472,21 @@ public class FxArmMech extends FxMechBase {
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }
 
-    /**
-     * Set the target velocity of the arm
-     *
-     * @param velocity_rad_per_sec the target velocity in radians per second
-     */
+    /** {@inheritDoc} */
     public void setTargetVelocity(double velocity_rad_per_sec) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }
 
-    /**
-     * Set the target duty cycle of the arm
-     *
-     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
-     */
+    /** {@inheritDoc} */
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
     }
 
-    /**
-     * Applies a load torque to the arm mechanism for simulation purposes.
-     * This method should be called during the simulation update cycle to apply
-     * external loads (like friction, compression forces, etc.) to the mechanism.
-     *
-     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
-     *                  Positive values oppose motion in the positive direction.
-     */
+    /** {@inheritDoc} */
     public void applyLoadTorque(double torque_nm) {
         sim_load_torque_nm_ = torque_nm;
     }

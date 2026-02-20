@@ -1,6 +1,11 @@
 package com.marswars.swerve_lib.module;
 
 import static com.marswars.util.PhoenixUtil.tryUntilOk;
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotation;
+import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -456,7 +461,7 @@ public class ModuleTalonFX extends Module {
             steer_talonfx_.setNeutralMode(mode);
             drive_talonfx_.setNeutralMode(mode);
         }
-        DogLog.log(getLoggingKey() + "SetNeutralMode", mode);
+        DogLog.log(getLoggingKey() + "NeutralMode", mode);
     }
 
     /** {@inheritDoc} */
@@ -475,15 +480,15 @@ public class ModuleTalonFX extends Module {
     /** {@inheritDoc} */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "Drive/PositionRad", drive_position_rad_);
-        DogLog.log(getLoggingKey() + "Drive/VelocityRadPerSec", drive_velocity_rad_per_sec_);
-        DogLog.log(getLoggingKey() + "Drive/AppliedVolts", drive_applied_volts_);
-        DogLog.log(getLoggingKey() + "Drive/CurrentAmps", drive_current_amps_);
-        DogLog.log(getLoggingKey() + "Steer/AbsolutePosition", steer_absolute_position_);
-        DogLog.log(getLoggingKey() + "Steer/VelocityRadPerSec", steer_velocity_rad_per_sec_);
-        DogLog.log(getLoggingKey() + "Steer/AppliedVolts", steer_applied_volts_);
-        DogLog.log(getLoggingKey() + "Steer/CurrentAmps", steer_current_amps_);
+        DogLog.log(getLoggingKey() + "Drive/PositionRad", drive_position_rad_, Radians);
+        DogLog.log(getLoggingKey() + "Drive/VelocityRadPerSec", drive_velocity_rad_per_sec_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "Drive/AppliedVolts", drive_applied_volts_, Volts);
+        DogLog.log(getLoggingKey() + "Drive/CurrentAmps", drive_current_amps_, Amps);
+        DogLog.log(getLoggingKey() + "Steer/AbsolutePosition", steer_absolute_position_.getRadians(), Radians);
+        DogLog.log(getLoggingKey() + "Steer/VelocityRadPerSec", steer_velocity_rad_per_sec_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "Steer/AppliedVolts", steer_applied_volts_, Volts);
+        DogLog.log(getLoggingKey() + "Steer/CurrentAmps", steer_current_amps_, Amps);
         DogLog.log(getLoggingKey() + "NeutralMode", neutral_mode_);
-        DogLog.log(getLoggingKey() + "Encoder/AbsoluteValue", encoder_value_abs_);
+        DogLog.log(getLoggingKey() + "Encoder/AbsoluteValue", encoder_value_abs_, Rotation);
     }
 }

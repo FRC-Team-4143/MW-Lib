@@ -7,12 +7,20 @@ import dev.doglog.DogLog;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import com.marswars.util.NovaMotorConfig;
 import com.marswars.util.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
+
+import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Celsius;
+import static edu.wpi.first.units.Units.Percent;
+import static edu.wpi.first.units.Units.Radians;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
 import java.util.List;
 
@@ -63,7 +71,7 @@ public class NovaArmMech extends NovaMechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double feedforward_volts_ = 0.0;
-    protected double[] applied_voltage_;
+    protected double[] bus_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
 
@@ -188,7 +196,7 @@ public class NovaArmMech extends NovaMechBase {
         // default the inputs
         position_ = 0;
         velocity_ = 0;
-        applied_voltage_ = new double[motors_.length];
+        bus_voltage_ = new double[motors_.length];
         current_draw_ = new double[motors_.length];
         motor_temp_c_ = new double[motors_.length];
 
@@ -268,7 +276,7 @@ public class NovaArmMech extends NovaMechBase {
         
         // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
-            applied_voltage_[i] = motors_[i].getVoltage();
+            bus_voltage_[i] = motors_[i].getVoltage();
             current_draw_[i] = motors_[i].getSupplyCurrent();
             motor_temp_c_[i] = motors_[i].getTemperature();
             
@@ -344,18 +352,17 @@ public class NovaArmMech extends NovaMechBase {
     public void logData() {
         // commands
         DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, "rad");
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, "rad");
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, "rad/s");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, "%");
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, "%");
+        DogLog.log(getLoggingKey() + "control/position/target", position_target_, Radians);
+        DogLog.log(getLoggingKey() + "control/position/actual", position_, Radians);
+        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
+        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
-            DogLog.log(getLoggingKey() + "motor" + i + "/applied_voltage", applied_voltage_[i], "volts");
-            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], "amps");
-            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], "C");
+            DogLog.log(getLoggingKey() + "motor" + i + "/bus_voltage", bus_voltage_[i], Volts);
+            DogLog.log(getLoggingKey() + "motor" + i + "/current_draw", current_draw_[i], Amps);
+            DogLog.log(getLoggingKey() + "motor" + i + "/temp", motor_temp_c_[i], Celsius);
         }
     }
 
@@ -383,11 +390,7 @@ public class NovaArmMech extends NovaMechBase {
         motors_[0].pid1.setFF(config.f);
     }
 
-    /**
-     * Set the current position of the arm (for zeroing)
-     *
-     * @param position_rad the current position in radians
-     */
+    /** {@inheritDoc} */
     public void setCurrentPosition(double position_rad) {
         // Convert mechanism position (radians) to motor rotations
         // motor_rotations = mechanism_radians * gear_ratio / (2*pi)
@@ -395,40 +398,22 @@ public class NovaArmMech extends NovaMechBase {
         motors_[0].setEncoderPosition(motor_position_rot);
     }
 
-    /**
-     * Get the current position of the arm
-     *
-     * @return the current position in radians
-     */
+    /** {@inheritDoc} */
     public double getCurrentPosition() {
         return position_;
     }
 
-    /**
-     * Get the current velocity of the arm
-     *
-     * @return the current velocity in radians per second
-     */
+    /** {@inheritDoc} */
     public double getCurrentVelocity() {
         return velocity_;
     }
 
-    /**
-     * Get the current draw of the leader motor
-     *
-     * @return the current draw in amps
-     */
+    /** {@inheritDoc} */
     public double getLeaderCurrent() {
         return current_draw_[0];
     }
 
-    /**
-     * Set the target position of the arm
-     *
-     * @param position_rad the target position in radians
-     * 
-     * @apiNote ThriftyNova does not support Motion Magic
-     */
+    /** {@inheritDoc} */
     public void setTargetPosition(double position_rad) {
         motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT0); // Use slot 0 for position control
         position_target_ = position_rad;
@@ -437,12 +422,12 @@ public class NovaArmMech extends NovaMechBase {
     }
 
     /**
-     * Set the target position of the arm with feedforward
-     *
+     * Set the target position of the arm with feedforward voltage.
+     * 
      * @param position_rad the target position in radians
      * @param feedforward_volts the feedforward voltage to apply (0-12V)
      * 
-     * @apiNote ThriftyNova does not support Motion Magic
+     * @apiNote NovaArmMech uses voltage feedforward instead of arbitrary feedforward units
      */
     public void setTargetPositionWithFF(double position_rad, double feedforward_volts) {
         motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT0); // Use slot 0 for position control
@@ -451,35 +436,20 @@ public class NovaArmMech extends NovaMechBase {
         control_mode_ = ControlMode.POSITION;
     }
 
-    /**
-     * Set the target velocity of the arm
-     *
-     * @param velocity_rad_per_sec the target velocity in radians per second
-     */
+    /** {@inheritDoc} */
     public void setTargetVelocity(double velocity_rad_per_sec) {
         motors_[0].usePIDSlot(ThriftyNova.PIDSlot.SLOT1); // Use slot 1 for velocity control
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
     }
 
-    /**
-     * Set the target duty cycle of the arm
-     *
-     * @param duty_cycle the target duty cycle (-1.0 to 1.0)
-     */
+    /** {@inheritDoc} */
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
     }
 
-    /**
-     * Applies a load torque to the arm mechanism for simulation purposes.
-     * This method should be called during the simulation update cycle to apply
-     * external loads (like friction, compression forces, etc.) to the mechanism.
-     *
-     * @param torque_nm The load torque in Newton-meters (Nm) at the arm output shaft.
-     *                  Positive values oppose motion in the positive direction.
-     */
+    /** {@inheritDoc} */
     public void applyLoadTorque(double torque_nm) {
         sim_load_torque_nm_ = torque_nm;
     }
