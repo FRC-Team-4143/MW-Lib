@@ -30,15 +30,15 @@ class LaunchCalculatorTest {
         calculator.setMaxDistance(5.5);
         calculator.setPhaseDelay(0.03);
         
-        // Add sample data points for hood angle (distance -> angle)
-        calculator.addHoodAnglePoint(1.5, Units.degreesToRadians(20.0));
-        calculator.addHoodAnglePoint(2.0, Units.degreesToRadians(24.0));
-        calculator.addHoodAnglePoint(2.5, Units.degreesToRadians(27.0));
-        calculator.addHoodAnglePoint(3.0, Units.degreesToRadians(29.0));
-        calculator.addHoodAnglePoint(3.5, Units.degreesToRadians(31.0));
-        calculator.addHoodAnglePoint(4.0, Units.degreesToRadians(32.0));
-        calculator.addHoodAnglePoint(5.0, Units.degreesToRadians(35.0));
-        calculator.addHoodAnglePoint(5.5, Units.degreesToRadians(37.0));
+        // Add sample data points for hood angle (flywheel speed -> angle)
+        calculator.addHoodAnglePoint(200.0, Units.degreesToRadians(20.0));
+        calculator.addHoodAnglePoint(220.0, Units.degreesToRadians(24.0));
+        calculator.addHoodAnglePoint(230.0, Units.degreesToRadians(27.0));
+        calculator.addHoodAnglePoint(240.0, Units.degreesToRadians(29.0));
+        calculator.addHoodAnglePoint(245.0, Units.degreesToRadians(31.0));
+        calculator.addHoodAnglePoint(250.0, Units.degreesToRadians(32.0));
+        calculator.addHoodAnglePoint(270.0, Units.degreesToRadians(35.0));
+        calculator.addHoodAnglePoint(280.0, Units.degreesToRadians(37.0));
         
         // Add sample data points for flywheel speed (distance -> speed in rad/s)
         calculator.addFlywheelSpeedPoint(1.5, 200.0);
@@ -67,11 +67,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0); // Stationary
         Translation2d target = new Translation2d(3.0, 0.0);
+        double currentFlywheelSpeed = 240.0; // Simulate current flywheel speed
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Should be valid
@@ -84,10 +86,9 @@ class LaunchCalculatorTest {
         // Distance should be about 3m (with launcher offset of 0.3m)
         assertEquals(3.3, params.distance, 0.1, "Distance should account for launcher offset");
         
-        // Hood angle should be interpolated for ~3.3m
-        assertTrue(params.hood_angle > Units.degreesToRadians(29.0) 
-            && params.hood_angle < Units.degreesToRadians(32.0),
-            "Hood angle should be between 29 and 32 degrees");
+        // Hood angle should be based on current flywheel speed (240 rad/s -> 29 degrees)
+        assertEquals(Units.degreesToRadians(29.0), params.hood_angle, 0.05,
+            "Hood angle should match flywheel speed of 240 rad/s");
         
         // Flywheel speed should be interpolated for ~3.3m
         assertTrue(params.flywheel_speed > 240.0 && params.flywheel_speed < 250.0,
@@ -100,11 +101,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(1.0, 0, 0); // Moving forward
         Translation2d target = new Translation2d(3.0, 0.0);
+        double currentFlywheelSpeed = 230.0;
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Should be valid
@@ -126,11 +129,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(2.0, 0.0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 2.0, 0); // Moving sideways
         Translation2d target = new Translation2d(4.0, 2.0);
+        double currentFlywheelSpeed = 235.0;
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Should be valid
@@ -148,11 +153,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
         Translation2d target = new Translation2d(10.0, 0.0); // 10m away
+        double currentFlywheelSpeed = 250.0;
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Should be invalid (out of range)
@@ -164,7 +171,8 @@ class LaunchCalculatorTest {
         params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Should be invalid (too close)
@@ -192,12 +200,14 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
         Translation2d target = new Translation2d(3.0, 0.0);
+        double currentFlywheelSpeed = 240.0;
         
         // Calculate once
         LaunchCalculator.LaunchParameters params1 = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         // Get cached version
@@ -240,7 +250,7 @@ class LaunchCalculatorTest {
         assertNotNull(calc, "Builder should create calculator");
         
         // Add some data
-        calc.addHoodAnglePoint(2.0, Units.degreesToRadians(25.0));
+        calc.addHoodAnglePoint(225.0, Units.degreesToRadians(25.0));
         calc.addFlywheelSpeedPoint(2.0, 225.0);
         calc.addTimeOfFlightPoint(2.0, 1.0);
         
@@ -248,11 +258,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
         Translation2d target = new Translation2d(2.0, 0.0);
+        double currentFlywheelSpeed = 225.0;
         
         LaunchCalculator.LaunchParameters params = calc.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
         assertNotNull(params, "Should be able to calculate parameters");
@@ -267,15 +279,17 @@ class LaunchCalculatorTest {
         // Target at distance that requires interpolation
         // With launcher 0.3m behind robot center, need to account for that
         Translation2d target = new Translation2d(2.2, 0.0); // Will be ~2.5m from launcher
+        double currentFlywheelSpeed = 235.0; // Between 230 and 240 rad/s
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            target
+            target,
+            currentFlywheelSpeed
         );
         
-        // Hood angle should be interpolated around 2.5m point (27°)
-        double expectedMinAngle = Units.degreesToRadians(25.0);
+        // Hood angle should be interpolated for speed 235 (between 27° at 230 and 29° at 240)
+        double expectedMinAngle = Units.degreesToRadians(27.0);
         double expectedMaxAngle = Units.degreesToRadians(29.0);
         
         assertTrue(params.hood_angle >= expectedMinAngle && params.hood_angle <= expectedMaxAngle,
@@ -292,11 +306,13 @@ class LaunchCalculatorTest {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
         ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
         Pose2d targetPose = new Pose2d(3.0, 0.0, Rotation2d.fromDegrees(90)); // Rotation should be ignored
+        double currentFlywheelSpeed = 240.0;
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            targetPose
+            targetPose,
+            currentFlywheelSpeed
         );
         
         assertTrue(params.is_valid, "Parameters should be valid");
@@ -305,7 +321,8 @@ class LaunchCalculatorTest {
         LaunchCalculator.LaunchParameters paramsFromTranslation = calculator.calculateLaunchParameters(
             robotPose,
             robotVelocity,
-            targetPose.getTranslation()
+            targetPose.getTranslation(),
+            currentFlywheelSpeed
         );
         
         // Note: Due to caching and filter state, exact equality may not hold

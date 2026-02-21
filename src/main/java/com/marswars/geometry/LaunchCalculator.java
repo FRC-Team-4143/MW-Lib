@@ -24,10 +24,10 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
  *     new Transform2d(new Translation2d(-0.3, 0.0), new Rotation2d())
  * );
  * 
- * // Add data points for hood angle (distance in meters -> angle in radians)
- * calculator.addHoodAnglePoint(1.5, Math.toRadians(20.0));
- * calculator.addHoodAnglePoint(2.0, Math.toRadians(25.0));
- * calculator.addHoodAnglePoint(3.0, Math.toRadians(30.0));
+ * // Add data points for hood angle (flywheel speed in rad/s -> angle in radians)
+ * calculator.addHoodAnglePoint(200.0, Math.toRadians(20.0));
+ * calculator.addHoodAnglePoint(220.0, Math.toRadians(25.0));
+ * calculator.addHoodAnglePoint(250.0, Math.toRadians(30.0));
  * 
  * // Add data points for flywheel speed (distance in meters -> speed in rad/s)
  * calculator.addFlywheelSpeedPoint(1.5, 200.0);
@@ -40,10 +40,12 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
  * calculator.addTimeOfFlightPoint(3.0, 1.2);
  * 
  * // Calculate parameters during operation
+ * double currentFlywheelSpeed = shooterSubsystem.getFlywheelSpeed();
  * LaunchParameters params = calculator.calculateLaunchParameters(
  *     robotPose,
  *     robotVelocity,
- *     targetPose
+ *     targetPose,
+ *     currentFlywheelSpeed
  * );
  * 
  * if (params.isValid()) {
@@ -170,7 +172,7 @@ public class LaunchCalculator {
     }
     
     // Interpolating maps for lookup tables
-    private final TunableDoubleMap hood_angle_map_;
+    private final TunableDoubleMap hood_angle_map_;  // Hood angle based on flywheel speed (rad/s -> radians)
     private final TunableDoubleMap flywheel_speed_map_;
     private final TunableDoubleMap time_of_flight_map_;
     
@@ -230,11 +232,11 @@ public class LaunchCalculator {
     /**
      * Adds a hood angle data point to the interpolation map
      * 
-     * @param distance Distance to target in meters
+     * @param flywheel_speed Flywheel speed in rad/s
      * @param angle Hood angle in radians
      */
-    public void addHoodAnglePoint(double distance, double angle) {
-        hood_angle_map_.put(distance, angle);
+    public void addHoodAnglePoint(double flywheel_speed, double angle) {
+        hood_angle_map_.put(flywheel_speed, angle);
     }
     
     /**
@@ -325,16 +327,19 @@ public class LaunchCalculator {
      * @param robot_pose Current robot pose on the field
      * @param robot_velocity Current robot velocity (field-relative)
      * @param target_pose Target pose to shoot at
+     * @param current_flywheel_speed Current actual flywheel speed in rad/s
      * @return Calculated launch parameters
      */
     public LaunchParameters calculateLaunchParameters(
             Pose2d robot_pose,
             ChassisSpeeds robot_velocity,
-            Pose2d target_pose) {
+            Pose2d target_pose,
+            double current_flywheel_speed) {
         return calculateLaunchParameters(
             robot_pose,
             robot_velocity,
-            target_pose.getTranslation()
+            target_pose.getTranslation(),
+            current_flywheel_speed
         );
     }
     
@@ -351,7 +356,7 @@ public class LaunchCalculator {
      * 
      * <p><b>How to use the returned parameters:</b>
      * <pre>{@code
-     * LaunchParameters params = calculator.calculateLaunchParameters(pose, velocity, target);
+     * LaunchParameters params = calculator.calculateLaunchParameters(pose, velocity, target, currentSpeed);
      * 
      * if (params.is_valid) {
      *     // ACTION REQUIRED - Apply these 5 parameters to your robot mechanisms:
@@ -375,12 +380,14 @@ public class LaunchCalculator {
      * @param robot_pose Current robot pose on the field
      * @param robot_velocity Current robot velocity (field-relative)
      * @param target_translation Target translation to shoot at
+     * @param current_flywheel_speed Current actual flywheel speed in rad/s
      * @return Calculated launch parameters (check is_valid before using!)
      */
     public LaunchParameters calculateLaunchParameters(
             Pose2d robot_pose,
             ChassisSpeeds robot_velocity,
-            Translation2d target_translation) {
+            Translation2d target_translation,
+            double current_flywheel_speed) {
         
         // ============================================================================
         // STEP 1: Phase Delay Compensation
@@ -467,10 +474,11 @@ public class LaunchCalculator {
         // ============================================================================
         // STEP 6: Look Up Mechanism Setpoints
         // ============================================================================
-        // Use the compensated distance to look up the required hood angle and
-        // flywheel speed from our interpolating maps. These maps are tuned
-        // empirically and can be adjusted live via DogLog.
-        double hood_angle = hood_angle_map_.get(lookahead_launcher_to_target_distance);
+        // Use the current flywheel speed to look up the required hood angle from
+        // our interpolating map, and use the compensated distance to look up the
+        // target flywheel speed. These maps are tuned empirically and can be
+        // adjusted live via DogLog.
+        double hood_angle = hood_angle_map_.get(current_flywheel_speed);
         double flywheel_speed = flywheel_speed_map_.get(lookahead_launcher_to_target_distance);
         
         // ============================================================================
