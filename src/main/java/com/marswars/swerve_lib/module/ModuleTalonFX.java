@@ -282,7 +282,6 @@ public class ModuleTalonFX extends Module {
         // Simulation is always "connected"
         drive_disconnected_alert_.set(false);
         steer_disconnected_alert_.set(false);
-        steer_encoder_disconnected_alert_.set(false);
         
         // Enqueue odometry sample for simulation
         // Create single-sample arrays with current timestamp and positions
@@ -325,8 +324,6 @@ public class ModuleTalonFX extends Module {
         // Update alerts
         drive_disconnected_alert_.set(!drive_conn_deb_.calculate(driveStatus.isOK()));
         steer_disconnected_alert_.set(!steer_conn_deb_.calculate(steerStatus.isOK()));
-        steer_encoder_disconnected_alert_.set(
-                !steer_encoder_conn_deb_.calculate(steerEncoderStatus.isOK()));
 
         // Update encoder value if using analog encoder
         if (encoder != null) {

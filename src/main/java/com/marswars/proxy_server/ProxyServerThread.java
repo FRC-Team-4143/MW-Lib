@@ -2,11 +2,15 @@ package com.marswars.proxy_server;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.Timer;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
 import com.marswars.vision.MwVisionSim;
@@ -23,13 +27,35 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Proxy server thread for handling UDP communication with external systems.
  * Receives and processes various packet types including odometry, module states,
  * AprilTag solutions, piece detections, and timesync requests.
  * Provides bidirectional communication capabilities on a single UDP port.
+ * 
+ * <h2>Multi-Client Support</h2>
+ * The proxy server can handle multiple simultaneous clients (e.g., multiple vision coprocessors).
+ * Each client is tracked independently with its own connection monitoring and alerts.
+ * Data from all clients is merged into shared queues, accessible via the getter methods.
+ * <p>
+ * Use {@link #broadcastData(byte[])} to send data to all connected clients, or 
+ * {@link #sendDataToClient(byte[], SocketAddress)} to send to a specific client.
+ * The legacy {@link #sendData(byte[])} method sends to the most recent client for 
+ * backward compatibility.
+ * 
+ * <h2>Connection Monitoring</h2>
+ * The proxy server automatically monitors the connection to each client and publishes
+ * individual WPILib Alerts when connections are lost. Connection is considered lost if no
+ * packets are received within the timeout period (1 second by default). A debouncer
+ * is used to prevent alert flapping during intermittent connectivity issues.
+ * <p>
+ * Use {@link #isConnected()} to check if any client is connected,
+ * {@link #getConnectedClientCount()} to get the number of active clients, and
+ * {@link #getTimeSinceLastPacket()} to get time since last received packet from any client.
  * 
  * <h2>PhotonVision Simulation Support</h2>
  * In simulation mode, this class can use PhotonVision simulation to generate 
@@ -40,6 +66,18 @@ import java.util.OptionalInt;
  * <pre>{@code
  * // In your robot initialization (Robot.java or subsystem)
  * ProxyServerThread proxyServer = ProxyServerThread.getInstance();
+ * 
+ * // Check connection status for multiple clients
+ * int connectedClients = proxyServer.getConnectedClientCount();
+ * System.out.println("Connected clients: " + connectedClients);
+ * 
+ * // Get all client addresses
+ * List<SocketAddress> clients = proxyServer.getClientAddresses();
+ * 
+ * // Broadcast data to all connected clients
+ * byte[] customData = new byte[]{1, 2, 3};
+ * int sentCount = proxyServer.broadcastData(customData);
+ * System.out.println("Sent to " + sentCount + " clients");
  * 
  * // Initialize vision simulation (only in simulation mode)
  * if (RobotBase.isSimulation()) {
@@ -87,8 +125,43 @@ public class ProxyServerThread extends Thread {
     private DatagramSocket socket_ = null;
     private final int TIMEOUT = 1; // Server receive blocking timeout
     
-    // Client connection info for sending data back
-    private SocketAddress client_address_ = null;
+    // Multi-client connection tracking
+    private static final double CONNECTION_TIMEOUT_SECONDS = 1.0; // Consider disconnected after 1 second
+    private final Map<String, ClientConnection> clients_ = new ConcurrentHashMap<>();
+    private SocketAddress lastClientAddress_ = null; // For backward compatibility with sendData()
+    
+    /**
+     * Tracks connection state for an individual client
+     */
+    private static class ClientConnection {
+        final SocketAddress address;
+        double lastPacketTime;
+        final Debouncer debouncer;
+        boolean connected;
+        final Alert alert;
+        
+        ClientConnection(SocketAddress address) {
+            this.address = address;
+            this.lastPacketTime = Timer.getFPGATimestamp();
+            this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
+            this.connected = true; // Start as connected when first packet received
+            // Create alert with client-specific name
+            String clientName = address.toString();
+            this.alert = new Alert("Proxy Server: Lost connection to " + clientName, AlertType.kWarning);
+        }
+        
+        void updatePacketReceived() {
+            this.lastPacketTime = Timer.getFPGATimestamp();
+        }
+        
+        void updateConnectionStatus() {
+            double currentTime = Timer.getFPGATimestamp();
+            double timeSinceLastPacket = currentTime - lastPacketTime;
+            boolean isReceiving = timeSinceLastPacket < CONNECTION_TIMEOUT_SECONDS;
+            connected = debouncer.calculate(isReceiving);
+            alert.set(!connected);
+        }
+    }
     
     // Vision simulation (only used in simulation mode)
     private MwVisionSim visionSim = null;
@@ -119,6 +192,7 @@ public class ProxyServerThread extends Thread {
     public void run(){
         while (true) {
             updateData();
+            updateConnectionStatus();
         }
     }
 
@@ -169,8 +243,15 @@ public class ProxyServerThread extends Thread {
             // receive the data in byte buffer
             socket_.receive(packet);
             
-            // Store client address for sending data back
-            client_address_ = packet.getSocketAddress();
+            // Track client connection
+            SocketAddress clientAddress = packet.getSocketAddress();
+            lastClientAddress_ = clientAddress; // For backward compatibility with sendData()
+            String clientKey = clientAddress.toString();
+            
+            // Get or create client connection tracker
+            ClientConnection client = clients_.computeIfAbsent(clientKey, 
+                k -> new ClientConnection(clientAddress));
+            client.updatePacketReceived();
 
             // Determine packet type from first byte of buffer
             switch ((int) buffer[Packet.PACKET_ID_IDX]) {
@@ -214,7 +295,61 @@ public class ProxyServerThread extends Thread {
     }
 
     /**
-     * Sends data back to the last connected client on the same port
+     * Updates the connection status for all tracked clients.
+     * Uses a debouncer to prevent alert flapping and sets a warning alert when
+     * connection is lost. Should be called periodically from the run loop.
+     */
+    private void updateConnectionStatus() {
+        // Update connection status for each client
+        for (ClientConnection client : clients_.values()) {
+            client.updateConnectionStatus();
+        }
+    }
+
+    /**
+     * Checks if the proxy server currently has an active connection to any client.
+     * 
+     * @return true if at least one client is connected, false if all connections lost
+     */
+    public boolean isConnected() {
+        return clients_.values().stream().anyMatch(c -> c.connected);
+    }
+
+    /**
+     * Gets the number of currently connected clients.
+     * 
+     * @return number of clients with active connections
+     */
+    public int getConnectedClientCount() {
+        return (int) clients_.values().stream().filter(c -> c.connected).count();
+    }
+
+    /**
+     * Gets a list of all tracked client addresses (both connected and disconnected).
+     * 
+     * @return list of client socket addresses
+     */
+    public List<SocketAddress> getClientAddresses() {
+        return new ArrayList<>(clients_.values().stream()
+            .map(c -> c.address)
+            .toList());
+    }
+
+    /**
+     * Gets the time elapsed since the last packet was received from any client.
+     * 
+     * @return seconds since last packet from any client, or Double.MAX_VALUE if no clients
+     */
+    public double getTimeSinceLastPacket() {
+        return clients_.values().stream()
+            .mapToDouble(c -> Timer.getFPGATimestamp() - c.lastPacketTime)
+            .min()
+            .orElse(Double.MAX_VALUE);
+    }
+
+    /**
+     * Sends data back to the last connected client on the same port.
+     * For multi-client support, use {@link #sendDataToClient(byte[], SocketAddress)} instead.
      * 
      * @param buffer the byte array to send
      * @return true if data was sent successfully, false if there was an error
@@ -225,19 +360,56 @@ public class ProxyServerThread extends Thread {
             return false;
         }
         
-        if (client_address_ == null) {
+        if (lastClientAddress_ == null) {
             System.err.println("No client address available. Must receive data first.");
             return false;
         }
         
+        return sendDataToClient(buffer, lastClientAddress_);
+    }
+
+    /**
+     * Sends data to a specific client address.
+     * 
+     * @param buffer the byte array to send
+     * @param clientAddress the destination client address
+     * @return true if data was sent successfully, false if there was an error
+     */
+    public boolean sendDataToClient(byte[] buffer, SocketAddress clientAddress) {
+        if (socket_ == null || !socket_.isBound()) {
+            System.err.println("Socket not configured. Call configureServer() first.");
+            return false;
+        }
+        
+        if (clientAddress == null) {
+            System.err.println("Client address cannot be null.");
+            return false;
+        }
+        
         try {
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, client_address_);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, clientAddress);
             socket_.send(packet);
             return true;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Broadcasts data to all currently connected clients.
+     * 
+     * @param buffer the byte array to send
+     * @return number of clients successfully sent to
+     */
+    public int broadcastData(byte[] buffer) {
+        int successCount = 0;
+        for (ClientConnection client : clients_.values()) {
+            if (client.connected && sendDataToClient(buffer, client.address)) {
+                successCount++;
+            }
+        }
+        return successCount;
     }
 
     /**
@@ -372,21 +544,22 @@ public class ProxyServerThread extends Thread {
     }
 
     /**
-     * Gets the current client address that the server is communicating with
+     * Gets the last client address that sent data to the server.
+     * For multi-client tracking, use {@link #getClientAddresses()} instead.
      * 
      * @return SocketAddress of the last client that sent data, null if no client has connected
      */
     public SocketAddress getClientAddress() {
-        return client_address_;
+        return lastClientAddress_;
     }
 
     /**
-     * Checks if the server has an active client connection
+     * Checks if the server has any active client connections.
      * 
-     * @return true if there is a client address available for sending data
+     * @return true if at least one client is connected
      */
     public boolean hasClientConnection() {
-        return client_address_ != null;
+        return !clients_.isEmpty();
     }
 
     /**
