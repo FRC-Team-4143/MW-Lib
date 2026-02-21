@@ -61,12 +61,10 @@ public abstract class Module extends MechBase {
     // Connection debouncers
     protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
     protected final Debouncer steer_conn_deb_ = new Debouncer(0.5);
-    protected final Debouncer steer_encoder_conn_deb_ = new Debouncer(0.5);
 
     // alerts for disconnections
     protected final Alert drive_disconnected_alert_;
     protected final Alert steer_disconnected_alert_;
-    protected final Alert steer_encoder_disconnected_alert_;
 
     public Module(
             String logging_prefix,
@@ -86,12 +84,6 @@ public abstract class Module extends MechBase {
         steer_disconnected_alert_ =
                 new Alert(
                         "Disconnected steer motor on module "
-                                + Integer.toString(this.module_index_)
-                                + ".",
-                        AlertType.kError);
-        steer_encoder_disconnected_alert_ =
-                new Alert(
-                        "Disconnected steer encoder on module "
                                 + Integer.toString(this.module_index_)
                                 + ".",
                         AlertType.kError);
