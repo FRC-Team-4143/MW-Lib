@@ -23,8 +23,8 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
-import com.marswars.util.FxMotorConfig;
-import com.marswars.util.FxMotorConfig.FxMotorType;
+
+import com.marswars.mechanisms.fx.FxMotorConfig.FxMotorType;
 import com.marswars.util.TunablePid;
 import java.util.List;
 

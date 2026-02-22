@@ -1,7 +1,4 @@
-package com.marswars.mechanisms.nova;
-
-import com.thethriftybot.devices.ThriftyNova;
-import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
+package com.marswars.mechanisms.spark;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.filter.Debouncer;
@@ -12,8 +9,18 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 
-import com.marswars.mechanisms.nova.NovaMotorConfig.NovaMotorType;
+import com.marswars.mechanisms.spark.SparkMotorConfig.SparkMotorType;
 import com.marswars.util.TunablePid;
+import com.revrobotics.AbsoluteEncoder;
+import com.revrobotics.RelativeEncoder;
+import com.revrobotics.sim.SparkFlexSim;
+import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.SparkBase;
+import com.revrobotics.spark.SparkClosedLoopController;
+import com.revrobotics.spark.SparkSim;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.config.ClosedLoopConfig;
+import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
@@ -23,16 +30,8 @@ import static edu.wpi.first.units.Units.Volts;
 
 import java.util.List;
 
-/**
- * ThriftyNova-based mechanism implementation for flywheels with velocity and duty cycle control.
- * Uses ThriftyNova motor controllers.
- * 
- * @apiNote ThriftyNova controllers do not support:
- *          - Motion Magic/Motion Profile
- *          - Status Signals
- *          - Simulation (sim fields left in place for potential future workarounds)
- */
-public class NovaFlywheelMech extends NovaMechBase {
+
+public class SparkFlywheelMech extends SparkMechBase {
 
     /** Control modes for the flywheel mechanism */
     protected enum ControlMode {
@@ -43,10 +42,12 @@ public class NovaFlywheelMech extends NovaMechBase {
     private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Temperature threshold for alerts (Celsius)
-    private static final double MOTOR_TEMP_THRESHOLD_C = 65.0;
+    private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
 
     // Always assume that we have the leader motor in index 0
-    private final ThriftyNova motors_[];
+    private final SparkBase motors_[];
+    private final AbsoluteEncoder abs_encoder;
+    private final SparkClosedLoopController pid_controller;
 
     // Alerts for motor monitoring
     protected final Alert[] motor_temp_alerts_;
@@ -55,7 +56,7 @@ public class NovaFlywheelMech extends NovaMechBase {
     // Debouncers for connection detection
     protected final Debouncer[] motor_conn_debouncers_;
 
-    // Simulation info (not currently supported by ThriftyNova, but left in place for potential future use)
+    // Simulation info (not currently supported by ThriftySpark, but left in place for potential future use)
     protected final FlywheelSim flywheel_sim_;
     protected final double gear_ratio_;
     protected final double wheel_inertia_;
@@ -69,12 +70,13 @@ public class NovaFlywheelMech extends NovaMechBase {
     protected double velocity_target_ = 0;
     protected double velocity_feedforward_volts_ = 0.0;
     protected double duty_cycle_target_ = 0;
+    protected double[] applied_voltage_;
     protected double[] bus_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
 
     /**
-     * Constructs a new NovaFlywheelMech
+     * Constructs a new SparkFlywheelMech
      *
      * @param logging_prefix String prefix for logging
      * @param motor_configs List of motor configurations
@@ -82,9 +84,9 @@ public class NovaFlywheelMech extends NovaMechBase {
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
-    public NovaFlywheelMech(
+    public SparkFlywheelMech(
             String logging_prefix,
-            List<NovaMotorConfig> motor_configs,
+            List<SparkMotorConfig> motor_configs,
             double gear_ratio,
             double wheel_inertia,
             double wheel_radius) {
@@ -92,7 +94,7 @@ public class NovaFlywheelMech extends NovaMechBase {
     }
 
     /**
-     * Constructs a new NovaFlywheelMech
+     * Constructs a new SparkFlywheelMech
      *
      * @param logging_prefix String prefix for logging
      * @param mech_name Name of the mechanism
@@ -101,10 +103,10 @@ public class NovaFlywheelMech extends NovaMechBase {
      * @param wheel_inertia Inertia of the flywheel in kg*m^2 (Simulation only)
      * @param wheel_radius Radius of the flywheel in meters (Simulation only)
      */
-    public NovaFlywheelMech(
+    public SparkFlywheelMech(
             String logging_prefix,
             String mech_name,
-            List<NovaMotorConfig> motor_configs,
+            List<SparkMotorConfig> motor_configs,
             double gear_ratio,
             double wheel_inertia,
             double wheel_radius) {
@@ -113,15 +115,16 @@ public class NovaFlywheelMech extends NovaMechBase {
         // MW-Lib convention: gear_ratio is motor/mechanism
         double sensor_to_mech_ratio = gear_ratio;
         
-        NovaMechBase.ConstructedMotors configured_motors = 
-                (NovaMechBase.ConstructedMotors) configMotors(
+        SparkMechBase.ConstructedMotors configured_motors = 
+                (SparkMechBase.ConstructedMotors) configMotors(
                 motor_configs,
                 sensor_to_mech_ratio,
                 (cfg) -> {
-                    // ThriftyNova doesn't support additional configuration
                     return cfg;
                 });
         motors_ = configured_motors.motors;
+        abs_encoder = motors_[0].getAbsoluteEncoder();
+        pid_controller = motors_[0].getClosedLoopController();
 
         this.gear_ratio_ = gear_ratio;
         this.wheel_inertia_ = wheel_inertia;
@@ -151,14 +154,11 @@ public class NovaFlywheelMech extends NovaMechBase {
         ////////////////////////
         /// SIMULATION SETUP ///
         ////////////////////////
-        // Note: ThriftyNova does not support simulation at this time
-        // Simulation fields are left in place for potential future workarounds
-
-        if (motor_configs.get(0).motor_type == NovaMotorType.VORTEX) {
+        if (motor_configs.get(0).motor_type == SparkMotorType.VORTEX) {
             motor_type_ = DCMotor.getNeoVortex(motor_configs.size());
-        } else if (motor_configs.get(0).motor_type == NovaMotorType.NEO_550) {
+        } else if (motor_configs.get(0).motor_type == SparkMotorType.NEO_550) {
             motor_type_ = DCMotor.getNeo550(motor_configs.size());
-        } else if (motor_configs.get(0).motor_type == NovaMotorType.PULSAR_775) {
+        } else if (motor_configs.get(0).motor_type == SparkMotorType.PULSAR_775) {
             // Pulsar 775 - use a close approximation (CTRE Minion has similar characteristics)
             motor_type_ = DCMotor.getMinion(motor_configs.size());
         } else {
@@ -185,38 +185,24 @@ public class NovaFlywheelMech extends NovaMechBase {
 
     /** {@inheritDoc} */
     @Override
-    public void readInputs(double timestamp) {
-        // ThriftyNova does not use status signals - direct method calls instead
-        
-        // Read velocity from leader motor
-        // ThriftyNova returns values in rotations per second, so we need to convert to radians per second
-        // Velocity is in motor RPS, so divide by gear ratio to get mechanism rad/s
-        double motor_velocity_rps = motors_[0].getVelocity();
+    public void readInputs(double timestamp) {    
+        double motor_velocity_rps = abs_encoder.getVelocity();
         
         velocity_ = Units.rotationsToRadians(motor_velocity_rps) / gear_ratio_;
         
         // Read current and temperature from all motors
         for (int i = 0; i < motors_.length; i++) {
-            bus_voltage_[i] = motors_[i].getVoltage();
-            current_draw_[i] = motors_[i].getSupplyCurrent();
-            motor_temp_c_[i] = motors_[i].getTemperature();
+            applied_voltage_[i] = motors_[i].getAppliedOutput() * 12.0;;
+            bus_voltage_[i] = motors_[i].getBusVoltage();
+            current_draw_[i] = motors_[i].getOutputCurrent();
+            motor_temp_c_[i] = motors_[i].getMotorTemperature();
             
             // Update temperature alerts for each motor
             motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
             
-            // Update connection alerts using temperature as a proxy (non-zero temp indicates connection)
-            // ThriftyNova doesn't have a direct isConnected() method, so we use temperature != 0 as a heuristic
             motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motor_temp_c_[i] != 0.0));
         }
-
-        // Simulation is not currently supported by ThriftyNova
-        // The simulation code below is left in place for potential future use
         if (IS_SIM) {
-            // TODO: Implement simulation support if ThriftyLib adds sim capabilities
-            // For now, we could potentially use a software simulation approach
-            
-            // Commented out - not functional without ThriftyNova sim support
-            /*
             // Get the voltage the motor controller wants to apply
             double controller_voltage = ... // Would need sim state access
             
@@ -238,7 +224,7 @@ public class NovaFlywheelMech extends NovaMechBase {
             double motorVelocity = Units.radiansToRotations(motorVelocityRadPerSec);
             position_ += motorVelocity * 0.020;
             
-            // Would need to update ThriftyNova sim state here
+            // Would need to update ThriftySpark sim state here
             */
         }
     }
@@ -246,15 +232,15 @@ public class NovaFlywheelMech extends NovaMechBase {
     /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
-        // ThriftyNova uses direct method calls instead of control request objects
+        // ThriftySpark uses direct method calls instead of control request objects
         switch (control_mode_) {
             case VELOCITY:
                 // Convert target velocity (rad/s) to motor RPS
                 double motor_velocity_rps = Units.radiansToRotations(velocity_target_ * gear_ratio_);
-                motors_[0].setVelocity(motor_velocity_rps, velocity_feedforward_volts_);
+                pid_controller.setSetpoint(motor_velocity_rps, ControlType.kVelocity, ClosedLoopSlot.kSlot0, velocity_feedforward_volts_);
                 break;
             case DUTY_CYCLE:
-                motors_[0].setPercent(duty_cycle_target_);
+                motors_[0].set(duty_cycle_target_);
                 break;
             default:
                 throw new IllegalStateException("Unexpected control mode: " + control_mode_);
@@ -283,11 +269,8 @@ public class NovaFlywheelMech extends NovaMechBase {
      *
      * @param config the PID config to apply
      */
-    private void configVelocitySlot(PIDConfiguration config) {
-        motors_[0].pid1.setP(config.p);
-        motors_[0].pid1.setI(config.i);
-        motors_[0].pid1.setD(config.d);
-        motors_[0].pid1.setFF(config.f);
+    private void configVelocitySlot(ClosedLoopConfig config) {
+        
     }
 
     /**
@@ -315,7 +298,7 @@ public class NovaFlywheelMech extends NovaMechBase {
      * @param velocity_rad_per_sec  the target velocity in radians per second
      * @param feedforward_volts     feedforward voltage to apply (0-12V)
      * 
-     * @apiNote ThriftyNova uses voltage feedforward.
+     * @apiNote ThriftySpark uses voltage feedforward.
      */
     public void setTargetVelocityWithFF(double velocity_rad_per_sec, double feedforward_volts) {
         control_mode_ = ControlMode.VELOCITY;
@@ -325,11 +308,11 @@ public class NovaFlywheelMech extends NovaMechBase {
 
     /**
      * Sets the target velocity of the flywheel in radians per second using motion profile velocity control.
-     * Since ThriftyNova does not support motion profiling, this falls back to standard velocity control.
+     * Since ThriftySpark does not support motion profiling, this falls back to standard velocity control.
      *
      * @param velocity_rad_per_sec the target velocity in radians per second
      * 
-     * @apiNote ThriftyNova does not support Motion Magic/Motion Profile - falls back to standard velocity control
+     * @apiNote ThriftySpark does not support Motion Magic/Motion Profile - falls back to standard velocity control
      */
     public void setTargetVelocityMotionProfile(double velocity_rad_per_sec) {
         setTargetVelocity(velocity_rad_per_sec);

@@ -2,7 +2,7 @@ package com.marswars.mechanisms;
 
 import java.util.List;
 
-import com.marswars.util.FxMotorConfig;
+import com.marswars.mechanisms.fx.FxMotorConfig;
 
 /**
  * Roller-based mechanism configured for turret control.

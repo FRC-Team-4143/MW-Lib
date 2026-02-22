@@ -9,8 +9,8 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
-import com.marswars.util.NovaMotorConfig;
-import com.marswars.util.NovaMotorConfig.NovaMotorType;
+
+import com.marswars.mechanisms.nova.NovaMotorConfig.NovaMotorType;
 import com.marswars.util.TunablePid;
 
 import static edu.wpi.first.units.Units.Amps;

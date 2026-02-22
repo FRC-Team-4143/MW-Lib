@@ -1,7 +1,8 @@
-package com.marswars.util;
+package com.marswars.mechanisms.fx;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.marswars.util.ConstantsLoader;
 
 public class FxMotorConfig {
 

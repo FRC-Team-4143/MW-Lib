@@ -3,8 +3,7 @@ package com.marswars.mechanisms.nova;
 import com.thethriftybot.devices.ThriftyNova;
 import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 import com.marswars.mechanisms.MechBase;
-import com.marswars.util.NovaMotorConfig;
-import com.marswars.util.NovaMotorConfig.NovaMotorType;
+import com.marswars.mechanisms.nova.NovaMotorConfig.NovaMotorType;
 
 import java.util.List;
 import java.util.function.Function;

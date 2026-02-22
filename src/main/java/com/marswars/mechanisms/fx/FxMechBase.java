@@ -4,7 +4,7 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.marswars.mechanisms.MechBase;
-import com.marswars.util.FxMotorConfig;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;

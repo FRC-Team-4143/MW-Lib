@@ -1,5 +1,6 @@
-package com.marswars.util;
+package com.marswars.mechanisms.nova;
 
+import com.marswars.util.ConstantsLoader;
 import com.thethriftybot.devices.ThriftyNova.CurrentType;
 import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig;
 

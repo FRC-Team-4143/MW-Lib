@@ -1,6 +1,6 @@
 package com.marswars.swerve_lib.module;
 
-import com.marswars.util.FxMotorConfig;
+import com.marswars.mechanisms.fx.FxMotorConfig;
 
 /**
  * Configuration container for a single swerve module.

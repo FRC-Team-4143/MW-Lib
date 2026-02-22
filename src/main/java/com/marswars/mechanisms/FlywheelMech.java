@@ -1,10 +1,11 @@
 package com.marswars.mechanisms;
 
 import com.marswars.mechanisms.fx.FxFlywheelMech;
+import com.marswars.mechanisms.fx.FxMotorConfig;
 import com.marswars.mechanisms.nova.NovaFlywheelMech;
+import com.marswars.mechanisms.nova.NovaMotorConfig;
 import com.marswars.subsystem.SubsystemIoBase;
-import com.marswars.util.FxMotorConfig;
-import com.marswars.util.NovaMotorConfig;
+
 import java.util.List;
 
 /**
