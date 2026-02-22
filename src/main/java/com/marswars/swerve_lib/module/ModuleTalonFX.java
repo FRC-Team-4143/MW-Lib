@@ -61,8 +61,8 @@ public class ModuleTalonFX extends Module {
 
     // Non FOC control requests
     protected final VoltageOut voltage_req_ = new VoltageOut(0);
-    protected final PositionVoltage position_voltage_req_ = new PositionVoltage(0.0);
-    protected final VelocityVoltage velocity_voltage_req_ = new VelocityVoltage(0.0);
+    protected final PositionVoltage position_voltage_req_ = new PositionVoltage(0.0).withSlot(0);
+    protected final VelocityVoltage velocity_voltage_req_ = new VelocityVoltage(0.0).withSlot(1);
 
     // Torque-current control requests
     protected final TorqueCurrentFOC torque_current_req_ = new TorqueCurrentFOC(0);
@@ -207,6 +207,8 @@ public class ModuleTalonFX extends Module {
         if (IS_SIM) {
             initializeSimulation();
         }
+
+        DogLog.log(getLoggingKey() + "ModuleType", config_.module_type.name);
     }
     
     private void initializeSimulation() {
@@ -307,9 +309,9 @@ public class ModuleTalonFX extends Module {
         var steerEncoderStatus = BaseStatusSignal.refreshAll(steer_absolute_position_sig_);
 
         // Update drive inputs
-        drive_position_rad_ = Units.rotationsToRadians(drive_position_sig_.getValueAsDouble());
+        drive_position_rad_ = Units.rotationsToRadians(drive_position_sig_.getValueAsDouble() / config_.module_type.driveRatio);
         drive_velocity_rad_per_sec_ =
-                Units.rotationsToRadians(drive_velocity_sig_.getValueAsDouble());
+                Units.rotationsToRadians(drive_velocity_sig_.getValueAsDouble() / config_.module_type.driveRatio);
         drive_applied_volts_ = drive_applied_volts_sig_.getValueAsDouble();
         drive_current_amps_ = drive_current_sig_.getValueAsDouble();
 
