@@ -128,6 +128,7 @@ public class ModuleTalonFX extends Module {
         }
 
         // Configure drive motor
+        config_.drive_motor_config.config.Feedback.SensorToMechanismRatio = config_.module_type.driveRatio;
         tryUntilOk(
                 5,
                 () ->
@@ -309,9 +310,9 @@ public class ModuleTalonFX extends Module {
         var steerEncoderStatus = BaseStatusSignal.refreshAll(steer_absolute_position_sig_);
 
         // Update drive inputs
-        drive_position_rad_ = Units.rotationsToRadians(drive_position_sig_.getValueAsDouble() / config_.module_type.driveRatio);
+        drive_position_rad_ = Units.rotationsToRadians(drive_position_sig_.getValueAsDouble());
         drive_velocity_rad_per_sec_ =
-                Units.rotationsToRadians(drive_velocity_sig_.getValueAsDouble() / config_.module_type.driveRatio);
+                Units.rotationsToRadians(drive_velocity_sig_.getValueAsDouble());
         drive_applied_volts_ = drive_applied_volts_sig_.getValueAsDouble();
         drive_current_amps_ = drive_current_sig_.getValueAsDouble();
 
@@ -378,8 +379,7 @@ public class ModuleTalonFX extends Module {
             double kV = 12.0 / (config_.speed_at_12_volts / config_.wheel_radius_m);
             drive_ff_volts_ = kV * wheelVelocityRadPerSec;
         } else {
-            double motorVelocityRotPerSec =
-                    Units.radiansToRotations(wheelVelocityRadPerSec) * config_.module_type.driveRatio;
+            double motorVelocityRotPerSec = Units.radiansToRotations(wheelVelocityRadPerSec);
             ControlRequest req;
             if (config_.enable_foc) {
                 req = velocity_torque_current_req_.withVelocity(motorVelocityRotPerSec);
