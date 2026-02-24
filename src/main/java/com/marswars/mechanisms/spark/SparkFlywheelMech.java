@@ -12,15 +12,14 @@ import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 import com.marswars.mechanisms.spark.SparkMotorConfig.SparkMotorType;
 import com.marswars.util.TunablePid;
 import com.revrobotics.AbsoluteEncoder;
-import com.revrobotics.RelativeEncoder;
-import com.revrobotics.sim.SparkFlexSim;
 import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkSim;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.config.ClosedLoopConfig;
-import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkBaseConfigAccessor;
 
 import static edu.wpi.first.units.Units.Amps;
 import static edu.wpi.first.units.Units.Celsius;
@@ -47,6 +46,7 @@ public class SparkFlywheelMech extends SparkMechBase {
     // Always assume that we have the leader motor in index 0
     private final SparkBase motors_[];
     private final AbsoluteEncoder abs_encoder;
+    private final SparkBaseConfig motor_config_;
     private final SparkClosedLoopController pid_controller;
 
     // Alerts for motor monitoring
@@ -176,7 +176,7 @@ public class SparkFlywheelMech extends SparkMechBase {
         TunablePid.create(
                 getLoggingKey() + "VelocityGains",
                 (gains) -> configVelocitySlot(gains),
-                motor_configs.get(0).config.pid1);
+                getClosedLoopConfigAccessor(motors_[0]));
         DogLog.tunable(
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
         DogLog.tunable(
@@ -203,6 +203,7 @@ public class SparkFlywheelMech extends SparkMechBase {
             motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motor_temp_c_[i] != 0.0));
         }
         if (IS_SIM) {
+            /*
             // Get the voltage the motor controller wants to apply
             double controller_voltage = ... // Would need sim state access
             
@@ -270,7 +271,6 @@ public class SparkFlywheelMech extends SparkMechBase {
      * @param config the PID config to apply
      */
     private void configVelocitySlot(ClosedLoopConfig config) {
-        
     }
 
     /**

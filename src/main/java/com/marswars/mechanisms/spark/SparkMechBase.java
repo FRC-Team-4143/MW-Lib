@@ -9,6 +9,7 @@ import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.ClosedLoopConfigAccessor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,5 +85,22 @@ public abstract class SparkMechBase extends MechBase<SparkBase, SparkMotorConfig
         }
 
         return constructed;
+    }
+
+    /**
+     * Helper method to get ClosedLoopConfigAccessor from a SparkBase by casting to the concrete type.
+     * This is useful when working with SparkBase arrays but needing access to configAccessor.
+     *
+     * @param motor The SparkBase motor
+     * @return The ClosedLoopConfigAccessor
+     * @throws IllegalArgumentException if the motor is not SparkMax or SparkFlex
+     */
+    protected static ClosedLoopConfigAccessor getClosedLoopConfigAccessor(SparkBase motor) {
+        if (motor instanceof SparkMax sparkMax) {
+            return sparkMax.configAccessor.closedLoop;
+        } else if (motor instanceof SparkFlex sparkFlex) {
+            return sparkFlex.configAccessor.closedLoop;
+        }
+        throw new IllegalArgumentException("Motor must be SparkMax or SparkFlex, got: " + motor.getClass().getName());
     }
 }

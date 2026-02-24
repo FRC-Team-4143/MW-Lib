@@ -2,6 +2,8 @@ package com.marswars.util;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
+import com.revrobotics.spark.config.ClosedLoopConfig;
+import com.revrobotics.spark.config.ClosedLoopConfigAccessor;
 import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 
 import dev.doglog.DogLog;
@@ -73,6 +75,85 @@ public class TunablePid {
             config_applier.accept(newConfig);
         });
     }
+
+    /**
+     * Creates tunable PID and feedforward parameters for REV Robotics ClosedLoopConfig.
+     * Publishes kP, kI, kD, kS, kV, and kA to NetworkTables for live tuning.
+     *
+     * @param key The NetworkTables key prefix for the PID parameters
+     * @param config_applier Consumer that applies the updated configuration to the motor
+     * @param configAccessor The ClosedLoopConfigAccessor to read current values from the motor
+     */
+    public static void create(
+            String key, Consumer<ClosedLoopConfig> config_applier, ClosedLoopConfigAccessor configAccessor) {
+        DogLog.tunable(key + "/kP", configAccessor.getP(), newP -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(newP)
+                  .i(configAccessor.getI())
+                  .d(configAccessor.getD());
+            config.apply(config.feedForward
+                  .kS(configAccessor.feedForward.getkS())
+                  .kV(configAccessor.feedForward.getkV())
+                  .kA(configAccessor.feedForward.getkA()));
+            config_applier.accept(config);
+        });
+        DogLog.tunable(key + "/kI", configAccessor.getI(), newI -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(configAccessor.getP())
+                  .i(newI)
+                  .d(configAccessor.getD());
+            config.apply(config.feedForward
+                  .kS(configAccessor.feedForward.getkS())
+                  .kV(configAccessor.feedForward.getkV())
+                  .kA(configAccessor.feedForward.getkA()));
+            config_applier.accept(config);
+        });
+        DogLog.tunable(key + "/kD", configAccessor.getD(), newD -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(configAccessor.getP())
+                  .i(configAccessor.getI())
+                  .d(newD);
+            config.apply(config.feedForward
+                  .kS(configAccessor.feedForward.getkS())
+                  .kV(configAccessor.feedForward.getkV())
+                  .kA(configAccessor.feedForward.getkA()));
+            config_applier.accept(config);
+        });
+        DogLog.tunable(key + "/kS", configAccessor.feedForward.getkS(), newS -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(configAccessor.getP())
+                  .i(configAccessor.getI())
+                  .d(configAccessor.getD());
+            config.apply(config.feedForward
+                  .kS(newS)
+                  .kV(configAccessor.feedForward.getkV())
+                  .kA(configAccessor.feedForward.getkA()));
+            config_applier.accept(config);
+        });
+        DogLog.tunable(key + "/kV", configAccessor.feedForward.getkV(), newV -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(configAccessor.getP())
+                  .i(configAccessor.getI())
+                  .d(configAccessor.getD());
+            config.apply(config.feedForward
+                  .kS(configAccessor.feedForward.getkS())
+                  .kV(newV)
+                  .kA(configAccessor.feedForward.getkA()));
+            config_applier.accept(config);
+        });
+        DogLog.tunable(key + "/kA", configAccessor.feedForward.getkA(), newA -> {
+            ClosedLoopConfig config = new ClosedLoopConfig();
+            config.p(configAccessor.getP())
+                  .i(configAccessor.getI())
+                  .d(configAccessor.getD());
+            config.apply(config.feedForward
+                  .kS(configAccessor.feedForward.getkS())
+                  .kV(configAccessor.feedForward.getkV())
+                  .kA(newA));
+            config_applier.accept(config);
+        });
+    }
+
 
     /**
      * Creates tunable PID parameters for a single WPILib PIDController.
