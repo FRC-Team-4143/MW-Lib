@@ -130,6 +130,10 @@ public class ProxyServerThread extends Thread {
     private final Map<String, ClientConnection> clients_ = new ConcurrentHashMap<>();
     private SocketAddress lastClientAddress_ = null; // For backward compatibility with sendData()
     
+    // Initial connection tracking
+    private boolean hasEverConnected_ = false; // Track if any client has ever connected
+    private final Alert noClientsAlert_ = new Alert("Proxy Server: No clients connected", AlertType.kWarning);
+    
     /**
      * Tracks connection state for an individual client
      */
@@ -248,6 +252,11 @@ public class ProxyServerThread extends Thread {
             lastClientAddress_ = clientAddress; // For backward compatibility with sendData()
             String clientKey = clientAddress.toString();
             
+            // Mark that we've had at least one client connection
+            if (!hasEverConnected_) {
+                hasEverConnected_ = true;
+            }
+            
             // Get or create client connection tracker
             ClientConnection client = clients_.computeIfAbsent(clientKey, 
                 k -> new ClientConnection(clientAddress));
@@ -304,6 +313,10 @@ public class ProxyServerThread extends Thread {
         for (ClientConnection client : clients_.values()) {
             client.updateConnectionStatus();
         }
+        
+        // Show "no clients" alert only if no client has ever connected
+        // Once a client connects, switch to per-client disconnection alerts
+        noClientsAlert_.set(!hasEverConnected_ && clients_.isEmpty());
     }
 
     /**
