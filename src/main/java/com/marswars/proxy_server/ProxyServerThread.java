@@ -115,10 +115,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProxyServerThread extends Thread {
 
     // Data packet queues for storing received information
-    private final ConcurrentFifoQueue<OdometryData> odometryReadings = new ConcurrentFifoQueue<>(20);
-    private final ConcurrentFifoQueue<ModuleStatesData> moduleStatesReadings = new ConcurrentFifoQueue<>(20);
-    private final ConcurrentFifoQueue<TagSolutionData> tagSolutions = new ConcurrentFifoQueue<>(20);
-    private final ConcurrentFifoQueue<PieceDetectionData> pieceDetections = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<OdometryData> odometry_readings_ = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<ModuleStatesData> module_states_readings_ = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<TagSolutionData> tag_solutions_ = new ConcurrentFifoQueue<>(20);
+    private final ConcurrentFifoQueue<PieceDetectionData> piece_detections_ = new ConcurrentFifoQueue<>(20);
 
     // Socket Config
     private final int PORT = 5809; // local port to bind server
@@ -128,41 +128,41 @@ public class ProxyServerThread extends Thread {
     // Multi-client connection tracking
     private static final double CONNECTION_TIMEOUT_SECONDS = 1.0; // Consider disconnected after 1 second
     private final Map<String, ClientConnection> clients_ = new ConcurrentHashMap<>();
-    private SocketAddress lastClientAddress_ = null; // For backward compatibility with sendData()
+    private SocketAddress last_client_address_ = null; // For backward compatibility with sendData()
     
     // Initial connection tracking
-    private boolean hasEverConnected_ = false; // Track if any client has ever connected
-    private final Alert noClientsAlert_ = new Alert("Proxy Server: No clients connected", AlertType.kWarning);
+    private boolean has_ever_connected_ = false; // Track if any client has ever connected
+    private final Alert no_clients_alert_ = new Alert("Proxy Server: No clients connected", AlertType.kWarning);
     
     /**
      * Tracks connection state for an individual client
      */
     private static class ClientConnection {
         final SocketAddress address;
-        double lastPacketTime;
+        double last_packet_time;
         final Debouncer debouncer;
         boolean connected;
         final Alert alert;
         
         ClientConnection(SocketAddress address) {
             this.address = address;
-            this.lastPacketTime = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getFPGATimestamp();
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
             // Create alert with client-specific name
-            String clientName = address.toString();
-            this.alert = new Alert("Proxy Server: Lost connection to " + clientName, AlertType.kWarning);
+            String client_name = address.toString();
+            this.alert = new Alert("Proxy Server: Lost connection to " + client_name, AlertType.kWarning);
         }
         
         void updatePacketReceived() {
-            this.lastPacketTime = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getFPGATimestamp();
         }
         
         void updateConnectionStatus() {
-            double currentTime = Timer.getFPGATimestamp();
-            double timeSinceLastPacket = currentTime - lastPacketTime;
-            boolean isReceiving = timeSinceLastPacket < CONNECTION_TIMEOUT_SECONDS;
-            connected = debouncer.calculate(isReceiving);
+            double current_time = Timer.getFPGATimestamp();
+            double time_since_last_packet = current_time - last_packet_time;
+            boolean is_receiving = time_since_last_packet < CONNECTION_TIMEOUT_SECONDS;
+            connected = debouncer.calculate(is_receiving);
             alert.set(!connected);
         }
     }
@@ -248,43 +248,43 @@ public class ProxyServerThread extends Thread {
             socket_.receive(packet);
             
             // Track client connection
-            SocketAddress clientAddress = packet.getSocketAddress();
-            lastClientAddress_ = clientAddress; // For backward compatibility with sendData()
-            String clientKey = clientAddress.toString();
+            SocketAddress client_address = packet.getSocketAddress();
+            last_client_address_ = client_address; // For backward compatibility with sendData()
+            String client_key = client_address.toString();
             
             // Mark that we've had at least one client connection
-            if (!hasEverConnected_) {
-                hasEverConnected_ = true;
+            if (!has_ever_connected_) {
+                has_ever_connected_ = true;
             }
             
             // Get or create client connection tracker
-            ClientConnection client = clients_.computeIfAbsent(clientKey, 
-                k -> new ClientConnection(clientAddress));
+            ClientConnection client = clients_.computeIfAbsent(client_key, 
+                k -> new ClientConnection(client_address));
             client.updatePacketReceived();
 
             // Determine packet type from first byte of buffer
             switch ((int) buffer[Packet.PACKET_ID_IDX]) {
                 // Odometry Packet Type
                 case OdomPacket.TYPE_ID: // const uint8_t msg_id{ 30u };
-                    odometryReadings.add(OdomPacket.updateData(buffer));
+                    odometry_readings_.add(OdomPacket.updateData(buffer));
                     break;
                 // Module States Packet Type
                 case StatesPacket.TYPE_ID: // const uint8_t msg_id{ 2u };
-                    moduleStatesReadings.add(StatesPacket.updateData(buffer));
+                    module_states_readings_.add(StatesPacket.updateData(buffer));
                     break;
                 // AprilTag Solution Packet Type
                 case TagSolutionPacket.TYPE_ID: // const uint8_t msg_id{ 15u };
-                    tagSolutions.add(TagSolutionPacket.updateData(buffer));
+                    tag_solutions_.add(TagSolutionPacket.updateData(buffer));
                     break;
                 // Piece Detection Packet Type
                 case PieceDetectionPacket.TYPE_ID: // const uint8_t msg_id{ 10u };
-                    pieceDetections.add(PieceDetectionPacket.updateData(buffer));
+                    piece_detections_.add(PieceDetectionPacket.updateData(buffer));
                     break;
                 // Timesync Request Packet Type
                 case TimesyncRequest.TYPE_ID: // const uint8_t msg_id{ 60u };
                     // Parse request and send response
-                    TimesyncRequestData timesyncRequest = TimesyncRequest.updateData(buffer);
-                    sendTimesyncResponse(timesyncRequest);
+                    TimesyncRequestData timesync_request = TimesyncRequest.updateData(buffer);
+                    sendTimesyncResponse(timesync_request);
                     break;
                 // Unknown Packet Type
                 default:
@@ -316,7 +316,7 @@ public class ProxyServerThread extends Thread {
         
         // Show "no clients" alert only if no client has ever connected
         // Once a client connects, switch to per-client disconnection alerts
-        noClientsAlert_.set(!hasEverConnected_ && clients_.isEmpty());
+        no_clients_alert_.set(!has_ever_connected_ && clients_.isEmpty());
     }
 
     /**
@@ -355,7 +355,7 @@ public class ProxyServerThread extends Thread {
      */
     public double getTimeSinceLastPacket() {
         return clients_.values().stream()
-            .mapToDouble(c -> Timer.getFPGATimestamp() - c.lastPacketTime)
+            .mapToDouble(c -> Timer.getFPGATimestamp() - c.last_packet_time)
             .min()
             .orElse(Double.MAX_VALUE);
     }
@@ -373,12 +373,12 @@ public class ProxyServerThread extends Thread {
             return false;
         }
         
-        if (lastClientAddress_ == null) {
+        if (last_client_address_ == null) {
             System.err.println("No client address available. Must receive data first.");
             return false;
         }
         
-        return sendDataToClient(buffer, lastClientAddress_);
+        return sendDataToClient(buffer, last_client_address_);
     }
 
     /**
@@ -388,19 +388,19 @@ public class ProxyServerThread extends Thread {
      * @param clientAddress the destination client address
      * @return true if data was sent successfully, false if there was an error
      */
-    public boolean sendDataToClient(byte[] buffer, SocketAddress clientAddress) {
+    public boolean sendDataToClient(byte[] buffer, SocketAddress client_address) {
         if (socket_ == null || !socket_.isBound()) {
             System.err.println("Socket not configured. Call configureServer() first.");
             return false;
         }
         
-        if (clientAddress == null) {
+        if (client_address == null) {
             System.err.println("Client address cannot be null.");
             return false;
         }
         
         try {
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, clientAddress);
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, client_address);
             socket_.send(packet);
             return true;
         } catch (IOException e) {
@@ -416,13 +416,13 @@ public class ProxyServerThread extends Thread {
      * @return number of clients successfully sent to
      */
     public int broadcastData(byte[] buffer) {
-        int successCount = 0;
+        int success_count = 0;
         for (ClientConnection client : clients_.values()) {
             if (client.connected && sendDataToClient(buffer, client.address)) {
-                successCount++;
+                success_count++;
             }
         }
-        return successCount;
+        return success_count;
     }
 
     /**
@@ -432,7 +432,7 @@ public class ProxyServerThread extends Thread {
      * @return list of recent {@link OdometryData} from chassis proxy
      */
     public List<OdometryData> getLatestOdometryReadings() {
-        return odometryReadings.toList();
+        return odometry_readings_.toList();
     }
 
     /**
@@ -442,7 +442,7 @@ public class ProxyServerThread extends Thread {
      * @return list of recent {@link ModuleStatesData} containing swerve module information
      */
     public List<ModuleStatesData> getLatestModuleStatesReadings() {
-        return moduleStatesReadings.toList();
+        return module_states_readings_.toList();
     }
 
     /**
@@ -452,11 +452,11 @@ public class ProxyServerThread extends Thread {
      * @return list of SwerveModuleState arrays (for backward compatibility)
      */
     public List<SwerveModuleState[]> getLatestModuleStatesArrays() {
-        List<SwerveModuleState[]> moduleStatesArrays = new ArrayList<>();
-        for (ModuleStatesData statesData : moduleStatesReadings.toList()) {
-            moduleStatesArrays.add(statesData.moduleStates);
+        List<SwerveModuleState[]> module_states_arrays = new ArrayList<>();
+        for (ModuleStatesData states_data : module_states_readings_.toList()) {
+            module_states_arrays.add(states_data.moduleStates);
         }
-        return moduleStatesArrays;
+        return module_states_arrays;
     }
 
     /**
@@ -466,7 +466,7 @@ public class ProxyServerThread extends Thread {
      * @return list of recent {@link TagSolutionData} with pose estimates and detected tag IDs
      */
     public List<TagSolutionData> getLatestTagSolutions() {
-        return tagSolutions.toList();
+        return tag_solutions_.toList();
     }   
     
     /**
@@ -476,7 +476,7 @@ public class ProxyServerThread extends Thread {
      * @return list of recent {@link PieceDetectionData} with piece detection information
      */
     public List<PieceDetectionData> getLatestPieceDetections() {
-        return pieceDetections.toList();
+        return piece_detections_.toList();
     }
 
     /**
@@ -528,8 +528,8 @@ public class ProxyServerThread extends Thread {
         TimesyncResponse.TimesyncResponseData response = TimesyncResponse.createResponse(request);
         
         // Serialize and send response
-        byte[] responseBuffer = TimesyncResponse.serialize(response);
-        return sendData(responseBuffer);
+        byte[] response_buffer = TimesyncResponse.serialize(response);
+        return sendData(response_buffer);
     }
 
     /**
@@ -563,7 +563,7 @@ public class ProxyServerThread extends Thread {
      * @return SocketAddress of the last client that sent data, null if no client has connected
      */
     public SocketAddress getClientAddress() {
-        return lastClientAddress_;
+        return last_client_address_;
     }
 
     /**
@@ -633,9 +633,9 @@ public class ProxyServerThread extends Thread {
      * @param fieldLayout the AprilTag field layout to use
      * @return the created MwVisionSimulation instance, or null if not in simulation
      */
-    public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout fieldLayout) {
+    public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout field_layout) {
         if (RobotBase.isSimulation() && visionSim == null) {
-            visionSim = new MwVisionSim(fieldLayout);
+            visionSim = new MwVisionSim(field_layout);
             System.out.println("ProxyServerThread: Vision simulation initialized");
         }
         return visionSim;
@@ -649,18 +649,18 @@ public class ProxyServerThread extends Thread {
      * 
      * @param robotPose the current simulated robot pose
      */
-    public void updateVisionSimulation(Pose2d robotPose) {
+    public void updateVisionSimulation(Pose2d robot_pose) {
         if (!RobotBase.isSimulation() || visionSim == null) {
             return;
         }
         
         // Update the vision system with current robot pose
-        visionSim.update(robotPose);
+        visionSim.update(robot_pose);
         
         // Get generated tag solutions and add them to the queue
-        List<TagSolutionData> simulatedSolutions = visionSim.getTagSolutions(robotPose);
-        for (TagSolutionData solution : simulatedSolutions) {
-            tagSolutions.add(solution);
+        List<TagSolutionData> simulated_solutions = visionSim.getTagSolutions(robot_pose);
+        for (TagSolutionData solution : simulated_solutions) {
+            tag_solutions_.add(solution);
         }
     }
 }
