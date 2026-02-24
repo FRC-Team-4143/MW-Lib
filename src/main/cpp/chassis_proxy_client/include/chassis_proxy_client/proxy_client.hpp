@@ -1,8 +1,12 @@
 #pragma once
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+
 #include <basin/node_core/node_core.hpp>
 #include <basin/node_core/node_params.hpp>
 #include <future>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include <localization_msgs/msg/tag_solution.hpp>
 #include <logging_msgs/msg/log_metadata.hpp>
 #include <logging_msgs/srv/snapshot_request.hpp>
@@ -31,7 +35,10 @@ struct ProxyClientNodeParams : public basin::node_core::NodeParams {
     std::string camera_info_topic{ "/vision/camera_info" };    ///< vision detections topic
     std::string tag_solution_topic{ "/vision/tag_solution" };  ///< tag solution topic
 
-    std::string robot_base_frame { "base_frame" };  ///< TF frame of the robot base, used for transforming tag solutions to the correct frame
+    ///< TF frame of the robot base, used for transforming tag solutions to the correct frame
+    std::string robot_base_frame{ "base_frame" };
+    ///< TF frame of the field, used for transforming tag solutions to the correct frame
+    std::string field_frame{ "field" };
 
     std::vector<std::string> class_names{};
 
@@ -45,6 +52,7 @@ struct ProxyClientNodeParams : public basin::node_core::NodeParams {
         BASIN_PARAM("tag_solution_topic", tag_solution_topic, node);
 
         BASIN_PARAM("robot_base_frame", robot_base_frame, node);
+        BASIN_PARAM("field_frame", field_frame, node);
     }
 };
 
@@ -90,6 +98,9 @@ class ProxyClientNode : public basin::node_core::NodeCore {
 
     ///< Publisher for sending log metadata to the logging system
     rclcpp::Publisher<logging_msgs::msg::LogMetadata>::SharedPtr log_metadata_pub_;
+
+    ///< Publisher for sending tag pose in base frame
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr tag_pose_pub_;
 
     double clock_offset_sec_{ 0.0 };  ///< Estimated offset between local clock and server clock in seconds
 
