@@ -86,6 +86,10 @@ public class ModuleTalonFX extends Module {
     // Analog encoder input (if used)
     protected double encoder_value_abs_;
     
+    // Encoder fluctuation detection
+    private double prev_encoder_value_ = 0.0;
+    private static final double ENCODER_CHANGE_THRESHOLD = 0.0001; // Minimum change to consider "fluctuation"
+    
     // Simulation objects (only used when IS_SIM is true)
     private DCMotorSim drive_sim_;
     private DCMotorSim steer_sim_;
@@ -285,6 +289,7 @@ public class ModuleTalonFX extends Module {
         // Simulation is always "connected"
         drive_disconnected_alert_.set(false);
         steer_disconnected_alert_.set(false);
+        module_encoder_alert_.set(false);
         
         // Enqueue odometry sample for simulation
         // Create single-sample arrays with current timestamp and positions
@@ -331,6 +336,18 @@ public class ModuleTalonFX extends Module {
         // Update encoder value if using analog encoder
         if (encoder != null) {
             encoder_value_abs_ = encoder.get();
+            
+            // Check for encoder fluctuation to detect disconnection
+            double encoder_change = Math.abs(encoder_value_abs_ - prev_encoder_value_);
+            
+            // Encoder is "connected" if it has fluctuation (change above threshold)
+            boolean encoder_has_fluctuation = encoder_change >= ENCODER_CHANGE_THRESHOLD;
+            
+            // Use debouncer - if encoder doesn't fluctuate for 0.5s, it's disconnected
+            module_encoder_alert_.set(!encoder_conn_deb_.calculate(encoder_has_fluctuation));
+            
+            // Update previous value for next iteration
+            prev_encoder_value_ = encoder_value_abs_;
         }
     }
 
