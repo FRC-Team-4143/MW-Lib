@@ -60,7 +60,7 @@ public abstract class Gyro implements SubsystemIoBase {
     public void readInputs(double timestamp) {
         readGyro();
         connected_debounced_ = connection_debouncer_.calculate(connected);
-        gyroDisconnectedAlert.set(!connected_debounced_);
+        gyroDisconnectedAlert.set(IS_SIM? false: !connected_debounced_);
     }
 
     public abstract void readGyro();
