@@ -61,10 +61,12 @@ public abstract class Module extends MechBase {
     // Connection debouncers
     protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
     protected final Debouncer steer_conn_deb_ = new Debouncer(0.5);
+    protected final Debouncer encoder_conn_deb_ = new Debouncer(0.5);
 
     // alerts for disconnections
     protected final Alert drive_disconnected_alert_;
     protected final Alert steer_disconnected_alert_;
+    protected final Alert module_encoder_alert_;
 
     public Module(
             String logging_prefix,
@@ -87,6 +89,12 @@ public abstract class Module extends MechBase {
                                 + Integer.toString(this.module_index_)
                                 + ".",
                         AlertType.kError);
+        module_encoder_alert_ =
+                new Alert(
+                        "Disconnected module encoder on module "
+                                + Integer.toString(this.module_index_)
+                                + ".",
+                        AlertType.kWarning);
     }
 
     /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
