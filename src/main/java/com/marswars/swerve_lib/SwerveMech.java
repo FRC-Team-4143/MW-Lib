@@ -13,9 +13,12 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
@@ -138,6 +141,27 @@ public class SwerveMech extends MechBase {
 
         user_button_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Coast)).ignoringDisable(true));
         ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
+
+        // Adds Custom Swerve Drive Sendable to SmartDashboard for easy debugging of module states and gyro angle
+        SmartDashboard.putData("Swerve Drive", new Sendable() {
+            @Override
+            public void initSendable(SendableBuilder builder) {
+                builder.setSmartDashboardType("SwerveDrive");
+
+                builder.addDoubleProperty("Front Left Angle", () -> modules_[0].getAngle().getRadians(), null);
+                builder.addDoubleProperty("Front Left Velocity", () -> modules_[0].getVelocityMetersPerSec(), null);
+
+                builder.addDoubleProperty("Front Right Angle", () -> modules_[1].getAngle().getRadians(), null);
+                builder.addDoubleProperty("Front Right Velocity", () -> modules_[1].getVelocityMetersPerSec(), null);
+                builder.addDoubleProperty("Back Left Angle", () -> modules_[2].getAngle().getRadians(), null);
+                builder.addDoubleProperty("Back Left Velocity", () -> modules_[2].getVelocityMetersPerSec(), null);
+
+                builder.addDoubleProperty("Back Right Angle", () -> modules_[3].getAngle().getRadians(), null);
+                builder.addDoubleProperty("Back Right Velocity", () -> modules_[3].getVelocityMetersPerSec(), null);
+
+                builder.addDoubleProperty("Robot Angle", () -> getGyroYaw().getRadians(), null);
+            }
+            });
     }
 
     /** {@inheritDoc} */
