@@ -378,9 +378,9 @@ public class ModuleTalonFX extends Module {
         } else {
             ControlRequest req;
             if (config_.enable_foc) {
-                req = voltage_req_.withOutput(output);
-            } else {
                 req = torque_current_req_.withOutput(output);
+            } else {
+                req = voltage_req_.withOutput(output);
             }
             steer_talonfx_.setControl(req);
         }

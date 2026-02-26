@@ -132,7 +132,7 @@ public class ProxyServerThread extends Thread {
     
     // Initial connection tracking
     private boolean has_ever_connected_ = false; // Track if any client has ever connected
-    private final Alert no_clients_alert_ = new Alert("Proxy Server: No clients connected", AlertType.kWarning);
+    private final Alert no_clients_alert_ = new Alert("Proxy Server: No clients connected", AlertType.kError);
     
     /**
      * Tracks connection state for an individual client
@@ -151,7 +151,7 @@ public class ProxyServerThread extends Thread {
             this.connected = true; // Start as connected when first packet received
             // Create alert with client-specific name
             String client_name = address.toString();
-            this.alert = new Alert("Proxy Server: Lost connection to " + client_name, AlertType.kWarning);
+            this.alert = new Alert("Proxy Server: Lost connection to " + client_name, AlertType.kError);
         }
         
         void updatePacketReceived() {
