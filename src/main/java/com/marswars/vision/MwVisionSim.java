@@ -213,9 +213,9 @@ public class MwVisionSim {
         cameras_.add(cam_sim);
         vision_sim_.addCamera(cam_sim.cameraSim, robot_to_camera);
         
-        // Enable camera streams for debugging
-        cam_sim.cameraSim.enableRawStream(true);
-        cam_sim.cameraSim.enableProcessedStream(true);
+        // Disable camera streams by default to reduce overhead
+        cam_sim.cameraSim.enableRawStream(false);
+        cam_sim.cameraSim.enableProcessedStream(false);
         
         return cam_sim;
     }
@@ -388,5 +388,31 @@ public class MwVisionSim {
      */
     public void adjustCamera(CameraSimulation camera_sim, Transform3d new_robot_to_camera) {
         vision_sim_.adjustCamera(camera_sim.cameraSim, new_robot_to_camera);
+    }
+    
+    /**
+     * Enables or disables the raw camera stream for all cameras.
+     * The raw stream shows the original camera feed without any processing overlay.
+     * Disabled by default to reduce overhead.
+     * 
+     * @param enable true to enable the raw stream, false to disable
+     */
+    public void enableRawStream(boolean enable) {
+        for (CameraSimulation cam_sim : cameras_) {
+            cam_sim.cameraSim.enableRawStream(enable);
+        }
+    }
+    
+    /**
+     * Enables or disables the processed camera stream for all cameras.
+     * The processed stream shows the camera feed with vision processing overlays (e.g., detected targets).
+     * Disabled by default to reduce overhead.
+     * 
+     * @param enable true to enable the processed stream, false to disable
+     */
+    public void enableProcessedStream(boolean enable) {
+        for (CameraSimulation cam_sim : cameras_) {
+            cam_sim.cameraSim.enableProcessedStream(enable);
+        }
     }
 }
