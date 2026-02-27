@@ -61,7 +61,6 @@ public abstract class Module extends MechBase {
     // Connection debouncers
     protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
     protected final Debouncer steer_conn_deb_ = new Debouncer(0.5);
-    protected final Debouncer encoder_conn_deb_ = new Debouncer(0.5);
 
     // alerts for disconnections
     protected final Alert drive_disconnected_alert_;
