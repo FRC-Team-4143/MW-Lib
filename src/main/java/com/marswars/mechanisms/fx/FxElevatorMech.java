@@ -46,7 +46,7 @@ public class FxElevatorMech extends FxMechBase {
     private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Temperature threshold for alerts (Celsius)
-    private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
+    private static final double MOTOR_TEMP_THRESHOLD_C = 65.0;
 
     // Always assume that we have the leader motor in index 0
     protected final TalonFX motors_[];

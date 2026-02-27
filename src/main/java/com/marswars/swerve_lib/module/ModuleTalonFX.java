@@ -86,9 +86,14 @@ public class ModuleTalonFX extends Module {
     // Analog encoder input (if used)
     protected double encoder_value_abs_;
     
-    // Encoder fluctuation detection
+    // Encoder correlation detection (check if encoder changes when motor moves)
     private double prev_encoder_value_ = 0.0;
-    private static final double ENCODER_CHANGE_THRESHOLD = 0.0001; // Minimum change to consider "fluctuation"
+    private double prev_steer_velocity_ = 0.0;
+    private static final double ENCODER_CHANGE_THRESHOLD = 0.001; // Minimum encoder change to detect movement
+    private static final double MOTOR_VELOCITY_THRESHOLD = 0.1; // rad/s - motor is "moving" above this
+    private int correlation_check_count_ = 0;
+    private int correlation_fail_count_ = 0;
+    private static final int CORRELATION_CHECK_SAMPLES = 10; // Check over 10 samples (~0.2s at 50Hz)
     
     // Simulation objects (only used when IS_SIM is true)
     private DCMotorSim drive_sim_;
@@ -337,17 +342,34 @@ public class ModuleTalonFX extends Module {
         if (encoder != null) {
             encoder_value_abs_ = encoder.get();
             
-            // Check for encoder fluctuation to detect disconnection
+            // Detect disconnection by checking if encoder changes when motor moves
             double encoder_change = Math.abs(encoder_value_abs_ - prev_encoder_value_);
+            double steer_velocity_abs = Math.abs(steer_velocity_rad_per_sec_);
             
-            // Encoder is "connected" if it has fluctuation (change above threshold)
-            boolean encoder_has_fluctuation = encoder_change >= ENCODER_CHANGE_THRESHOLD;
+            // Only check correlation when motor is moving significantly
+            if (steer_velocity_abs > MOTOR_VELOCITY_THRESHOLD) {
+                correlation_check_count_++;
+                
+                // If motor is moving but encoder isn't changing, that's a fail
+                if (encoder_change < ENCODER_CHANGE_THRESHOLD) {
+                    correlation_fail_count_++;
+                }
+                
+                // After collecting enough samples, check the correlation
+                if (correlation_check_count_ >= CORRELATION_CHECK_SAMPLES) {
+                    // If encoder failed to move in most samples, it's likely disconnected
+                    boolean encoder_is_stuck = correlation_fail_count_ > (CORRELATION_CHECK_SAMPLES / 2);
+                    module_encoder_alert_.set(encoder_is_stuck);
+                    
+                    // Reset counters for next check
+                    correlation_check_count_ = 0;
+                    correlation_fail_count_ = 0;
+                }
+            }
             
-            // Use debouncer - if encoder doesn't fluctuate for 0.5s, it's disconnected
-            module_encoder_alert_.set(!encoder_conn_deb_.calculate(encoder_has_fluctuation));
-            
-            // Update previous value for next iteration
+            // Update previous values for next iteration
             prev_encoder_value_ = encoder_value_abs_;
+            prev_steer_velocity_ = steer_velocity_rad_per_sec_;
         }
     }
 

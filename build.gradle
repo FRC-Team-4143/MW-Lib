@@ -101,7 +101,7 @@ dependencies {
     implementation "org.ironmaple:maplesim-java:0.4.0-beta"
     implementation "com.github.jonahsnider:doglog:2026.5.0"
     implementation "org.dyn4j:dyn4j:5.0.2"
-    implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.09"
+    implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25"
     implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"
     
     // Choreo
@@ -113,7 +113,7 @@ dependencies {
     implementation "org.photonvision:photontargeting-java:v2026.2.2"
     
     // ThriftyLib
-    implementation "com.thethriftybot.frc:ThriftyLib-java:2026.0.1"
+    implementation "com.thethriftybot.frc:ThriftyLib-java:2026.1.0"
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

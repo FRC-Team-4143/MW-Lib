@@ -7,7 +7,6 @@ import dev.doglog.DogLog;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
@@ -45,7 +44,7 @@ public class NovaArmMech extends NovaMechBase {
     private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
 
     // Temperature threshold for alerts (Celsius)
-    private static final double MOTOR_TEMP_THRESHOLD_C = 80.0;
+    private static final double MOTOR_TEMP_THRESHOLD_C = 65.0;
 
     // Always assume that we have the leader motor in index 0
     private final ThriftyNova motors_[];

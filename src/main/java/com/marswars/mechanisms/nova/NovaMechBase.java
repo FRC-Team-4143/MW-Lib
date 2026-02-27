@@ -1,6 +1,7 @@
 package com.marswars.mechanisms.nova;
 
 import com.thethriftybot.devices.ThriftyNova;
+import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 import com.marswars.mechanisms.MechBase;
 import com.marswars.util.NovaMotorConfig;
 import com.marswars.util.NovaMotorConfig.NovaMotorType;
@@ -67,9 +68,15 @@ public abstract class NovaMechBase extends MechBase<ThriftyNova, NovaMotorConfig
                 constructed.motors[i] = new ThriftyNova(cfg.can_id, ThriftyNova.MotorType.NEO);
             }
 
+            constructed.motors[i].setNTLogging(false);
+
             if (configMaster != null) {
                 cfg = configMaster.apply(cfg);
             }
+
+            // Ensure PID configs are initialized before applying (defensive coding)
+            ensurePIDConfigInitialized(cfg.config.pid0);
+            ensurePIDConfigInitialized(cfg.config.pid1);
 
             // Note: Unlike TalonFX, ThriftyNova does not have built-in support for conversion factors.
             // The sensor_to_mech_ratio parameter is provided for API consistency but may need to be applied differently based on ThriftyLib API.
@@ -85,5 +92,18 @@ public abstract class NovaMechBase extends MechBase<ThriftyNova, NovaMotorConfig
         }
 
         return constructed;
+    }
+
+    /**
+     * Ensures PID configuration fields are initialized to prevent NullPointerException.
+     * This is needed when motors aren't connected or configs aren't loaded from file.
+     * 
+     * @param config The PID configuration to initialize
+     */
+    protected static void ensurePIDConfigInitialized(PIDConfiguration config) {
+        if (config.p == null) config.p = 0.0;
+        if (config.i == null) config.i = 0.0;
+        if (config.d == null) config.d = 0.0;
+        if (config.f == null) config.f = 0.0;
     }
 }
