@@ -20,7 +20,7 @@ public abstract class GitLogger {
   private static StringPublisher dirty_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
-  private static Alert dirty_alert_ = new Alert("Build has uncommitted changes", AlertType.kInfo);
+  private static Alert dirty_alert_ = new Alert("Dirty git directory, this can lead to unreproducible results", AlertType.kInfo);
 
   /**
    * Logs Git and build metadata to NetworkTables using reflection.
