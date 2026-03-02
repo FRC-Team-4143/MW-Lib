@@ -137,17 +137,17 @@ public class ModuleTalonFX extends Module {
         }
 
         // Configure drive motor
-        config_.drive_motor_config.config.Feedback.SensorToMechanismRatio = config_.module_type.driveRatio;
+        config_.drive_motor_config.getAsFXConfig().Feedback.SensorToMechanismRatio = config_.module_type.driveRatio;
         tryUntilOk(
                 5,
                 () ->
                         drive_talonfx_
                                 .getConfigurator()
-                                .apply(config_.drive_motor_config.config, 0.25));
+                                .apply(config_.drive_motor_config.getAsFXConfig(), 0.25));
         tryUntilOk(5, () -> drive_talonfx_.setPosition(0.0, 0.25));
 
         // Configure steer motor
-        var steerConfig = config_.steer_motor_config.config;
+        var steerConfig = config_.steer_motor_config.getAsFXConfig();
         steerConfig.Feedback.SensorToMechanismRatio = config_.module_type.steerRatio;
         steerConfig.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.RotorSensor;
 

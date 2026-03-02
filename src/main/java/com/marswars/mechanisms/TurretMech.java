@@ -2,8 +2,6 @@ package com.marswars.mechanisms;
 
 import java.util.List;
 
-import com.marswars.util.FxMotorConfig;
-
 /**
  * Roller-based mechanism configured for turret control.
  */
@@ -18,7 +16,7 @@ public class TurretMech extends RollerMech {
      */
     public TurretMech(
             String logging_prefix,
-            List<FxMotorConfig> motor_configs,
+            List<MotorConfig> motor_configs,
             double gear_ratio,
             double moi){
         super(logging_prefix, null, motor_configs, gear_ratio, moi);
@@ -36,7 +34,7 @@ public class TurretMech extends RollerMech {
     public TurretMech(
             String logging_prefix,
             String mech_name,
-            List<FxMotorConfig> motor_configs,
+            List<MotorConfig> motor_configs,
             double gear_ratio,
             double moi){
         super(logging_prefix, mech_name, motor_configs, gear_ratio, moi);

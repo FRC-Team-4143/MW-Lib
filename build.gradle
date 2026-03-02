@@ -112,9 +112,6 @@ dependencies {
     implementation "org.photonvision:photonlib-java:v2026.2.2"
     implementation "org.photonvision:photontargeting-java:v2026.2.2"
     
-    // ThriftyLib
-    implementation "com.thethriftybot.frc:ThriftyLib-java:2026.1.0"
-
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'

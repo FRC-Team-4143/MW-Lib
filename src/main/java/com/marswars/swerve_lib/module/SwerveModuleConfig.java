@@ -1,6 +1,6 @@
 package com.marswars.swerve_lib.module;
 
-import com.marswars.util.FxMotorConfig;
+import com.marswars.mechanisms.MotorConfig;
 
 /**
  * Configuration container for a single swerve module.
@@ -15,8 +15,8 @@ public class SwerveModuleConfig {
     // Module hardware configuration fields
     public EncoderType encoder_type;
     public int encoder_id;
-    public FxMotorConfig drive_motor_config;
-    public FxMotorConfig steer_motor_config;
+    public MotorConfig drive_motor_config;
+    public MotorConfig steer_motor_config;
 
     // Module type
     public ModuleType module_type;

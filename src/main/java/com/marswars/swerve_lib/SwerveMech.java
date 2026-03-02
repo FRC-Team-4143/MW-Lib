@@ -129,15 +129,15 @@ public class SwerveMech extends MechBase {
         TunablePid.create(
                 getLoggingKey() + "Drive/PositionGains",
                 this::setDrivePositionGains,
-                SlotConfigs.from(config.FL_MODULE_CONSTANTS.drive_motor_config.config.Slot0));
+                SlotConfigs.from(config.FL_MODULE_CONSTANTS.drive_motor_config.getAsFXConfig().Slot0));
         TunablePid.create(
                 getLoggingKey() + "Drive/VelocityGains",
                 this::setDriveVelocityGains,
-                SlotConfigs.from(config.FL_MODULE_CONSTANTS.drive_motor_config.config.Slot1));
+                SlotConfigs.from(config.FL_MODULE_CONSTANTS.drive_motor_config.getAsFXConfig().Slot1));
         TunablePid.create(
                 getLoggingKey() + "Steer/PositionGains",
                 this::setSteerGains,
-                SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.config.Slot0));
+                SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.getAsFXConfig().Slot0));
 
         user_button_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Coast)).ignoringDisable(true));
         ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));

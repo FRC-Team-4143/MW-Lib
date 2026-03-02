@@ -2,7 +2,6 @@ package com.marswars.util;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
-import com.thethriftybot.devices.ThriftyNova.ThriftyNovaConfig.PIDConfiguration;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.controller.PIDController;
@@ -28,50 +27,6 @@ public class TunablePid {
         DogLog.tunable(key + "/kV", config.kV, newV -> config_applier.accept(config.withKV(newV)));
         DogLog.tunable(key + "/kA", config.kA, newA -> config_applier.accept(config.withKA(newA)));
         DogLog.tunable(key + "/kG", config.kG, newG -> config_applier.accept(config.withKG(newG)));
-    }
-
-    /**
-     * Creates tunable PID parameters for Thrifty Nova PIDConfiguration.
-     * Publishes kP, kI, kD, and kF to NetworkTables for live tuning.
-     *
-     * @param key The NetworkTables key prefix for the PID parameters
-     * @param config_applier Consumer that applies the updated configuration to the motor
-     * @param config The initial PIDConfiguration to use as default values
-     */
-    public static void create(
-            String key, Consumer<PIDConfiguration> config_applier, PIDConfiguration config) {
-        DogLog.tunable(key + "/kP", config.p, newP -> {
-            PIDConfiguration newConfig = new PIDConfiguration();
-            newConfig.p = newP;
-            newConfig.i = config.i;
-            newConfig.d = config.d;
-            newConfig.f = config.f;
-            config_applier.accept(newConfig);
-        });
-        DogLog.tunable(key + "/kI", config.i, newI -> {
-            PIDConfiguration newConfig = new PIDConfiguration();
-            newConfig.p = config.p;
-            newConfig.i = newI;
-            newConfig.d = config.d;
-            newConfig.f = config.f;
-            config_applier.accept(newConfig);
-        });
-        DogLog.tunable(key + "/kD", config.d, newD -> {
-            PIDConfiguration newConfig = new PIDConfiguration();
-            newConfig.p = config.p;
-            newConfig.i = config.i;
-            newConfig.d = newD;
-            newConfig.f = config.f;
-            config_applier.accept(newConfig);
-        });
-        DogLog.tunable(key + "/kF", config.f, newF -> {
-            PIDConfiguration newConfig = new PIDConfiguration();
-            newConfig.p = config.p;
-            newConfig.i = config.i;
-            newConfig.d = config.d;
-            newConfig.f = newF;
-            config_applier.accept(newConfig);
-        });
     }
 
     /**
