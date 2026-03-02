@@ -98,7 +98,6 @@ dependencies {
     
     // Vendor dependencies
     implementation "com.ctre.phoenix6:wpiapi-java:26.1.1"
-    implementation "com.revrobotics.frc:REVLib-java:2026.0.2"
     implementation "org.ironmaple:maplesim-java:0.4.0-beta"
     implementation "com.github.jonahsnider:doglog:2026.5.0"
     implementation "org.dyn4j:dyn4j:5.0.2"
@@ -113,9 +112,6 @@ dependencies {
     implementation "org.photonvision:photonlib-java:v2026.2.2"
     implementation "org.photonvision:photontargeting-java:v2026.2.2"
     
-    // ThriftyLib
-    implementation "com.thethriftybot.frc:ThriftyLib-java:2026.1.0"
-
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'
