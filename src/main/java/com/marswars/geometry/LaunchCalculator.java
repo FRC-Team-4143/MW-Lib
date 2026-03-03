@@ -422,6 +422,9 @@ public class LaunchCalculator {
         // robot will be in a different position. We need to aim at where the robot
         // WILL BE when the projectile arrives, not where it is now.
         //
+        // However, if we're already too close to the target (below minimum distance),
+        // skip the lookahead calculation to avoid making the situation worse.
+        //
         // This is solved iteratively:
         // 1. Get initial time of flight estimate based on current distance
         // 2. Calculate where robot will be after that time of flight
@@ -431,24 +434,34 @@ public class LaunchCalculator {
         Pose2d lookahead_pose = launcher_pose;
         double lookahead_launcher_to_target_distance = launcher_to_target_distance;
         
-        // Iterate to converge on accurate lookahead (up to 20 iterations)
-        for (int i = 0; i < 20; i++) {
-            // Look up how long the shot will take from this distance
-            time_of_flight = time_of_flight_map_.get(lookahead_launcher_to_target_distance);
-            
-            // Calculate how far the launcher will travel during flight time
-            double offset_x = launcher_velocity_x * time_of_flight;
-            double offset_y = launcher_velocity_y * time_of_flight;
-            
-            // Project the launcher's future position
-            lookahead_pose = new Pose2d(
-                launcher_pose.getTranslation().plus(new Translation2d(offset_x, offset_y)),
-                launcher_pose.getRotation()
-            );
-            
-            // Recalculate distance from this future launcher position to target
-            lookahead_launcher_to_target_distance = 
-                target_translation.getDistance(lookahead_pose.getTranslation());
+        // Only perform lookahead if we're not already too close
+        if (launcher_to_target_distance >= 1.25) {
+            // Iterate to converge on accurate lookahead (up to 20 iterations)
+            // Break early if the distance converges (changes by less than 1mm)
+            for (int i = 0; i < 20; i++) {
+                // Look up how long the shot will take from this distance
+                time_of_flight = time_of_flight_map_.get(lookahead_launcher_to_target_distance);
+                
+                // Calculate how far the launcher will travel during flight time
+                double offset_x = launcher_velocity_x * time_of_flight;
+                double offset_y = launcher_velocity_y * time_of_flight;
+                
+                // Project the launcher's future position
+                lookahead_pose = new Pose2d(
+                    launcher_pose.getTranslation().plus(new Translation2d(offset_x, offset_y)),
+                    launcher_pose.getRotation()
+                );
+                
+                // Recalculate distance from this future launcher position to target
+                double previous_distance = lookahead_launcher_to_target_distance;
+                lookahead_launcher_to_target_distance = 
+                    target_translation.getDistance(lookahead_pose.getTranslation());
+                
+                // Check for convergence (less than 1mm change)
+                if (Math.abs(lookahead_launcher_to_target_distance - previous_distance) < 0.001) {
+                    break;
+                }
+            }
         }
         
         // ============================================================================

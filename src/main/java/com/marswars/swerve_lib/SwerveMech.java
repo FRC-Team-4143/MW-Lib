@@ -71,7 +71,8 @@ public class SwerveMech extends MechBase {
                 new SwerveModulePosition()
             };
 
-    private ChassisSpeeds chassis_speeds_ = new ChassisSpeeds();
+    private ChassisSpeeds current_chassis_speeds_ = new ChassisSpeeds();
+    private ChassisSpeeds setpoint_chassis_speeds_ = new ChassisSpeeds();
     private Rotation2d yaw_ = Rotation2d.kZero;
 
     private ChassisRequest current_request_ = new ChassisRequest.Idle();
@@ -185,7 +186,8 @@ public class SwerveMech extends MechBase {
                             module_positions_[i].angle);
             last_module_positions_[i] = module_positions_[i];
         }
-        chassis_speeds_ = kinematics_.toChassisSpeeds(current_module_states_);
+        current_chassis_speeds_ = kinematics_.toChassisSpeeds(current_module_states_);
+        setpoint_chassis_speeds_ = kinematics_.toChassisSpeeds(setpoint_module_states_);
 
         // Update gyro angle
         if (gyro_.isConnected()) {
@@ -227,12 +229,13 @@ public class SwerveMech extends MechBase {
     /** {@inheritDoc} */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "CurrentModuleStates", current_module_states_);
-        DogLog.log(getLoggingKey() + "SetpointModuleStates", setpoint_module_states_);
+        DogLog.log(getLoggingKey() + "ModuleStates/Current", current_module_states_);
+        DogLog.log(getLoggingKey() + "ModuleStates/Setpoint", setpoint_module_states_);
         DogLog.log(getLoggingKey() + "ModulePositions", module_positions_);
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
         DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds", chassis_speeds_);
+        DogLog.log(getLoggingKey() + "ChassisSpeeds/Current", current_chassis_speeds_);
+        DogLog.log(getLoggingKey() + "ChassisSpeeds/Setpoint", setpoint_chassis_speeds_);
         DogLog.log(getLoggingKey() + "ChassisYaw", yaw_);
         DogLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
         DogLog.log(
@@ -255,7 +258,7 @@ public class SwerveMech extends MechBase {
      * @param operator_forward_direction The operator's forward direction.
      */
     public void setChassisRequestParameters(Pose2d pose, Rotation2d operator_forward_direction) {
-        current_request_parameters_.currentChassisSpeed = chassis_speeds_;
+        current_request_parameters_.currentChassisSpeed = current_chassis_speeds_;
         current_request_parameters_.currentPose = pose;
         current_request_parameters_.updatePeriod =
                 Timer.getFPGATimestamp() - current_request_parameters_.timestamp;
@@ -318,8 +321,17 @@ public class SwerveMech extends MechBase {
      *
      * @return ChassisSpeeds object representing the robot's chassis speeds
      */
-    public ChassisSpeeds getChassisSpeeds() {
-        return chassis_speeds_;
+    public ChassisSpeeds getCurrentChassisSpeeds() {
+        return current_chassis_speeds_;
+    }
+
+    /**
+     * Returns the setpoint chassis speeds of the robot.
+     *
+     * @return ChassisSpeeds object representing the robot's setpoint chassis speeds
+     */
+    public ChassisSpeeds getSetpointChassisSpeeds() {
+        return setpoint_chassis_speeds_;
     }
 
     /**
@@ -327,8 +339,17 @@ public class SwerveMech extends MechBase {
      *
      * @return SwerveModuleState[] array of module states
      */
-    public SwerveModuleState[] getModuleStates() {
+    public SwerveModuleState[] getCurrentModuleStates() {
         return current_module_states_;
+    }
+
+    /**
+     * Returns the setpoint module states of the swerve drive.
+     *
+     * @return SwerveModuleState[] array of setpoint module states
+     */
+    public SwerveModuleState[] getSetpointModuleStates() {
+        return setpoint_module_states_;
     }
 
     /**

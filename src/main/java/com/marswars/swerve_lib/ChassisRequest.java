@@ -6,7 +6,6 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -117,8 +116,8 @@ public interface ChassisRequest {
      */
     public class FieldCentric implements ChassisRequest {
 
-        /** The desired x/y and rotation rate */
-        public Twist2d Twist = new Twist2d();
+        /** The desired chassis speeds (field-relative) */
+        public ChassisSpeeds Speeds = new ChassisSpeeds();
 
         /** The allowable deadband of the request. */
         public double Deadband = 0;
@@ -147,8 +146,8 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Twist.dx;
-            double toApplyY = Twist.dy;
+            double toApplyX = Speeds.vxMetersPerSecond;
+            double toApplyY = Speeds.vyMetersPerSecond;
             if (XPositiveReference == ChassisRequest.XPositiveReference.OperatorPerspective) {
                 /* If we're operator perspective, modify the X/Y translation by the angle */
                 Translation2d tmp = new Translation2d(toApplyX, toApplyY);
@@ -156,7 +155,7 @@ public interface ChassisRequest {
                 toApplyX = tmp.getX();
                 toApplyY = tmp.getY();
             }
-            double toApplyOmega = Twist.dtheta;
+            double toApplyOmega = Speeds.omegaRadiansPerSecond;
             if (Math.sqrt(toApplyX * toApplyX + toApplyY * toApplyY) < Deadband) {
                 toApplyX = 0;
                 toApplyY = 0;
@@ -182,13 +181,14 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear and angular velocity to apply to the drivetrain.
+         * The linear and angular velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * These speeds are assumed to be field-relative.
          *
-         * @param twist x/y and rotation rate to apply
+         * @param speeds Field-relative chassis speeds to apply
          * @return this request
          */
-        public FieldCentric withTwist(Twist2d twist) {
-            this.Twist = twist;
+        public FieldCentric withSpeeds(ChassisSpeeds speeds) {
+            this.Speeds = speeds;
             return this;
         }
 
@@ -272,8 +272,8 @@ public interface ChassisRequest {
      */
     public class FieldCentricFacingAngle implements ChassisRequest {
 
-        /** The desired x/y and rotation rate */
-        public Twist2d Twist = new Twist2d();
+        /** The desired chassis speeds (field-relative, rotation component ignored) */
+        public ChassisSpeeds Speeds = new ChassisSpeeds();
 
         /**
          * The direction the robot should face. 0 Degrees is defined as in the direction of the X
@@ -320,8 +320,8 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Twist.dx;
-            double toApplyY = Twist.dy;
+            double toApplyX = Speeds.vxMetersPerSecond;
+            double toApplyY = Speeds.vyMetersPerSecond;
             Rotation2d angleToFace = TargetDirection;
             HeadingController.enableContinuousInput(0, 2 * Math.PI);
             if (XPositiveReference == ChassisRequest.XPositiveReference.OperatorPerspective) {
@@ -376,13 +376,15 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear and angular velocity to apply to the drivetrain.
+         * The linear velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * Only the translational components are used; rotation is controlled by the target heading.
+         * These speeds are assumed to be field-relative.
          *
-         * @param twist x/y and rotation rate to apply
+         * @param speeds Field-relative chassis speeds (only vx and vy are used)
          * @return this request
          */
-        public FieldCentricFacingAngle withTwist(Twist2d twist) {
-            this.Twist = twist;
+        public FieldCentricFacingAngle withSpeeds(ChassisSpeeds speeds) {
+            this.Speeds = speeds;
             return this;
         }
 
@@ -587,8 +589,8 @@ public interface ChassisRequest {
      */
     public class RobotCentric implements ChassisRequest {
 
-        /** The desired x/y and rotation rate */
-        public Twist2d Twist = new Twist2d();
+        /** The desired chassis speeds (robot-relative) */
+        public ChassisSpeeds Speeds = new ChassisSpeeds();
 
         /** The allowable deadband of the request. */
         public double Deadband = 0;
@@ -610,9 +612,9 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Twist.dx;
-            double toApplyY = Twist.dy;
-            double toApplyOmega = Twist.dtheta;
+            double toApplyX = Speeds.vxMetersPerSecond;
+            double toApplyY = Speeds.vyMetersPerSecond;
+            double toApplyOmega = Speeds.omegaRadiansPerSecond;
             if (Math.sqrt(toApplyX * toApplyX + toApplyY * toApplyY) < Deadband) {
                 toApplyX = 0;
                 toApplyY = 0;
@@ -630,13 +632,14 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear and angular velocity to apply to the drivetrain.
+         * The linear and angular velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * These speeds are assumed to be robot-relative.
          *
-         * @param twist x/y and rotation rate to apply
+         * @param speeds Robot-relative chassis speeds to apply
          * @return this request
          */
-        public RobotCentric withTwist(Twist2d twist) {
-            this.Twist = twist;
+        public RobotCentric withSpeeds(ChassisSpeeds speeds) {
+            this.Speeds = speeds;
             return this;
         }
 
