@@ -142,6 +142,7 @@ public class ProxyServerThread extends Thread {
      */
     private static class ClientConnection {
         final SocketAddress address;
+        final String name; // For logging and alert purposes
         double last_packet_time;
         final Debouncer debouncer;
         boolean connected;
@@ -152,15 +153,15 @@ public class ProxyServerThread extends Thread {
             this.last_packet_time = Timer.getFPGATimestamp();
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
-            // Create alert with client-specific name
-            String client_name = address.toString();
-            this.alert = new Alert("Proxy Server: Lost connection to " + client_name, AlertType.kError);
+            // Create alert with client-specific name. strip just the address for readability (e.g. "
+            this.name = address.toString().replaceAll("/|:|\\.|\\" , "_"); // Sanitize for logging
+            this.alert = new Alert("Proxy Server: Lost connection to " + name, AlertType.kError);
         }
         
         void updatePacketReceived(int packet_id) {
             this.last_packet_time = Timer.getFPGATimestamp();
-            DogLog.log("/Proxy/"+address.toString() + "/LastPacketTime", last_packet_time);
-            DogLog.log("/Proxy/"+address.toString() + "/LastPacket", packet_id);
+            DogLog.log("/Proxy/"+name + "/LastPacketTime", last_packet_time);
+            DogLog.log("/Proxy/"+name + "/LastPacket", packet_id);
         }
         
         void updateConnectionStatus() {
