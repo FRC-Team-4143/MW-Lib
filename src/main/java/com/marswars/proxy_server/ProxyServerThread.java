@@ -154,7 +154,7 @@ public class ProxyServerThread extends Thread {
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
             // Create alert with client-specific name. strip just the address for readability (e.g. "
-            this.name = address.toString().replaceAll("/|:|\\.|\\" , "_"); // Sanitize for logging
+            this.name = address.toString().replaceAll("[/:]", "_"); // Sanitize for logging
             this.alert = new Alert("Proxy Server: Lost connection to " + name, AlertType.kError);
         }
         
