@@ -14,6 +14,9 @@ import edu.wpi.first.wpilibj.Timer;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
 import com.marswars.vision.MwVisionSim;
+
+import dev.doglog.DogLog;
+
 import com.marswars.proxy_server.OdomPacket.OdometryData;
 import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
@@ -154,8 +157,10 @@ public class ProxyServerThread extends Thread {
             this.alert = new Alert("Proxy Server: Lost connection to " + client_name, AlertType.kError);
         }
         
-        void updatePacketReceived() {
+        void updatePacketReceived(int packet_id) {
             this.last_packet_time = Timer.getFPGATimestamp();
+            DogLog.log("/Proxy/"+address.toString() + "/LastPacketTime", last_packet_time);
+            DogLog.log("/Proxy/"+address.toString() + "/LastPacket", packet_id);
         }
         
         void updateConnectionStatus() {
@@ -256,14 +261,16 @@ public class ProxyServerThread extends Thread {
             if (!has_ever_connected_) {
                 has_ever_connected_ = true;
             }
+
+            int packet_id = (int) buffer[Packet.PACKET_ID_IDX];
             
             // Get or create client connection tracker
             ClientConnection client = clients_.computeIfAbsent(client_key, 
                 k -> new ClientConnection(client_address));
-            client.updatePacketReceived();
+            client.updatePacketReceived(packet_id);
 
             // Determine packet type from first byte of buffer
-            switch ((int) buffer[Packet.PACKET_ID_IDX]) {
+            switch (packet_id) {
                 // Odometry Packet Type
                 case OdomPacket.TYPE_ID: // const uint8_t msg_id{ 30u };
                     odometry_readings_.add(OdomPacket.updateData(buffer));
