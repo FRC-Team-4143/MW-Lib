@@ -111,9 +111,12 @@ echo "Configuring fan to run at full speed on boot"
 
 cat > /etc/systemd/system/fan-full-speed.service <<EOF
 [Unit]
-Description=Set Fan speed to max
+Description=Setup Jetson Runtime settings
+After=network.target
 
 [Service]
+ExecStartPre=/bin/sleep 5
+ExecStart=/bin/sh -c 'echo 64 > /sys/module/usbcore/parameters/usbfs_memory_mb'
 ExecStart=/usr/bin/jetson_clocks --fan
 Type=oneshot
 
