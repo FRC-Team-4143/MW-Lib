@@ -187,7 +187,7 @@ public class ProxyServerThread extends Thread {
     private static final double CAMERA_TIMEOUT_SECONDS = 2.0; // Consider camera disconnected after 2 seconds
     private final Map<String, CameraConnection> cameras_ = new ConcurrentHashMap<>();
     private boolean has_camera_ever_connected_ = false; // Track if any camera has ever connected
-    private final Alert no_cameras_alert_ = new Alert("Proxy Server: No cameras connected", AlertType.kWarning);
+    private final Alert no_cameras_alert_ = new Alert("Proxy Server: No cameras connected", AlertType.kError);
     
     /**
      * Tracks connection state for an individual camera (identified by serial number)
@@ -208,7 +208,7 @@ public class ProxyServerThread extends Thread {
             this.connected = true; // Start as connected when first packet received
             // Create alert with camera-specific name including client for debugging
             this.alert = new Alert("Proxy Server: Lost camera '" + cameraSerial + 
-                                 "' from client " + clientName, AlertType.kWarning);
+                                 "' from client " + clientName, AlertType.kError);
         }
         
         void updatePacketReceived() {
