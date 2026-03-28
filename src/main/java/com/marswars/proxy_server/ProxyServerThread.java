@@ -253,8 +253,28 @@ public class ProxyServerThread extends Thread {
     @Override
     public void run(){
         while (true) {
-            updateData();
-            updateConnectionStatus();
+            try {
+                updateData();
+                updateConnectionStatus();
+            } catch (Exception e) {
+                System.err.println("ProxyServerThread encountered an error: " + e.getMessage());
+                e.printStackTrace();
+                
+                // Try to recover by reconfiguring the server
+                System.err.println("Attempting to recover ProxyServerThread...");
+                try {
+                    if (socket_ != null && !socket_.isClosed()) {
+                        socket_.close();
+                    }
+                    Thread.sleep(100); // Brief pause before retry
+                    configureServer();
+                    System.err.println("ProxyServerThread recovered successfully");
+                } catch (Exception recoveryError) {
+                    System.err.println("Failed to recover ProxyServerThread: " + recoveryError.getMessage());
+                    recoveryError.printStackTrace();
+                    // Continue anyway - will retry on next iteration
+                }
+            }
         }
     }
 
@@ -297,7 +317,9 @@ public class ProxyServerThread extends Thread {
 
         try {
             // clear the buffer after every message
-            byte[] buffer = new byte[45];
+            // Increased size to accommodate variable-length camera serial strings
+            // Header(9) + SerialLen(2) + Serial(~50) + Data(~100) = ~200 bytes with margin
+            byte[] buffer = new byte[256];
 
             // create a packet to receive the data
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
