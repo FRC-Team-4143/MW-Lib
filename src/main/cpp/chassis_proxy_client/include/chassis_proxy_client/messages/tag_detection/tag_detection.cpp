@@ -8,9 +8,10 @@
 namespace proxy_client {
 
 void TagDetectionMsg::loadFromMsg(const std::vector<uint8_t>& detected_tag_ids, const geometry_msgs::msg::Pose& tag_pose_in_base,
-                                  const TimeStamp& stamp) {
+                                  const TimeStamp& stamp, const std::string& cam_serial) {
     timestamp = stamp;
     tag_ids = detected_tag_ids;
+    camera_serial = cam_serial;
 
     // convert from quaternion to euler angles in degrees
     tf2::Quaternion q(tag_pose_in_base.orientation.x, tag_pose_in_base.orientation.y, tag_pose_in_base.orientation.z,
@@ -28,6 +29,9 @@ std::vector<uint8_t> TagDetectionMsg::serialize(const TagDetectionMsg& msg) {
     BinOStream buffer;
     buffer << msg.msg_id;
     buffer << msg.timestamp;
+
+    // camera serial number
+    buffer << msg.camera_serial;
 
     // pose
     buffer << msg.x_pos;
@@ -54,6 +58,9 @@ TagDetectionMsg TagDetectionMsg::deserialize(const std::vector<uint8_t>& data) {
 
     buffer >> msg.msg_id;
     buffer >> msg.timestamp;
+
+    // camera serial number
+    buffer >> msg.camera_serial;
 
     // pose
     buffer >> msg.x_pos;

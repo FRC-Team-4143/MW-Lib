@@ -14,6 +14,9 @@ struct ProxyVisionDetection {
     int32_t sec{ 0 };
     int32_t nanosec{ 0 };
 
+    // Camera serial number / identifier
+    std::string camera_serial;
+
     int32_t detection_count;  ///< Number of detections to expect in total
     int32_t detection_idx;    ///< Index of the detection
 

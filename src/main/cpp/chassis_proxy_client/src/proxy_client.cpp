@@ -125,7 +125,8 @@ void ProxyClientNode::tagSolutionCb(localization_msgs::msg::TagSolution::ConstSh
     // now send it to the server
     TagDetectionMsg proxy_msg;
     proxy_msg.loadFromMsg(msg->detected_tags, base_pose,
-                          TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_));
+                          TimeStamp::fromRosTime(msg->header.stamp).offsetBy(clock_offset_sec_),
+                          msg->header.frame_id);
     udp_server_->sendMsg(proxy_msg);
 }
 
@@ -190,6 +191,7 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
         ProxyVisionDetection proxy_msg;
         proxy_msg.sec = msg->header.stamp.sec;
         proxy_msg.nanosec = msg->header.stamp.nanosec;
+        proxy_msg.camera_serial = msg->header.frame_id;
         proxy_msg.detection_count = 0;
         udp_server_->sendMsg(proxy_msg);
 
@@ -217,6 +219,7 @@ void ProxyClientNode::detectionsCb(vision_msgs::msg::Detection2DArray::ConstShar
         ProxyVisionDetection proxy_msg;
         proxy_msg.sec = msg->header.stamp.sec;
         proxy_msg.nanosec = msg->header.stamp.nanosec;
+        proxy_msg.camera_serial = msg->header.frame_id;
         proxy_msg.detection_count = 1;
         proxy_msg.detection_idx = 0;
         proxy_msg.class_id = class_id;
