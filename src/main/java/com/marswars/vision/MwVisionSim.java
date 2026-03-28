@@ -366,11 +366,15 @@ public class MwVisionSim {
                 (int)((timestamp_micros % 1_000_000) * 1000)
             );
             
+            // Get camera name as serial identifier
+            String cameraSerial = cam_sim.camera.getName();
+            
             // Create TagSolutionData
             TagSolutionPacket.TagSolutionData solution = new TagSolutionPacket.TagSolutionData(
                 estimated_pose,
                 detected_ids,
-                timestamp
+                timestamp,
+                cameraSerial
             );
             
             solutions.add(solution);

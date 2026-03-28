@@ -9,6 +9,7 @@ std::vector<uint8_t> ProxyVisionDetection::serialize(const ProxyVisionDetection&
     buffer << msg.msg_id;
     buffer << msg.sec;
     buffer << msg.nanosec;
+    buffer << msg.camera_serial;
     buffer << msg.detection_count;
     buffer << msg.detection_idx;
     buffer << msg.class_id;
@@ -28,6 +29,7 @@ ProxyVisionDetection ProxyVisionDetection::deserialize(const std::vector<uint8_t
     buffer >> msg.msg_id;
     buffer >> msg.sec;
     buffer >> msg.nanosec;
+    buffer >> msg.camera_serial;
     buffer >> msg.detection_count;
     buffer >> msg.detection_idx;
     buffer >> msg.class_id;

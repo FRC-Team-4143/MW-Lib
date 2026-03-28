@@ -60,6 +60,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link #getConnectedClientCount()} to get the number of active clients, and
  * {@link #getTimeSinceLastPacket()} to get time since last received packet from any client.
  * 
+ * <h2>Camera Tracking</h2>
+ * The proxy server tracks individual cameras by their serial number (extracted from vision packets).
+ * Each camera gets its own connection monitoring and alert that includes both the camera serial
+ * and the client it's connected to for easy debugging. Cameras are considered disconnected if no
+ * vision packets (tag solutions or piece detections) are received within 2 seconds.
+ * <p>
+ * Use {@link #getConnectedCameraCount()} to get the number of active cameras,
+ * {@link #getCameraSerials()} to list all tracked cameras, and
+ * {@link #isCameraConnected(String)} to check if a specific camera is connected.
+ * 
  * <h2>PhotonVision Simulation Support</h2>
  * In simulation mode, this class can use PhotonVision simulation to generate 
  * simulated vision data that populates the tagSolutions queue, allowing you to 
@@ -129,7 +139,7 @@ public class ProxyServerThread extends Thread {
     private final int TIMEOUT = 1; // Server receive blocking timeout
     
     // Multi-client connection tracking
-    private static final double CONNECTION_TIMEOUT_SECONDS = 1.0; // Consider disconnected after 1 second
+    private static final double CONNECTION_TIMEOUT_SECONDS = 5.0; // Consider disconnected after 5 seconds
     private final Map<String, ClientConnection> clients_ = new ConcurrentHashMap<>();
     private SocketAddress last_client_address_ = null; // For backward compatibility with sendData()
     
@@ -168,6 +178,48 @@ public class ProxyServerThread extends Thread {
             double current_time = Timer.getFPGATimestamp();
             double time_since_last_packet = current_time - last_packet_time;
             boolean is_receiving = time_since_last_packet < CONNECTION_TIMEOUT_SECONDS;
+            connected = debouncer.calculate(is_receiving);
+            alert.set(!connected);
+        }
+    }
+    
+    // Camera connection tracking (per camera serial number)
+    private static final double CAMERA_TIMEOUT_SECONDS = 2.0; // Consider camera disconnected after 2 seconds
+    private final Map<String, CameraConnection> cameras_ = new ConcurrentHashMap<>();
+    private boolean has_camera_ever_connected_ = false; // Track if any camera has ever connected
+    private final Alert no_cameras_alert_ = new Alert("Proxy Server: No cameras connected", AlertType.kWarning);
+    
+    /**
+     * Tracks connection state for an individual camera (identified by serial number)
+     */
+    private static class CameraConnection {
+        final String cameraSerial;
+        final String clientName; // Which client this camera is connected to
+        double last_packet_time;
+        final Debouncer debouncer;
+        boolean connected;
+        final Alert alert;
+        
+        CameraConnection(String cameraSerial, String clientName) {
+            this.cameraSerial = cameraSerial;
+            this.clientName = clientName;
+            this.last_packet_time = Timer.getFPGATimestamp();
+            this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
+            this.connected = true; // Start as connected when first packet received
+            // Create alert with camera-specific name including client for debugging
+            this.alert = new Alert("Proxy Server: Lost camera '" + cameraSerial + 
+                                 "' from client " + clientName, AlertType.kWarning);
+        }
+        
+        void updatePacketReceived() {
+            this.last_packet_time = Timer.getFPGATimestamp();
+            DogLog.log("/Proxy/Camera/" + cameraSerial + "/LastPacketTime", last_packet_time);
+        }
+        
+        void updateConnectionStatus() {
+            double current_time = Timer.getFPGATimestamp();
+            double time_since_last_packet = current_time - last_packet_time;
+            boolean is_receiving = time_since_last_packet < CAMERA_TIMEOUT_SECONDS;
             connected = debouncer.calculate(is_receiving);
             alert.set(!connected);
         }
@@ -268,7 +320,6 @@ public class ProxyServerThread extends Thread {
             // Get or create client connection tracker
             ClientConnection client = clients_.computeIfAbsent(client_key, 
                 k -> new ClientConnection(client_address));
-            client.updatePacketReceived(packet_id);
 
             // Determine packet type from first byte of buffer
             switch (packet_id) {
@@ -282,14 +333,22 @@ public class ProxyServerThread extends Thread {
                     break;
                 // AprilTag Solution Packet Type
                 case TagSolutionPacket.TYPE_ID: // const uint8_t msg_id{ 15u };
-                    tag_solutions_.add(TagSolutionPacket.updateData(buffer));
+                    TagSolutionPacket.TagSolutionData tag_data = TagSolutionPacket.updateData(buffer);
+                    tag_solutions_.add(tag_data);
+                    // Update camera connection tracking
+                    updateCameraConnection(tag_data.cameraSerial, client.name);
                     break;
                 // Piece Detection Packet Type
                 case PieceDetectionPacket.TYPE_ID: // const uint8_t msg_id{ 10u };
-                    piece_detections_.add(PieceDetectionPacket.updateData(buffer));
+                    PieceDetectionPacket.PieceDetectionData piece_data = PieceDetectionPacket.updateData(buffer);
+                    piece_detections_.add(piece_data);
+                    // Update camera connection tracking
+                    updateCameraConnection(piece_data.cameraSerial, client.name);
                     break;
                 // Timesync Request Packet Type
                 case TimesyncRequest.TYPE_ID: // const uint8_t msg_id{ 60u };
+                    // Update client connection status only for timesync requests
+                    client.updatePacketReceived(packet_id);
                     // Parse request and send response
                     TimesyncRequestData timesync_request = TimesyncRequest.updateData(buffer);
                     sendTimesyncResponse(timesync_request);
@@ -312,7 +371,29 @@ public class ProxyServerThread extends Thread {
     }
 
     /**
-     * Updates the connection status for all tracked clients.
+     * Updates or creates camera connection tracking when vision packets are received.
+     * 
+     * @param cameraSerial the camera serial number/identifier
+     * @param clientName the name of the client that sent the packet
+     */
+    private void updateCameraConnection(String cameraSerial, String clientName) {
+        if (cameraSerial == null || cameraSerial.isEmpty()) {
+            return; // Skip if no camera serial provided
+        }
+        
+        // Mark that we've had at least one camera connection
+        if (!has_camera_ever_connected_) {
+            has_camera_ever_connected_ = true;
+        }
+        
+        // Get or create camera connection tracker
+        CameraConnection camera = cameras_.computeIfAbsent(cameraSerial, 
+            k -> new CameraConnection(cameraSerial, clientName));
+        camera.updatePacketReceived();
+    }
+
+    /**
+     * Updates the connection status for all tracked clients and cameras.
      * Uses a debouncer to prevent alert flapping and sets a warning alert when
      * connection is lost. Should be called periodically from the run loop.
      */
@@ -322,9 +403,18 @@ public class ProxyServerThread extends Thread {
             client.updateConnectionStatus();
         }
         
+        // Update connection status for each camera
+        for (CameraConnection camera : cameras_.values()) {
+            camera.updateConnectionStatus();
+        }
+        
         // Show "no clients" alert only if no client has ever connected
         // Once a client connects, switch to per-client disconnection alerts
         no_clients_alert_.set(!has_ever_connected_ && clients_.isEmpty());
+        
+        // Show "no cameras" alert only if no camera has ever connected
+        // Once a camera connects, switch to per-camera disconnection alerts
+        no_cameras_alert_.set(!has_camera_ever_connected_ && cameras_.isEmpty());
     }
 
     /**
@@ -366,6 +456,49 @@ public class ProxyServerThread extends Thread {
             .mapToDouble(c -> Timer.getFPGATimestamp() - c.last_packet_time)
             .min()
             .orElse(Double.MAX_VALUE);
+    }
+
+    /**
+     * Gets the number of currently connected cameras.
+     * 
+     * @return number of cameras with active connections
+     */
+    public int getConnectedCameraCount() {
+        return (int) cameras_.values().stream().filter(c -> c.connected).count();
+    }
+
+    /**
+     * Gets a list of all tracked camera serial numbers (both connected and disconnected).
+     * 
+     * @return list of camera serial numbers
+     */
+    public List<String> getCameraSerials() {
+        return new ArrayList<>(cameras_.keySet());
+    }
+
+    /**
+     * Checks if a specific camera is currently connected.
+     * 
+     * @param cameraSerial the camera serial number to check
+     * @return true if the camera is connected, false otherwise
+     */
+    public boolean isCameraConnected(String cameraSerial) {
+        CameraConnection camera = cameras_.get(cameraSerial);
+        return camera != null && camera.connected;
+    }
+
+    /**
+     * Gets the time elapsed since the last packet was received from a specific camera.
+     * 
+     * @param cameraSerial the camera serial number
+     * @return seconds since last packet from the camera, or Double.MAX_VALUE if camera not found
+     */
+    public double getTimeSinceLastCameraPacket(String cameraSerial) {
+        CameraConnection camera = cameras_.get(cameraSerial);
+        if (camera == null) {
+            return Double.MAX_VALUE;
+        }
+        return Timer.getFPGATimestamp() - camera.last_packet_time;
     }
 
     /**
