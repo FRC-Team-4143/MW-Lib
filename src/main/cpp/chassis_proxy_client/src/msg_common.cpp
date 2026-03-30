@@ -19,11 +19,11 @@ BinIStream& BinIStream::operator>>(double& v) {
 }
 
 BinIStream& BinIStream::operator>>(std::string& v){
-    uint16_t str_size;
+    int16_t str_size;
     (*this) >> str_size;
     str_size = ntohs(str_size);
     char c;
-    for(uint16_t i = 0; i < str_size; i++){
+    for(int16_t i = 0; i < str_size; i++){
         (*this) >> c;
         v += c;
     }
@@ -106,8 +106,8 @@ BinOStream& BinOStream::operator<<(const double & v) {
 }
 
 BinOStream& BinOStream::operator<<(const std::string& v){
-    uint16_t str_size = htons(v.size());
-    oss.write((char*)&str_size, sizeof(uint16_t));
+    int16_t str_size = htons(v.size());
+    oss.write((char*)&str_size, sizeof(int16_t));
     for(char c : v){
         oss.write((char*)&c, sizeof(char));
     }
