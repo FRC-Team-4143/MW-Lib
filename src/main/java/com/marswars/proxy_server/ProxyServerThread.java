@@ -157,6 +157,8 @@ public class ProxyServerThread extends Thread {
         final Debouncer debouncer;
         boolean connected;
         final Alert alert;
+        final Alert no_cameras_alert;
+        boolean has_camera_ever_connected; // Track if this client has ever had a camera
         
         ClientConnection(SocketAddress address) {
             this.address = address;
@@ -166,6 +168,8 @@ public class ProxyServerThread extends Thread {
             // Create alert with client-specific name. strip just the address for readability (e.g. "
             this.name = address.toString().replaceAll("[/:]", "_"); // Sanitize for logging
             this.alert = new Alert("Proxy Server: Lost connection to " + name, AlertType.kError);
+            this.no_cameras_alert = new Alert("Proxy Server: No cameras from " + name, AlertType.kError);
+            this.has_camera_ever_connected = false;
         }
         
         void updatePacketReceived(int packet_id) {
@@ -186,23 +190,21 @@ public class ProxyServerThread extends Thread {
     // Camera connection tracking (per camera serial number)
     private static final double CAMERA_TIMEOUT_SECONDS = 2.0; // Consider camera disconnected after 2 seconds
     private final Map<String, CameraConnection> cameras_ = new ConcurrentHashMap<>();
-    private boolean has_camera_ever_connected_ = false; // Track if any camera has ever connected
-    private final Alert no_cameras_alert_ = new Alert("Proxy Server: No cameras connected", AlertType.kError);
     
     /**
      * Tracks connection state for an individual camera (identified by serial number)
      */
     private static class CameraConnection {
         final String cameraSerial;
-        final String clientName; // Which client this camera is connected to
+        final String clientKey; // Which client this camera is connected to
         double last_packet_time;
         final Debouncer debouncer;
         boolean connected;
         final Alert alert;
         
-        CameraConnection(String cameraSerial, String clientName) {
+        CameraConnection(String cameraSerial, String clientKey, String clientName) {
             this.cameraSerial = cameraSerial;
-            this.clientName = clientName;
+            this.clientKey = clientKey;
             this.last_packet_time = Timer.getFPGATimestamp();
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
@@ -358,14 +360,14 @@ public class ProxyServerThread extends Thread {
                     TagSolutionPacket.TagSolutionData tag_data = TagSolutionPacket.updateData(buffer);
                     tag_solutions_.add(tag_data);
                     // Update camera connection tracking
-                    updateCameraConnection(tag_data.cameraSerial, client.name);
+                    updateCameraConnection(tag_data.cameraSerial, client_key, client.name);
                     break;
                 // Piece Detection Packet Type
                 case PieceDetectionPacket.TYPE_ID: // const uint8_t msg_id{ 10u };
                     PieceDetectionPacket.PieceDetectionData piece_data = PieceDetectionPacket.updateData(buffer);
                     piece_detections_.add(piece_data);
                     // Update camera connection tracking
-                    updateCameraConnection(piece_data.cameraSerial, client.name);
+                    updateCameraConnection(piece_data.cameraSerial, client_key, client.name);
                     break;
                 // Timesync Request Packet Type
                 case TimesyncRequest.TYPE_ID: // const uint8_t msg_id{ 60u };
@@ -396,21 +398,23 @@ public class ProxyServerThread extends Thread {
      * Updates or creates camera connection tracking when vision packets are received.
      * 
      * @param cameraSerial the camera serial number/identifier
+     * @param clientKey the key of the client that sent the packet
      * @param clientName the name of the client that sent the packet
      */
-    private void updateCameraConnection(String cameraSerial, String clientName) {
+    private void updateCameraConnection(String cameraSerial, String clientKey, String clientName) {
         if (cameraSerial == null || cameraSerial.isEmpty()) {
             return; // Skip if no camera serial provided
         }
         
-        // Mark that we've had at least one camera connection
-        if (!has_camera_ever_connected_) {
-            has_camera_ever_connected_ = true;
+        // Get the client connection and mark that this client has had a camera
+        ClientConnection client = clients_.get(clientKey);
+        if (client != null && !client.has_camera_ever_connected) {
+            client.has_camera_ever_connected = true;
         }
         
         // Get or create camera connection tracker
         CameraConnection camera = cameras_.computeIfAbsent(cameraSerial, 
-            k -> new CameraConnection(cameraSerial, clientName));
+            k -> new CameraConnection(cameraSerial, clientKey, clientName));
         camera.updatePacketReceived();
     }
 
@@ -423,6 +427,19 @@ public class ProxyServerThread extends Thread {
         // Update connection status for each client
         for (ClientConnection client : clients_.values()) {
             client.updateConnectionStatus();
+            
+            // Update per-client "no cameras" alert
+            // Show alert only if this client has connected but has never had any cameras
+            // Once a camera connects to this client, switch to per-camera disconnection alerts
+            String client_key = client.address.toString();
+            boolean has_any_camera = cameras_.values().stream()
+                .anyMatch(cam -> cam.clientKey.equals(client_key) && cam.connected);
+            
+            // Show "no cameras" alert if:
+            // 1. Client is connected
+            // 2. Client has never had a camera
+            // 3. Client currently has no connected cameras
+            client.no_cameras_alert.set(client.connected && !client.has_camera_ever_connected && !has_any_camera);
         }
         
         // Update connection status for each camera
@@ -433,10 +450,6 @@ public class ProxyServerThread extends Thread {
         // Show "no clients" alert only if no client has ever connected
         // Once a client connects, switch to per-client disconnection alerts
         no_clients_alert_.set(!has_ever_connected_ && clients_.isEmpty());
-        
-        // Show "no cameras" alert only if no camera has ever connected
-        // Once a camera connects, switch to per-camera disconnection alerts
-        no_cameras_alert_.set(!has_camera_ever_connected_ && cameras_.isEmpty());
     }
 
     /**
