@@ -70,6 +70,7 @@ public class ElevatorMech extends MechBase {
     private final double gear_ratio_;
     private final double drum_radius_;
     private final double position_to_rotations_;
+    private final double rotations_to_position_;
     private final DCMotor motor_type_;
     private double sim_load_torque_nm_ = 0.0; // Load torque at drum shaft for simulation
 
@@ -287,6 +288,7 @@ public class ElevatorMech extends MechBase {
         this.gear_ratio_ = gear_ratio;
         this.drum_radius_ = drum_radius;
         this.position_to_rotations_ = 1 / (2.0 * Math.PI * drum_radius_);
+        this.rotations_to_position_ = 2.0 * Math.PI * drum_radius_;
 
         // default the inputs
         position_ = 0;
@@ -376,9 +378,9 @@ public class ElevatorMech extends MechBase {
         BaseStatusSignal.refreshAll(signals_);
 
         // always read the sensor data
-        position_ = position_to_rotations_ * motors_[0].getPosition().getValue().in(Rotations);
+        position_ = rotations_to_position_ * motors_[0].getPosition().getValue().in(Rotations);
         velocity_ =
-                position_to_rotations_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
+                rotations_to_position_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
         for (int i = 0; i < motors_.length; i++) {
             applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
             current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
@@ -575,7 +577,7 @@ public class ElevatorMech extends MechBase {
     public void setTargetPosition(double position_m) {
         position_target_ = position_m;
         control_mode_ = ControlMode.POSITION;
-        position_request_.Position = position_m / position_to_rotations_;
+        position_request_.Position = position_m * position_to_rotations_;
         position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
@@ -589,7 +591,7 @@ public class ElevatorMech extends MechBase {
     public void setTargetPositionWithFF(double position_m, double arbitrary_feedforward) {
         position_target_ = position_m;
         control_mode_ = ControlMode.POSITION;
-        position_request_.Position = position_m / position_to_rotations_;
+        position_request_.Position = position_m * position_to_rotations_;
         position_request_.FeedForward = arbitrary_feedforward;
     }
 
@@ -601,7 +603,7 @@ public class ElevatorMech extends MechBase {
     public void setTargetPositionMotionProfile(double position_m) {
         position_target_ = position_m;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
-        motion_magic_position_request_.Position = position_m / position_to_rotations_;
+        motion_magic_position_request_.Position = position_m * position_to_rotations_;
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
@@ -615,7 +617,7 @@ public class ElevatorMech extends MechBase {
     public void setTargetPositionMotionProfileWithFF(double position_m, double arbitrary_feedforward) {
         position_target_ = position_m;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
-        motion_magic_position_request_.Position = position_m / position_to_rotations_;
+        motion_magic_position_request_.Position = position_m * position_to_rotations_;
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }
 
@@ -627,7 +629,7 @@ public class ElevatorMech extends MechBase {
     public void setTargetVelocity(double velocity_mps) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_mps;
-        velocity_request_.Velocity = velocity_mps / position_to_rotations_;
+        velocity_request_.Velocity = velocity_mps * position_to_rotations_;
     }
 
     /**
