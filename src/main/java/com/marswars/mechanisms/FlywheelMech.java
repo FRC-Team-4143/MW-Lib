@@ -8,6 +8,7 @@ import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.Slot1Configs;
 import com.ctre.phoenix6.configs.SlotConfigs;
@@ -420,5 +421,13 @@ public class FlywheelMech extends MechBase {
      */
     public void applyLoadTorque(double torque_nm) {
         sim_load_torque_nm_ = torque_nm;
+    }
+    /**
+     * Sets the current limits for all motors in the mechanism.
+     *
+     * @param currentLimits the current limits configuration to apply
+     */
+    public void setCurrentLimits(CurrentLimitsConfigs currentLimits) {
+        setMotorCurrentLimit(currentLimits, motors_);
     }
 }

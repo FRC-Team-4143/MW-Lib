@@ -1,6 +1,7 @@
 package com.marswars.mechanisms;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXSConfiguration;
 import com.ctre.phoenix6.configs.TalonFXSConfigurator;
@@ -172,6 +173,7 @@ public abstract class MechBase implements SubsystemIoBase {
 
         return constructed;
     }
+    
 
     /**
      * Configures the motors based on the given motor configs.
@@ -184,4 +186,15 @@ public abstract class MechBase implements SubsystemIoBase {
             List<MotorConfig> motor_configs, double sensor_to_mech_ratio) {
         return configMotors(motor_configs, sensor_to_mech_ratio, null);
     }
+    protected void setMotorCurrentLimit(CurrentLimitsConfigs currentLimits, CommonTalon[] motors) {
+        for (int i = 0; i< motors.length; i++) {
+            if (motors[i] instanceof TalonFX) {
+                ((TalonFX) motors[i]).getConfigurator().apply(currentLimits);
+            } else if (motors[i] instanceof TalonFXS) {
+                ((TalonFXS) motors[i]).getConfigurator().apply(currentLimits);
+            } else {
+                throw new IllegalArgumentException("Unsupported motor type for current limiting");
+            }
+        }
+    }   
 }
