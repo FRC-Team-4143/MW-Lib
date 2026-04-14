@@ -2,7 +2,6 @@ package com.marswars.mechanisms;
 
 import java.util.List;
 
-
 /**
  * Roller-based mechanism configured for turret control.
  */
