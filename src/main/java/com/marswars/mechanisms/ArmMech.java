@@ -25,6 +25,7 @@ import com.ctre.phoenix6.hardware.TalonFXS;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import dev.doglog.DogLog;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
@@ -46,7 +47,8 @@ public class ArmMech extends MechBase {
         MOTION_PROFILE_POSITION,
         POSITION,
         VELOCITY,
-        DUTY_CYCLE
+        DUTY_CYCLE,
+        CURRENT
     }
 
     private ControlMode control_mode_ = ControlMode.DUTY_CYCLE;
@@ -60,7 +62,9 @@ public class ArmMech extends MechBase {
     protected final MotionMagicVoltage motion_magic_position_request_;
     private final VelocityVoltage velocity_request_;
     private final DutyCycleOut duty_cycle_request_;
+    private final DutyCycleOut current_request_;
     protected final BaseStatusSignal[] signals_;
+    private final PIDController current_pid_;
 
     // Alerts for motor monitoring
     protected final Alert[] motor_disconnected_alerts_;
@@ -80,6 +84,7 @@ public class ArmMech extends MechBase {
     protected double velocity_ = 0;
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
+    protected double current_target_ = 0;
     protected double[] applied_voltage_;
     protected double[] current_draw_;
     protected double[] motor_temp_c_;
@@ -186,6 +191,7 @@ public class ArmMech extends MechBase {
         motion_magic_position_request_ = new MotionMagicVoltage(0).withSlot(0);
         velocity_request_ = new VelocityVoltage(0).withSlot(1);
         duty_cycle_request_ = new DutyCycleOut(0);
+        current_request_ = new DutyCycleOut(0);
 
         // MW-Lib convention: gear_ratio is motor/mechanism
         // Phoenix convention: SensorToMechanismRatio = sensor/mechanism = motor/mechanism
@@ -274,15 +280,19 @@ public class ArmMech extends MechBase {
         // Setup tunable PIDs
         SlotConfigs slot0Config;
         SlotConfigs slot1Config;
+        SlotConfigs slot2Configs;
         if (motor_configs.get(0).isFXS()) {
             TalonFXSConfiguration fxsConfig = motor_configs.get(0).getAsFXSConfig();
             slot0Config = SlotConfigs.from(fxsConfig.Slot0);
             slot1Config = SlotConfigs.from(fxsConfig.Slot1);
+            slot2Configs = SlotConfigs.from(fxsConfig.Slot2);
         } else {
             TalonFXConfiguration fxConfig = motor_configs.get(0).getAsFXConfig();
             slot0Config = SlotConfigs.from(fxConfig.Slot0);
             slot1Config = SlotConfigs.from(fxConfig.Slot1);
+            slot2Configs = SlotConfigs.from(fxConfig.Slot2);
         }
+        current_pid_ = new PIDController(slot2Configs.kP, slot2Configs.kI, slot2Configs.kD);
         
         TunablePid.create(
                 getLoggingKey() + "PositionGains",
@@ -298,6 +308,9 @@ public class ArmMech extends MechBase {
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
         DogLog.tunable(
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
+        TunablePid.create("CurrentGains", current_pid_);
+        DogLog.tunable(
+                getLoggingKey() + "Current/Setpoint", 0.0, (val) -> setTargetCurrent(val));
     }
 
     /** {@inheritDoc} */
@@ -402,6 +415,15 @@ public class ArmMech extends MechBase {
             case DUTY_CYCLE:
                 motors_[0].setControl(duty_cycle_request_);
                 break;
+            case CURRENT:
+                // For current control, we will use the PID controller to calculate the required voltage
+                double current_error = current_target_ - current_draw_[0];
+                double voltage_output = current_pid_.calculate(current_error);
+                // Clamp the voltage output to the max voltage of the system (e.g., 12V)
+                voltage_output = Math.max(-12.0, Math.min(12.0, voltage_output));
+                current_request_.Output = voltage_output / 12.0; // Convert to duty cycle
+                motors_[0].setControl(current_request_);
+                break;
             default:
                 throw new IllegalStateException("Unexpected control mode: " + control_mode_);
         }
@@ -418,6 +440,8 @@ public class ArmMech extends MechBase {
         DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
         DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, Percent);
+        DogLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
+        DogLog.log(getLoggingKey() + "control/current/actual", current_draw_[0], Amps);
 
         // per motor data
         for (int i = 0; i < motors_.length; i++) {
@@ -465,6 +489,12 @@ public class ArmMech extends MechBase {
             } else if (motors_[0] instanceof TalonFXS) {
                 ((TalonFXS) motors_[0]).getConfigurator().apply(Slot1Configs.from(config));
             }
+        } else if (slot == 2) {
+            // Slot 2 is used for current control PID, so we don't apply it to the motor controller
+            // Instead, we just update our PID controller gains
+            current_pid_.setP(config.kP);
+            current_pid_.setI(config.kI);
+            current_pid_.setD(config.kD);
         } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");
         }
@@ -534,6 +564,16 @@ public class ArmMech extends MechBase {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
         duty_cycle_request_.Output = duty_cycle;
+    }
+
+    /**
+     * Sets the target current of the arm in amps
+     *
+     * @param current_amps the target current in amps
+     */
+    public void setTargetCurrent(double current_amps) {
+        control_mode_ = ControlMode.CURRENT;
+        current_target_ = current_amps;
     }
 
     /** {@inheritDoc} */
