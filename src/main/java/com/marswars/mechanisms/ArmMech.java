@@ -32,6 +32,9 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
+import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
@@ -77,6 +80,8 @@ public class ArmMech extends MechBase {
     private final DCMotor motor_type_;
     private final double moi_;
     private double sim_load_torque_nm_ = 0.0; // Load torque at arm shaft for simulation
+    private final Mechanism2d mech2d_;
+    private final MechanismLigament2d arm_ligament_;
 
     // sensor inputs
     protected double position_ = 0;
@@ -276,6 +281,10 @@ public class ArmMech extends MechBase {
                 gravity_compensate, // Simulate gravity
                 0 // Starting angle (radians)
         );
+        mech2d_ = new Mechanism2d((length * 2) + 0.5 ,(length * 2) + 0.);
+        arm_ligament_ = mech2d_.getRoot("Base", length, length).append(new MechanismLigament2d("Arm", length, min_angle));
+        SmartDashboard.putData(getLoggingKey() + "mech2d", mech2d_);
+
 
         // Setup tunable PIDs
         SlotConfigs slot0Config;
@@ -331,6 +340,7 @@ public class ArmMech extends MechBase {
             motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
             motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
         }
+        arm_ligament_.setAngle(Units.radiansToDegrees(position_));
 
         // run the simulation update step here if we are simulating
         if (IS_SIM) {

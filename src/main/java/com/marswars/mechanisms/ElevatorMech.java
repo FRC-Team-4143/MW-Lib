@@ -31,6 +31,9 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.simulation.ElevatorSim;
+import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
+import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
@@ -78,6 +81,8 @@ public class ElevatorMech extends MechBase {
     private final double rotations_to_position_;
     private final DCMotor motor_type_;
     private double sim_load_torque_nm_ = 0.0; // Load torque at drum shaft for simulation
+    private final Mechanism2d mech2d_;
+    private final MechanismLigament2d elevator_ligament_;
 
     // sensor inputs
     protected double position_ = 0;
@@ -349,6 +354,9 @@ public class ElevatorMech extends MechBase {
                         is_vertical, // Simulate gravity
                         0 // Starting height (m)
                         );
+        mech2d_ = new Mechanism2d(0.5 ,max_extension + 0.5);
+        elevator_ligament_ = mech2d_.getRoot("Base", 0.25, 0).append(new MechanismLigament2d("Elevator", 0, 90));
+        SmartDashboard.putData(getLoggingKey() + "mech2d", mech2d_);
 
         // Setup tunable PIDs
         SlotConfigs slot0Config;
@@ -405,6 +413,7 @@ public class ElevatorMech extends MechBase {
             motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
             motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
         }
+        elevator_ligament_.setLength(position_);
 
         // run the simulation update step here if we are simulating
         if (IS_SIM) {
