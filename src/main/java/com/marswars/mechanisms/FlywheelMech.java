@@ -213,9 +213,9 @@ public class FlywheelMech extends MechBase {
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
         DogLog.tunable(
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
-        TunablePid.create("CurrentGains", current_pid_);
+        TunablePid.create(getLoggingKey() + "CurrentGains", current_pid_);
         DogLog.tunable(
-                getLoggingKey() + "Current/Setpoint", 0.0, (val) -> setTargetCurrent(val));
+                getLoggingKey() + "CurrentGains/Setpoint", 0.0, (val) -> setTargetCurrent(val));
     }
 
     /** {@inheritDoc} */
