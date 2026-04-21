@@ -490,8 +490,7 @@ public class ElevatorMech extends MechBase {
                 break;
             case CURRENT:
                 // For current control, we will use the PID controller to calculate the required voltage
-                double current_error = current_target_ - current_draw_[0];
-                double voltage_output = current_pid_.calculate(current_error);
+                double voltage_output = current_pid_.calculate(current_draw_[0], current_target_);
                 // Clamp the voltage output to the max voltage of the system (e.g., 12V)
                 voltage_output = Math.max(-12.0, Math.min(12.0, voltage_output));
                 current_request_.Output = voltage_output / 12.0; // Convert to duty cycle
