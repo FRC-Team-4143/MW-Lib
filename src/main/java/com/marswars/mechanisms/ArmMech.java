@@ -426,7 +426,7 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double voltage_output = current_pid_.calculate(current_draw_[0], current_target_);
+                double voltage_output = Math.copySign(current_pid_.calculate(current_draw_[0], Math.abs(current_target_)), current_target_);
                 // Clamp the voltage output to the max voltage of the system (e.g., 12V)
                 voltage_output = Math.max(-12.0, Math.min(12.0, voltage_output));
                 current_request_.Output = voltage_output / 12.0; // Convert to duty cycle
