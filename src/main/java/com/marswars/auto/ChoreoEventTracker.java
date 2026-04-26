@@ -18,14 +18,11 @@ import java.util.function.Supplier;
  */
 public class ChoreoEventTracker {
     private final Map<String, Boolean> event_passed_map_;
-    private final Map<String, Double> event_timestamp_map_;
-    private final Map<String, Pose2d> event_pose_map_;
     private final Map<String, Trigger> event_triggers_;
     private final String log_key_;
 
-    private Trajectory<SwerveSample> current_trajectory_;
+    private ChoreoTrajectory current_trajectory_;
     private Supplier<Pose2d> robot_pose_supplier_;
-    private boolean flip_for_red_;
     private double current_time_;
     private boolean is_active_;
 
@@ -37,8 +34,6 @@ public class ChoreoEventTracker {
      */
     public ChoreoEventTracker(String log_key, Supplier<Pose2d> robot_pose_supplier) {
         event_passed_map_ = new HashMap<>();
-        event_timestamp_map_ = new HashMap<>();
-        event_pose_map_ = new HashMap<>();
         event_triggers_ = new HashMap<>();
         log_key_ = log_key;
         robot_pose_supplier_ = robot_pose_supplier;
@@ -53,29 +48,12 @@ public class ChoreoEventTracker {
      * @param trajectory The trajectory containing the events
      * @param flip_for_red Whether to flip the trajectory for red alliance
      */
-    public void setEvents(Trajectory<SwerveSample> trajectory, boolean flip_for_red) {
+    public void setEvents(ChoreoTrajectory trajectory) {
         current_trajectory_ = trajectory;
-        flip_for_red_ = flip_for_red;
 
         // Clear existing maps
         event_passed_map_.clear();
-        event_timestamp_map_.clear();
-        event_pose_map_.clear();
         event_triggers_.clear();
-
-        // Populate maps with new events
-        List<EventMarker> events = trajectory.events();
-        for (EventMarker event : events) {
-            String eventName = event.event != null ? event.event : "unnamed";
-            event_passed_map_.put(eventName, false);
-            event_timestamp_map_.put(eventName, event.timestamp);
-
-            // Get the pose at this event's timestamp
-            var sample = trajectory.sampleAt(event.timestamp, flip_for_red);
-            if (sample.isPresent()) {
-                event_pose_map_.put(eventName, sample.get().getPose());
-            }
-        }
 
         current_time_ = 0.0;
         is_active_ = false;
@@ -98,7 +76,7 @@ public class ChoreoEventTracker {
         current_time_ = trajectory_time;
 
         // Check each event to see if it should be marked as passed
-        for (Map.Entry<String, Double> entry : event_timestamp_map_.entrySet()) {
+        for (Map.Entry<String, Double> entry : current_trajectory_.getEventTimestampMap().entrySet()) {
             String event_name = entry.getKey();
             double event_timestamp = entry.getValue();
 
@@ -164,7 +142,7 @@ public class ChoreoEventTracker {
                     }
 
                     // Check pose only (no time requirement)
-                    Pose2d event_pose = event_pose_map_.get(event_name);
+                    Pose2d event_pose = current_trajectory_.getEventPoseMap().get(event_name);
                     if (event_pose == null) {
                         return false;
                     }
@@ -197,7 +175,7 @@ public class ChoreoEventTracker {
      * @return The pose at the event, or null if not found
      */
     public Pose2d getEventPose(String event_name) {
-        return event_pose_map_.get(event_name);
+        return current_trajectory_.getEventPoseMap().get(event_name);
     }
 
     /**
@@ -220,7 +198,7 @@ public class ChoreoEventTracker {
      * @return The timestamp of the event, or -1 if not found
      */
     public double getEventTimestamp(String event_name) {
-        return event_timestamp_map_.getOrDefault(event_name, -1.0);
+        return current_trajectory_.getEventTimestampMap().getOrDefault(event_name, -1.0);
     }
 
     /**

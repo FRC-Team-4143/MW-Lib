@@ -41,24 +41,24 @@ public class AutoManager {
     Auto doNothing = new Auto();
     doNothing.addCommands(Commands.waitSeconds(30));
     auto_chooser_.setDefaultOption("Do_Nothing", doNothing);
-    
+
     // Bind a callback on selected change to display auto
     auto_chooser_.onChange((auto) -> {
-      visualizeAuto(auto);
+      onSelectedAutoChange();
     });
 
     // Trigger to detect driver station attachment
-    ds_trigger_.onTrue(Commands.runOnce(()-> {
-      Auto selected_auto = getSelectedAuto();
-      visualizeAuto(selected_auto);
+    ds_trigger_.onTrue(Commands.runOnce(() -> {
+      onSelectedAutoChange();
     }));
 
-    // Put the auto chooser and auto display on the dashboard once during initialization
+    // Put the auto chooser and auto display on the dashboard once during
+    // initialization
     SmartDashboard.putData("Auto Chooser", auto_chooser_);
     SmartDashboard.putData("Selected Auto Path", auto_display);
   }
 
-  /** 
+  /**
    * Register multiple auto routines to the chooser
    * 
    * @param autos Varargs of Auto routines to register
@@ -69,7 +69,7 @@ public class AutoManager {
     }
   }
 
-  /** 
+  /**
    * Get the selected auto routine
    * 
    * @return The selected Auto as a command sequence
@@ -80,22 +80,34 @@ public class AutoManager {
     return auto;
   }
 
+  public void onSelectedAutoChange() {
+    // determine what auto we select
+    Auto selected_auto = getSelectedAuto();
+
+    // determine our alliance for path flipping
+    Optional<Alliance> alliance = DriverStation.getAlliance();
+
+    if (alliance.isEmpty()) {
+      DataLogManager.log("Alliance not yet determined; cannot visualize auto path");
+      return;
+    }
+
+    // hot load its paths
+    selected_auto.cacheTrajetories(alliance.get() == Alliance.Red);
+
+    // update the dashboard with the new path
+    visualizeAuto(selected_auto, alliance.get());
+  }
+
   /**
    * Displays the currently selected auto path on the dashboard field.
    *
    * @param auto The auto routine whose path should be visualized
    */
-  public void visualizeAuto(Auto auto) {
-    Optional<Alliance> alliance = DriverStation.getAlliance();
-
-    if(alliance.isEmpty()) {
-      DataLogManager.log("Alliance not yet determined; cannot visualize auto path");
-      return;
-    }
-
-    auto_display.getObject("Auto Path").setPoses(auto.getPath(alliance.get()));
-    // No need to call putData again - the Field2d object is already on SmartDashboard
+  public void visualizeAuto(Auto auto, Alliance alliance) {
+    auto_display.getObject("Auto Path").setPoses(auto.getPath(alliance));
+    // No need to call putData again - the Field2d object is already on
+    // SmartDashboard
     // and will automatically update when we change its poses
   }
-
 }
