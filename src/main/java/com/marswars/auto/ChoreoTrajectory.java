@@ -17,7 +17,12 @@ public class ChoreoTrajectory {
     private Trajectory<SwerveSample> trajectory_;
 
     public ChoreoTrajectory(Trajectory<SwerveSample> trajectory, boolean is_red_alliance) {
-        trajectory_ = trajectory;
+                // flip the trajectory for red alliance if needed
+        if(is_red_alliance) {
+          trajectory_ = trajectory.flipped();
+        } else {
+          trajectory_ = trajectory;
+        }
 
         // Populate event timestamp and pose maps
         event_timestamp_map_ = new HashMap<>();
