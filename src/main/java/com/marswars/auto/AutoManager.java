@@ -96,18 +96,6 @@ public class AutoManager {
     selected_auto.cacheTrajetories(alliance.get() == Alliance.Red);
 
     // update the dashboard with the new path
-    visualizeAuto(selected_auto, alliance.get());
-  }
-
-  /**
-   * Displays the currently selected auto path on the dashboard field.
-   *
-   * @param auto The auto routine whose path should be visualized
-   */
-  public void visualizeAuto(Auto auto, Alliance alliance) {
-    auto_display.getObject("Auto Path").setPoses(auto.getPath(alliance));
-    // No need to call putData again - the Field2d object is already on
-    // SmartDashboard
-    // and will automatically update when we change its poses
+    auto_display.getObject("Auto Path").setPoses(selected_auto.getPath());
   }
 }
