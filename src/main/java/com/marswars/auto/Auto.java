@@ -2,15 +2,14 @@ package com.marswars.auto;
 
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import com.marswars.geometry.AllianceFlipUtil;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -19,7 +18,7 @@ import java.util.function.Supplier;
  */
 public class Auto extends SequentialCommandGroup {
   // Trajectory info for visualization / path following
-  protected LinkedHashMap<String, ChoreoTrajectory> trajectories_ = new LinkedHashMap<>();
+  protected final Map<String, ChoreoTrajectory> trajectories_ = Collections.synchronizedMap(new LinkedHashMap<>());
   private ArrayList<Pose2d[]> trajectory_list_ = new ArrayList<>();
 
   /** Creates a new autonomous routine container with a default name. */
@@ -52,23 +51,25 @@ public class Auto extends SequentialCommandGroup {
    */
   @SuppressWarnings("unchecked")
   public void cacheTrajetories(boolean is_red_alliance) {
-    for (var entry : trajectories_.entrySet()) {
-      if (entry.getValue() != null) {
-        // Already loaded
-        continue;
+    synchronized (trajectories_) {
+      for (var entry : trajectories_.entrySet()) {
+        if (entry.getValue() != null) {
+          // Already loaded
+          continue;
+        }
+
+        String name = entry.getKey();
+        // request the choreo trajectory to be loaded
+        Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
+
+        // load the trajectory with event markers into our typed ChoreoTrajectory class
+        // and store it
+        ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
+        entry.setValue(choreoTraj);
+
+        // load the points for visualization
+        trajectory_list_.add(traj.getPoses());
       }
-
-      String name = entry.getKey();
-      // request the choreo trajectory to be loaded
-      Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
-
-      // load the trajectory with event markers into our typed ChoreoTrajectory class
-      // and store it
-      ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
-      entry.setValue(choreoTraj);
-
-      // load the points for visualization
-      trajectory_list_.add(traj.getPoses());
     }
   }
 
