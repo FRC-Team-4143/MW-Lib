@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Base class for autonomous routines that load Choreo trajectories and expose
@@ -80,14 +81,15 @@ public class Auto extends SequentialCommandGroup {
    * @throws IllegalStateException if the trajectory has not been loaded yet (i.e.
    *                               cacheTrajectories() has not been called)
    */
-  protected ChoreoTrajectory getTrajectory(String name) {
-    ChoreoTrajectory traj = trajectories_.get(name);
-    if (traj == null) {
-      throw new IllegalStateException("Trajectory " + name
-          + " has not been loaded yet. Make sure to call cacheTrajectories() after selecting the auto.");
-    }
-
-    return traj;
+  protected Supplier<ChoreoTrajectory> getTrajectory(String name) {
+    return () -> {
+       ChoreoTrajectory traj = trajectories_.get(name);
+       if (traj == null) {
+         throw new IllegalStateException("Trajectory " + name
+             + " has not been loaded yet. Make sure to call cacheTrajectories() after selecting the auto.");
+       }
+       return traj;
+    };
   }
 
   /**
