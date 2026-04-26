@@ -51,11 +51,6 @@ public class Auto extends SequentialCommandGroup {
   public void cacheTrajetories(boolean is_red_alliance) {
     synchronized (trajectories_) {
       for (var entry : trajectories_.entrySet()) {
-        if (entry.getValue() != null) {
-          // Already loaded
-          continue;
-        }
-
         String name = entry.getKey();
         // request the choreo trajectory to be loaded
         Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
