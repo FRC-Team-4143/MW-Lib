@@ -2,6 +2,8 @@ package com.marswars.auto;
 
 import java.util.Optional;
 
+import javax.xml.crypto.Data;
+
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -32,8 +34,8 @@ public class AutoManager {
 
   private final SendableChooser<Auto> auto_chooser_;
   private final Field2d auto_display = new Field2d();
-  private final Trigger ds_trigger_ = new Trigger(() -> DriverStation.getAlliance().isPresent());
   private boolean pending_auto_update_ = true;
+  private Optional<Alliance> current_alliance_ = Optional.empty();
 
   private AutoManager() {
     // Create the auto chooser
@@ -49,11 +51,6 @@ public class AutoManager {
     auto_chooser_.onChange((auto) -> {
       pending_auto_update_ = true;
     });
-
-    // Trigger to detect driver station attachment
-    ds_trigger_.onTrue(Commands.runOnce(() -> {
-      pending_auto_update_ = true;
-    }));
 
     // Put the auto chooser and auto display on the dashboard once during
     // initialization
@@ -78,7 +75,13 @@ public class AutoManager {
    * ConcurrentModificationException.
    */
   public void periodic() {
-    if (pending_auto_update_) {
+    if(current_alliance_ != DriverStation.getAlliance()) {
+      current_alliance_ = DriverStation.getAlliance();
+      pending_auto_update_ = true;
+      DataLogManager.log("Alliance changed, Triggering auto update");
+    }
+
+    if (pending_auto_update_ && current_alliance_.isPresent()) {
       pending_auto_update_ = false;
       onSelectedAutoChange();
     }
