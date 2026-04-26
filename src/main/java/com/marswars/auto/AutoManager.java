@@ -33,6 +33,7 @@ public class AutoManager {
   private final SendableChooser<Auto> auto_chooser_;
   private final Field2d auto_display = new Field2d();
   private final Trigger ds_trigger_ = new Trigger(DriverStation::isDSAttached);
+  private boolean pending_auto_update_ = false;
 
   private AutoManager() {
     // Create the auto chooser
@@ -42,14 +43,16 @@ public class AutoManager {
     doNothing.addCommands(Commands.waitSeconds(30));
     auto_chooser_.setDefaultOption("Do_Nothing", doNothing);
 
-    // Bind a callback on selected change to display auto
+    // Bind a callback on selected change to display auto.
+    // Use a flag instead of calling directly to avoid ConcurrentModificationException
+    // caused by modifying SmartDashboard's map while updateValues() is iterating it.
     auto_chooser_.onChange((auto) -> {
-      onSelectedAutoChange();
+      pending_auto_update_ = true;
     });
 
     // Trigger to detect driver station attachment
     ds_trigger_.onTrue(Commands.runOnce(() -> {
-      onSelectedAutoChange();
+      pending_auto_update_ = true;
     }));
 
     // Put the auto chooser and auto display on the dashboard once during
@@ -66,6 +69,18 @@ public class AutoManager {
   public void registerAutos(Auto... autos) {
     for (Auto auto : autos) {
       auto_chooser_.addOption(auto.getClass().getSimpleName(), (Auto) auto);
+    }
+  }
+
+  /**
+   * Must be called from robotPeriodic(). Processes any pending auto selection
+   * changes outside of SmartDashboard's updateValues() iteration to avoid
+   * ConcurrentModificationException.
+   */
+  public void periodic() {
+    if (pending_auto_update_) {
+      pending_auto_update_ = false;
+      onSelectedAutoChange();
     }
   }
 
