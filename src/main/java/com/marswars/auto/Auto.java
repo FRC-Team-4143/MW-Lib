@@ -46,19 +46,25 @@ public class Auto extends SequentialCommandGroup {
    * the auto. This should be called once after the auto is selected to ensure all
    * paths are ready before execution
    * 
-   * @param is_red_alliance true if the robot is on the red alliance, false for blue (used for flipping trajectories)
+   * @param is_red_alliance true if the robot is on the red alliance, false for
+   *                        blue (used for flipping trajectories)
    */
   @SuppressWarnings("unchecked")
   public void cacheTrajetories(boolean is_red_alliance) {
-    for (String name : trajectories_.keySet()) {
-      // request the choreo trajectory to be loaded
+    for (var entry : trajectories_.entrySet()) {
+      if (entry.getValue() != null) {
+        // Already loaded
+        continue;
+      }
 
+      String name = entry.getKey();
+      // request the choreo trajectory to be loaded
       Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
 
       // load the trajectory with event markers into our typed ChoreoTrajectory class
       // and store it
       ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
-      trajectories_.put(name, choreoTraj);
+      entry.setValue(choreoTraj);
 
       // load the points for visualization
       trajectory_list_.add(traj.getPoses());
@@ -70,9 +76,18 @@ public class Auto extends SequentialCommandGroup {
    *
    * @param name The name of the trajectory
    * @return The typed Choreo trajectory
+   * 
+   * @throws IllegalStateException if the trajectory has not been loaded yet (i.e.
+   *                               cacheTrajectories() has not been called)
    */
   protected ChoreoTrajectory getTrajectory(String name) {
-    return trajectories_.get(name);
+    ChoreoTrajectory traj = trajectories_.get(name);
+    if (traj == null) {
+      throw new IllegalStateException("Trajectory " + name
+          + " has not been loaded yet. Make sure to call cacheTrajectories() after selecting the auto.");
+    }
+
+    return traj;
   }
 
   /**
@@ -89,19 +104,11 @@ public class Auto extends SequentialCommandGroup {
   }
 
   /**
-   * Get the full path as an array of Pose2d, flipped for alliance if needed
+   * Get the full path as an array of Pose2d
    * 
-   * @param alliance The alliance color
    * @return Array of Pose2d representing the path
    */
-  public Pose2d[] getPath(Alliance alliance) {
-    // Flip the trajectory for red alliance
-    if (alliance == Alliance.Red) {
-      return trajectory_list_.stream()
-          .flatMap(Arrays::stream)
-          .map(AllianceFlipUtil::apply)
-          .toArray(Pose2d[]::new);
-    }
+  public Pose2d[] getPath() {
     return trajectory_list_.stream()
         .flatMap(Arrays::stream)
         .toArray(Pose2d[]::new);
