@@ -55,6 +55,11 @@ public class ChoreoEventTracker {
         event_passed_map_.clear();
         event_triggers_.clear();
 
+        // Populate the event triggers and passed map with the events from the trajectory
+        for (String event_name : trajectory.getEventTimestampMap().keySet()) {
+            event_passed_map_.put(event_name, false);
+        }
+
         current_time_ = 0.0;
         is_active_ = false;
 
