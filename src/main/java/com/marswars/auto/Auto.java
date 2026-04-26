@@ -5,7 +5,6 @@ import choreo.trajectory.Trajectory;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -19,7 +18,6 @@ import java.util.function.Supplier;
 public class Auto extends SequentialCommandGroup {
   // Trajectory info for visualization / path following
   protected final Map<String, ChoreoTrajectory> trajectories_ = Collections.synchronizedMap(new LinkedHashMap<>());
-  private ArrayList<Pose2d[]> trajectory_list_ = new ArrayList<>();
 
   /** Creates a new autonomous routine container with a default name. */
   public Auto() {
@@ -67,8 +65,6 @@ public class Auto extends SequentialCommandGroup {
         ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
         entry.setValue(choreoTraj);
 
-        // load the points for visualization
-        trajectory_list_.add(traj.getPoses());
       }
     }
   }
@@ -100,10 +96,10 @@ public class Auto extends SequentialCommandGroup {
    *         none
    */
   public Pose2d getStartPose() {
-    if (trajectory_list_.isEmpty() || trajectory_list_.get(0).length == 0) {
+    if (trajectories_.isEmpty() || trajectories_.values().iterator().next() == null) {
       return Pose2d.kZero;
     }
-    return trajectory_list_.get(0)[0];
+    return trajectories_.values().iterator().next().getTrajectory().getPoses()[0];
   }
 
   /**
@@ -112,9 +108,12 @@ public class Auto extends SequentialCommandGroup {
    * @return Array of Pose2d representing the path
    */
   public Pose2d[] getPath() {
-    return trajectory_list_.stream()
-        .flatMap(Arrays::stream)
-        .toArray(Pose2d[]::new);
+    synchronized (trajectories_) {
+      return trajectories_.values().stream()
+          .filter(t -> t != null)
+          .flatMap(t -> Arrays.stream(t.getTrajectory().getPoses()))
+          .toArray(Pose2d[]::new);
+    }
   }
 
 }
