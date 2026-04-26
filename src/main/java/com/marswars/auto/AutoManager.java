@@ -32,8 +32,8 @@ public class AutoManager {
 
   private final SendableChooser<Auto> auto_chooser_;
   private final Field2d auto_display = new Field2d();
-  private final Trigger ds_trigger_ = new Trigger(DriverStation::isDSAttached);
-  private boolean pending_auto_update_ = false;
+  private final Trigger ds_trigger_ = new Trigger(() -> DriverStation.getAlliance().isPresent());
+  private boolean pending_auto_update_ = true;
 
   private AutoManager() {
     // Create the auto chooser
