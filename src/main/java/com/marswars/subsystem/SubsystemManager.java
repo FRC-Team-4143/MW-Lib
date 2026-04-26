@@ -2,10 +2,12 @@ package com.marswars.subsystem;
 
 import dev.doglog.DogLog;
 import dev.doglog.DogLogOptions;
+import edu.wpi.first.networktables.BooleanSubscriber;
+import edu.wpi.first.networktables.BooleanTopic;
+import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
@@ -14,11 +16,12 @@ import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.GitLogger;
 import com.marswars.util.ConstantsLoader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class SubsystemManager {
-    private static final String subsystems_key_ = "disabled_subsystems";
-
     protected ArrayList<MwSubsystemBase> subsystems;
     protected Notifier loopThread;
     protected boolean log_init = false;
@@ -26,15 +29,17 @@ public abstract class SubsystemManager {
     private static StringPublisher robot_name_pub_ =
             NetworkTableInstance.getDefault().getStringTopic("/Metadata/ROBOT_NAME").publish();
 
-    protected static List<String> disabled_subsystems_;
-
-    public static List<String> getEnabledSubsystems() {
-        return disabled_subsystems_;
-    }
+    // Subsystem enable/disable state management (thread-safe)
+    private final ConcurrentHashMap<String, Boolean> subsystem_enabled_state_ = new ConcurrentHashMap<>();
+    private final Map<String, BooleanSubscriber> enable_subscribers_ = new HashMap<>();
+    
+    // Cache of enabled subsystems for efficient iteration (updated only on changes)
+    private volatile List<MwSubsystemBase> enabled_subsystems_;
 
     public SubsystemManager(Object build_constants) {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
+        enabled_subsystems_ = new ArrayList<>();
 
         DogLogOptions options =
                 new DogLogOptions()
@@ -53,27 +58,55 @@ public abstract class SubsystemManager {
         GitLogger.logGitData(build_constants);
         robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
         BatteryLogger.logBatteryData();
-
-        // Handle disabling subsystems
-        disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
-        DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
     }
 
+    /**
+     * Register a subsystem to be looped over in the control loop. 
+     * @param system The subsystem to register
+     */
     public void registerSubsystem(MwSubsystemBase system) {
-        if (disabled_subsystems_.contains(system.getName())) {
+        subsystems.add(system);
+        
+        // Initialize subsystem as enabled by default
+        String subsystem_key = system.getSubsystemKey();
+        boolean default_enabled = true;
+        
+        // Automatically disable simulation subsystems when not in simulation mode
+        if (subsystem_key.contains("Simulation") && !RobotBase.isSimulation()) {
+            default_enabled = false;
             DataLogManager.log(
-                    "Registered disabled subsystem: " + system.getClass().getSimpleName());
-        } else {
-            subsystems.add(system);
+                "Subsystem " + subsystem_key + " DISABLED (not in simulation mode)"
+            );
         }
+        
+        subsystem_enabled_state_.put(subsystem_key, default_enabled);
+        
+        // Create a NetworkTables subscriber for live enable/disable control
+        NetworkTable subsystem_table = NetworkTableInstance.getDefault()
+            .getTable("SubsystemManager")
+            .getSubTable(subsystem_key);
+        
+        BooleanTopic enabled_topic = subsystem_table.getBooleanTopic("Enabled");
+        BooleanSubscriber enabled_sub = enabled_topic.subscribe(default_enabled);
+        enable_subscribers_.put(subsystem_key, enabled_sub);
+        
+        // Also publish the initial state
+        enabled_topic.publish().set(default_enabled);
+        
+        // Rebuild the enabled subsystems cache
+        rebuildEnabledSubsystemsCache();
     }
 
     /** Preform the control loop for all subsystems */
     public void doControlLoop() {
-        // For each subsystem run its update loop
-        for (MwSubsystemBase subsystem : subsystems) {
+        // Update enabled states from NetworkTables (only processes changes)
+        updateSubsystemEnabledStates();
+        
+        // Iterate only over enabled subsystems (no per-iteration HashMap lookups)
+        for (MwSubsystemBase subsystem : enabled_subsystems_) {
             try {
-                DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
+                String subsystem_key = subsystem.getSubsystemKey();
+                DogLog.time(subsystem_key + "/loop_time");
 
                 List<SubsystemIoBase> ios = subsystem.getIos();
 
@@ -91,7 +124,7 @@ public abstract class SubsystemManager {
                     io.logData();
                 }
 
-                DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
+                DogLog.timeEnd(subsystem_key + "/loop_time");
             } catch (Exception e) {
                 DataLogManager.log(
                         " Failed to run update loop for "
@@ -112,5 +145,58 @@ public abstract class SubsystemManager {
         for (MwSubsystemBase subsystem : subsystems) {
             subsystem.reset();
         }
+    }
+
+    /**
+     * Updates the enabled state for all subsystems by reading from NetworkTables.
+     * This is called at the beginning of each control loop to handle live enable/disable.
+     * Only processes changes (not polled every loop).
+     */
+    private void updateSubsystemEnabledStates() {
+        boolean cache_needs_rebuild = false;
+        
+        for (Map.Entry<String, BooleanSubscriber> entry : enable_subscribers_.entrySet()) {
+            String subsystem_key = entry.getKey();
+            BooleanSubscriber subscriber = entry.getValue();
+            
+            // Read only changed values from the queue (efficient, non-polling)
+            boolean[] changes = subscriber.readQueueValues();
+            
+            // If there were any changes, use the most recent value
+            if (changes.length > 0) {
+                boolean enabled = changes[changes.length - 1];
+                subsystem_enabled_state_.put(subsystem_key, enabled);
+                cache_needs_rebuild = true;
+                
+                // Log to DataLog and DogLog only when state changes
+                DataLogManager.log(
+                    "Subsystem " + subsystem_key + " " + (enabled ? "ENABLED" : "DISABLED")
+                );
+                DogLog.log(subsystem_key + "/Enabled", enabled);
+            }
+        }
+        
+        // Only rebuild the cache if something changed
+        if (cache_needs_rebuild) {
+            rebuildEnabledSubsystemsCache();
+        }
+    }
+
+    /**
+     * Rebuilds the cached list of enabled subsystems.
+     * This is only called when a subsystem's enabled state changes, not every loop.
+     */
+    private void rebuildEnabledSubsystemsCache() {
+        ArrayList<MwSubsystemBase> new_enabled_list = new ArrayList<>();
+        
+        for (MwSubsystemBase subsystem : subsystems) {
+            String subsystem_key = subsystem.getSubsystemKey();
+            if (subsystem_enabled_state_.getOrDefault(subsystem_key, true)) {
+                new_enabled_list.add(subsystem);
+            }
+        }
+        
+        // Atomic update using volatile field
+        enabled_subsystems_ = new_enabled_list;
     }
 }
