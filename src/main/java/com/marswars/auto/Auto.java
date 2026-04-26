@@ -62,6 +62,11 @@ public class Auto extends SequentialCommandGroup {
         // request the choreo trajectory to be loaded
         Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
 
+        // flip the trajectory for red alliance if needed
+        if(is_red_alliance) {
+          traj = traj.flipped();
+        }
+
         // load the trajectory with event markers into our typed ChoreoTrajectory class
         // and store it
         ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
