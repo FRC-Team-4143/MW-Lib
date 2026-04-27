@@ -84,7 +84,6 @@ public class SwerveMech extends MechBase {
     private final SwerveDriveKinematics kinematics_;
 
     private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
-    private final Trigger ds_enabled_trigger_ = new Trigger(DriverStation::isEnabled);
 
     /**
      * Creates a new swerve mechanism using the provided drivetrain configuration.
@@ -140,8 +139,10 @@ public class SwerveMech extends MechBase {
                 this::setSteerGains,
                 SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.getAsFXConfig().Slot0));
 
-        user_button_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Coast)).ignoringDisable(true));
-        ds_enabled_trigger_.onTrue(Commands.runOnce(() -> setNeutralMode(NeutralModeValue.Brake)).ignoringDisable(true));
+        user_button_trigger_.onTrue(Commands.startEnd(
+            () -> setNeutralMode(NeutralModeValue.Coast),
+            () -> setNeutralMode(NeutralModeValue.Brake)
+            ).withTimeout(30.0).ignoringDisable(true));
 
         // Adds Custom Swerve Drive Sendable to SmartDashboard for easy debugging of module states and gyro angle
         SmartDashboard.putData("Swerve Drive", new Sendable() {
