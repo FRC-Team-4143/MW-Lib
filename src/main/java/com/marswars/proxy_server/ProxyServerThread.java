@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
+import com.marswars.vision.MwPieceDetectionSim;
 import com.marswars.vision.MwVisionSim;
 
 import dev.doglog.DogLog;
@@ -110,16 +111,25 @@ import java.util.concurrent.ConcurrentHashMap;
  *         new Rotation3d(0, Math.toRadians(-15), 0)
  *     );
  *     visionSim.addCamera("simCamera", robotToCamera);
+ *
+ *     // Initialize piece detection simulation (draggable pieces in Glass "PieceSim Field")
+ *     MwPieceDetectionSim pieceSim = proxyServer.initializePieceDetectionSimulation();
+ *     pieceSim.addCamera("pieceCamera", robotToCamera);
+ *     pieceSim.addGamePiece(0, new Pose2d(4.0, 4.0, Rotation2d.kZero));
  * }
- * 
+ *
  * // In your periodic method, update with current robot pose
  * if (RobotBase.isSimulation()) {
  *     Pose2d currentPose = drivetrain.getPose(); // Get from your drivetrain
  *     proxyServer.updateVisionSimulation(currentPose);
+ *     proxyServer.updatePieceDetectionSimulation(currentPose);
  * }
- * 
+ *
  * // Vision data will now be available via getLatestTagSolutions()
  * List<TagSolutionData> solutions = proxyServer.getLatestTagSolutions();
+ *
+ * // Piece detections will now be available via getLatestPieceDetections()
+ * List<PieceDetectionData> detections = proxyServer.getLatestPieceDetections();
  * }</pre>
  * 
  * @see com.marswars.vision.MwVisionSim
@@ -229,6 +239,9 @@ public class ProxyServerThread extends Thread {
     
     // Vision simulation (only used in simulation mode)
     private MwVisionSim visionSim = null;
+
+    // Piece detection simulation (only used in simulation mode)
+    private MwPieceDetectionSim pieceSim = null;
 
     // Singleton instance
     private static ProxyServerThread instance_ = null;
@@ -837,6 +850,44 @@ public class ProxyServerThread extends Thread {
         List<TagSolutionData> simulated_solutions = visionSim.getTagSolutions(robot_pose);
         for (TagSolutionData solution : simulated_solutions) {
             tag_solutions_.add(solution);
+        }
+    }
+
+    /**
+     * Initializes piece detection simulation with draggable game pieces in Glass.
+     * Publishes a "PieceSim Field" Field2d widget; add cameras and game pieces on the
+     * returned instance. Only works in simulation mode - does nothing on real robot.
+     *
+     * @return the created MwPieceDetectionSim instance, or null if not in simulation
+     */
+    public MwPieceDetectionSim initializePieceDetectionSimulation() {
+        if (RobotBase.isSimulation() && pieceSim == null) {
+            pieceSim = new MwPieceDetectionSim();
+            System.out.println("ProxyServerThread: Piece detection simulation initialized");
+        }
+        return pieceSim;
+    }
+
+    /**
+     * Updates the piece detection simulation with the current robot pose and generates
+     * piece detection data. This should be called periodically with the simulated robot pose.
+     * The generated detections are automatically added to the piece detections queue and
+     * are available via {@link #getLatestPieceDetections()}.
+     * Only works in simulation mode - does nothing on real robot.
+     *
+     * @param robot_pose the current simulated robot pose
+     */
+    public void updatePieceDetectionSimulation(Pose2d robot_pose) {
+        if (!RobotBase.isSimulation() || pieceSim == null) {
+            return;
+        }
+
+        // Read back dragged pieces and mirror the robot pose onto the piece sim field
+        pieceSim.update(robot_pose);
+
+        // Get generated piece detections and add them to the queue
+        for (PieceDetectionData detection : pieceSim.getPieceDetections(robot_pose)) {
+            piece_detections_.add(detection);
         }
     }
 }
