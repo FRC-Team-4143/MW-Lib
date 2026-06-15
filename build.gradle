@@ -19,9 +19,6 @@ repositories {
     url = "https://maven.ctr-electronics.com/release/"
   }
   maven {
-    url = "https://doglog.dev/doglog-maven/"
-  }
-  maven {
     url = "https://jitpack.io"
   }
   maven {
@@ -47,6 +44,9 @@ repositories {
   }
   maven {
     url = "https://docs.home.thethriftybot.com"
+  }
+  maven {
+    url = "https://frcmaven.wpi.edu/artifactory/littletonrobotics-mvn-release/"
   }
 }
 if (project.hasProperty('releaseMode')) {
@@ -99,7 +99,14 @@ dependencies {
     // Vendor dependencies
     implementation "com.ctre.phoenix6:wpiapi-java:26.1.1"
     implementation "org.ironmaple:maplesim-java:0.4.0-beta"
-    implementation "com.github.jonahsnider:doglog:2026.5.0"
+    // AdvantageKit (log replay). akit-java is compile+runtime; the akit-wpilibio JNI conduit
+    // ships via the AdvantageKit vendordep in the consuming robot project. akit-autolog generates
+    // the *InputsAutoLogged structs from @AutoLog.
+    implementation "org.littletonrobotics.akit:akit-java:26.0.2"
+    annotationProcessor "org.littletonrobotics.akit:akit-autolog:26.0.2"
+    // quickbuf-runtime is a transitive dep of akit-java required at compile time;
+    // the consuming robot project provides it at runtime via the AdvantageKit vendordep.
+    compileOnly "us.hebi.quickbuf:quickbuf-runtime:1.4"
     implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25"
     implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"

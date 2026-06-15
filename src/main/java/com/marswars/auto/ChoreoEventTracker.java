@@ -3,7 +3,7 @@ package com.marswars.auto;
 import choreo.trajectory.EventMarker;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import java.util.HashMap;
@@ -63,8 +63,8 @@ public class ChoreoEventTracker {
         current_time_ = 0.0;
         is_active_ = false;
 
-        DogLog.log(log_key_ + "EventCount", event_passed_map_.size());
-        DogLog.log(log_key_ + "EventNames", event_passed_map_.keySet().toArray(new String[0]));
+        MwLog.log(log_key_ + "EventCount", event_passed_map_.size());
+        MwLog.log(log_key_ + "EventNames", event_passed_map_.keySet().toArray(new String[0]));
     }
 
     /**
@@ -88,8 +88,8 @@ public class ChoreoEventTracker {
             // If not already passed and we've reached the timestamp, mark it as passed
             if (!event_passed_map_.get(event_name) && current_time_ >= event_timestamp) {
                 event_passed_map_.put(event_name, true);
-                DogLog.log(log_key_ + "PassedEvent", event_name);
-                DogLog.log(log_key_ + "PassedEventTime", current_time_);
+                MwLog.log(log_key_ + "PassedEvent", event_name);
+                MwLog.log(log_key_ + "PassedEventTime", current_time_);
             }
         }
     }
@@ -104,13 +104,13 @@ public class ChoreoEventTracker {
             event_passed_map_.put(event_name, false);
         }
 
-        DogLog.log(log_key_ + "EventTracking", "Started");
+        MwLog.log(log_key_ + "EventTracking", "Started");
     }
 
     /** Stops tracking events. This should be called when trajectory following ends. */
     public void stop() {
         is_active_ = false;
-        DogLog.log(log_key_ + "EventTracking", "Stopped");
+        MwLog.log(log_key_ + "EventTracking", "Stopped");
     }
 
     /**

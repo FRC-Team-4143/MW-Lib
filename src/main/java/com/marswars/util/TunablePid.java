@@ -3,7 +3,7 @@ package com.marswars.util;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.math.controller.PIDController;
 
 import java.util.function.Consumer;
@@ -20,13 +20,13 @@ public class TunablePid {
      */
     public static void create(
             String key, Consumer<SlotConfigs> config_applier, SlotConfigs config) {
-        DogLog.tunable(key + "/kP", config.kP, newP -> config_applier.accept(config.withKP(newP)));
-        DogLog.tunable(key + "/kI", config.kI, newI -> config_applier.accept(config.withKI(newI)));
-        DogLog.tunable(key + "/kD", config.kD, newD -> config_applier.accept(config.withKD(newD)));
-        DogLog.tunable(key + "/kS", config.kS, newS -> config_applier.accept(config.withKS(newS)));
-        DogLog.tunable(key + "/kV", config.kV, newV -> config_applier.accept(config.withKV(newV)));
-        DogLog.tunable(key + "/kA", config.kA, newA -> config_applier.accept(config.withKA(newA)));
-        DogLog.tunable(key + "/kG", config.kG, newG -> config_applier.accept(config.withKG(newG)));
+        MwLog.tunable(key + "/kP", config.kP, newP -> config_applier.accept(config.withKP(newP)));
+        MwLog.tunable(key + "/kI", config.kI, newI -> config_applier.accept(config.withKI(newI)));
+        MwLog.tunable(key + "/kD", config.kD, newD -> config_applier.accept(config.withKD(newD)));
+        MwLog.tunable(key + "/kS", config.kS, newS -> config_applier.accept(config.withKS(newS)));
+        MwLog.tunable(key + "/kV", config.kV, newV -> config_applier.accept(config.withKV(newV)));
+        MwLog.tunable(key + "/kA", config.kA, newA -> config_applier.accept(config.withKA(newA)));
+        MwLog.tunable(key + "/kG", config.kG, newG -> config_applier.accept(config.withKG(newG)));
     }
 
     /**
@@ -37,11 +37,11 @@ public class TunablePid {
      * @param controller The PIDController to tune
      */
     public static void create(String key, PIDController controller) {
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kP", controller.getP(), newP -> controller.setP(newP));
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kI", controller.getI(), newI -> controller.setI(newI));
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kD", controller.getD(), newD -> controller.setD(newD));
     }
 
@@ -58,19 +58,19 @@ public class TunablePid {
             return;
         }
         PIDController first = controllers[0];
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kP", first.getP(), newP -> {
                     for (PIDController controller : controllers) {
                         controller.setP(newP);
                     }
                 });
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kI", first.getI(), newI -> {
                     for (PIDController controller : controllers) {
                         controller.setI(newI);
                     }
                 });
-        DogLog.tunable(
+        MwLog.tunable(
                 key + "/kD", first.getD(), newD -> {
                     for (PIDController controller : controllers) {
                         controller.setD(newD);
@@ -86,11 +86,11 @@ public class TunablePid {
          * @param controller The PhoenixPIDController to tune
          */
         public static void create(String key, PhoenixPIDController controller) {
-            DogLog.tunable(
+            MwLog.tunable(
                     key + "/kP", controller.getP(), newP -> controller.setP(newP));
-            DogLog.tunable(
+            MwLog.tunable(
                     key + "/kI", controller.getI(), newI -> controller.setI(newI));
-            DogLog.tunable(
+            MwLog.tunable(
                     key + "/kD", controller.getD(), newD -> controller.setD(newD));
         }
 

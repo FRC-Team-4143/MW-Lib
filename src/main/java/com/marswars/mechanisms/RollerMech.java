@@ -25,7 +25,8 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.hardware.TalonFXS;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
+import org.littletonrobotics.junction.Logger;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.system.plant.DCMotor;
@@ -75,17 +76,14 @@ public class RollerMech extends MechBase {
     protected final Alert[] motor_temp_alerts_;
     protected final Debouncer[] motor_conn_debouncers_;
 
-    // sensor inputs
-    protected double position_ = 0;
+    // AdvantageKit inputs (sensor reads only — replayed from log; single source of truth)
+    protected final MechInputsAutoLogged inputs_ = new MechInputsAutoLogged();
+
+    // command targets (outputs — computed each loop, NOT replayed)
     protected double position_target_ = 0;
-    protected double velocity_ = 0;
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double current_target_ = 0;
-    protected double[] applied_voltage_;
-    protected double[] current_draw_;
-    protected double[] motor_temp_c_;
-    protected double[] bus_voltage_;
 
 
     // System parameters
@@ -167,13 +165,11 @@ public class RollerMech extends MechBase {
         motors_ = configured_motors.motors;
         signals_ = configured_motors.signals;
 
-        // default the inputs
-        position_ = 0;
-        velocity_ = 0;
-        applied_voltage_ = new double[motors_.length];
-        current_draw_ = new double[motors_.length];
-        motor_temp_c_ = new double[motors_.length];
-        bus_voltage_ = new double[motors_.length];
+        // size array fields in the inputs struct to match motor count
+        inputs_.appliedVoltage = new double[motors_.length];
+        inputs_.currentDraw    = new double[motors_.length];
+        inputs_.motorTempC     = new double[motors_.length];
+        inputs_.busVoltage     = new double[motors_.length];
 
         // Initialize alerts and debouncers for each motor
         motor_disconnected_alerts_ = new Alert[motors_.length];
@@ -234,106 +230,86 @@ public class RollerMech extends MechBase {
                 getLoggingKey() + "PositionGains",
                 this::configPositionSlot,
                 slot0Config);
-        DogLog.tunable(
+        MwLog.tunable(
                 getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
         TunablePid.create(
                 getLoggingKey() + "VelocityGains",
                 this::configVelocitySlot,
                 slot1Config);
-        DogLog.tunable(
+        MwLog.tunable(
                 getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
-        DogLog.tunable(
+        MwLog.tunable(
                 getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
         TunablePid.create(getLoggingKey() + "CurrentGains", current_pid_);
-        DogLog.tunable(
+        MwLog.tunable(
                 getLoggingKey() + "CurrentGains/Setpoint", 0.0, (val) -> setTargetCurrent(val));
     }
 
     /** {@inheritDoc} */
     @Override
     public void readInputs(double timestamp) {
-        BaseStatusSignal.refreshAll(signals_);
+        if (!MwLog.isReplay()) {
+            BaseStatusSignal.refreshAll(signals_);
 
-        // always read the sensor data
-        position_ = motors_[0].getPosition().getValue().in(Radians);
-        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
-        for (int i = 0; i < motors_.length; i++) {
-            applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
-            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
-            bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
-            
-            // Update alerts for each motor
-            motor_disconnected_alerts_[i].set(!motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
-            motor_temp_alerts_[i].set(motor_temp_c_[i] > MOTOR_TEMP_THRESHOLD_C);
-        }
-
-        // run the simulation update step here if we are simulating
-        if (IS_SIM) {
-            // Provide a battery voltage to the motor sim so controller output is meaningful
+            inputs_.position = motors_[0].getPosition().getValue().in(Radians);
+            inputs_.velocity = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
             for (int i = 0; i < motors_.length; i++) {
-                if (motors_[i] instanceof TalonFX) {
-                    ((TalonFX) motors_[i]).getSimState().setSupplyVoltage(12.0);
-                } else if (motors_[i] instanceof TalonFXS) {
-                    ((TalonFXS) motors_[i]).getSimState().setSupplyVoltage(12.0);
-                }
+                inputs_.appliedVoltage[i] = motors_[i].getMotorVoltage().getValueAsDouble();
+                inputs_.currentDraw[i]    = motors_[i].getSupplyCurrent().getValue().in(Amps);
+                inputs_.motorTempC[i]     = motors_[i].getDeviceTemp().getValue().in(Celsius);
+                inputs_.busVoltage[i]     = motors_[i].getSupplyVoltage().getValueAsDouble();
+
+                motor_disconnected_alerts_[i].set(
+                        !motor_conn_debouncers_[i].calculate(motors_[i].isConnected()));
+                motor_temp_alerts_[i].set(inputs_.motorTempC[i] > MOTOR_TEMP_THRESHOLD_C);
             }
 
-            // Get the voltage the motor controller wants to apply
-            double controller_voltage = 0.0;
-            if (motors_[0] instanceof TalonFX) {
-                controller_voltage = ((TalonFX) motors_[0]).getSimState().getMotorVoltage();
-            } else if (motors_[0] instanceof TalonFXS) {
-                controller_voltage = ((TalonFXS) motors_[0]).getSimState().getMotorVoltage();
-            }
-            
-            // Calculate the torque required to overcome the load at the motor shaft
-            // (load torque at roller * gear ratio = load torque at motor)
-            double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
-            
-            // Calculate the current needed to produce this load torque
-            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
-            
-            // The voltage actually seen by the motor after the load consumes some current
-            // is reduced by the voltage drop across the resistance due to load current
-            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
-            
-            // Apply the effective voltage to the simulation
-            roller_sim_.setInput(effective_voltage);
-
-            // Update simulation by 20ms
-            roller_sim_.update(0.020);
-
-            // Reset the load torque after applying it (impulse load)
-            // This must be called again each cycle for sustained load
-            sim_load_torque_nm_ = 0.0;
-
-            // The simulation gives mechanism (output) position/velocity in radians
-            // setRawRotorPosition expects raw rotor (motor) position in rotations
-            // Since gear_ratio_ = motor/mechanism, we need motor = mechanism * gear_ratio_
-            double mechanismPositionRad = roller_sim_.getAngularPositionRad();
-            double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
-            
-            double motorPositionRad = mechanismPositionRad * gear_ratio_;
-            double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;
-            
-            double motorPosition = Radians.of(motorPositionRad).in(Rotations);
-            double motorVelocity = RadiansPerSecond.of(motorVelocityRadPerSec).in(RotationsPerSecond);
-
-            for(int i = 0; i < motors_.length; i++) {
-                if (motors_[i] instanceof TalonFX) {
-                    ((TalonFX) motors_[i]).getSimState().setRawRotorPosition(motorPosition);
-                    ((TalonFX) motors_[i]).getSimState().setRotorVelocity(motorVelocity);
-                } else if (motors_[i] instanceof TalonFXS) {
-                    ((TalonFXS) motors_[i]).getSimState().setRawRotorPosition(motorPosition);
-                    ((TalonFXS) motors_[i]).getSimState().setRotorVelocity(motorVelocity);
+            // Simulation physics — guarded here so it doesn't run during replay,
+            // which also executes in sim mode.
+            if (IS_SIM) {
+                for (int i = 0; i < motors_.length; i++) {
+                    if (motors_[i] instanceof TalonFX) {
+                        ((TalonFX) motors_[i]).getSimState().setSupplyVoltage(12.0);
+                    } else if (motors_[i] instanceof TalonFXS) {
+                        ((TalonFXS) motors_[i]).getSimState().setSupplyVoltage(12.0);
+                    }
                 }
-                
-                // Simulation is always "connected" and at safe temperature
-                motor_disconnected_alerts_[i].set(false);
-                motor_temp_alerts_[i].set(false);
+
+                double controller_voltage = 0.0;
+                if (motors_[0] instanceof TalonFX) {
+                    controller_voltage = ((TalonFX) motors_[0]).getSimState().getMotorVoltage();
+                } else if (motors_[0] instanceof TalonFXS) {
+                    controller_voltage = ((TalonFXS) motors_[0]).getSimState().getMotorVoltage();
+                }
+
+                double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
+                double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+                double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+
+                roller_sim_.setInput(effective_voltage);
+                roller_sim_.update(0.020);
+                sim_load_torque_nm_ = 0.0;
+
+                double mechanismPositionRad = roller_sim_.getAngularPositionRad();
+                double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
+                double motorPosition = Radians.of(mechanismPositionRad * gear_ratio_).in(Rotations);
+                double motorVelocity = RadiansPerSecond.of(mechanismVelocityRadPerSec * gear_ratio_).in(RotationsPerSecond);
+
+                for (int i = 0; i < motors_.length; i++) {
+                    if (motors_[i] instanceof TalonFX) {
+                        ((TalonFX) motors_[i]).getSimState().setRawRotorPosition(motorPosition);
+                        ((TalonFX) motors_[i]).getSimState().setRotorVelocity(motorVelocity);
+                    } else if (motors_[i] instanceof TalonFXS) {
+                        ((TalonFXS) motors_[i]).getSimState().setRawRotorPosition(motorPosition);
+                        ((TalonFXS) motors_[i]).getSimState().setRotorVelocity(motorVelocity);
+                    }
+                    motor_disconnected_alerts_[i].set(false);
+                    motor_temp_alerts_[i].set(false);
+                }
             }
         }
+        // Records inputs_ to the log (real/sim) or restores inputs_ from the log (replay).
+        Logger.processInputs(getLoggingKey() + "Inputs", inputs_);
     }
 
     /** {@inheritDoc} */
@@ -356,7 +332,7 @@ public class RollerMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(current_draw_[0], Math.abs(current_target_)), current_target_);
+                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.currentDraw[0], Math.abs(current_target_)), current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -369,20 +345,15 @@ public class RollerMech extends MechBase {
     @Override
     public void logData() {
         // commands
-        DogLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        DogLog.log(getLoggingKey() + "control/position/target", position_target_, Radians);
-        DogLog.log(getLoggingKey() + "control/position/actual", position_, Radians);
-        DogLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
-        DogLog.log(getLoggingKey() + "control/velocity/actual", velocity_, RadiansPerSecond);
-        DogLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
-        DogLog.log(getLoggingKey() + "control/duty_cycle/actual", applied_voltage_[0] / 12.0, Percent);
-        DogLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        DogLog.log(getLoggingKey() + "control/current/actual", current_draw_[0], Amps);
-
-        DogLog.log(getLoggingKey() + "motor/applied_voltage", applied_voltage_, Volts);
-        DogLog.log(getLoggingKey() + "motor/current_draw", current_draw_, Amps);
-        DogLog.log(getLoggingKey() + "motor/temp", motor_temp_c_, Celsius);
-        DogLog.log(getLoggingKey() + "motor/bus_voltage", bus_voltage_, Volts);
+        MwLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
+        MwLog.log(getLoggingKey() + "control/position/target", position_target_, Radians);
+        MwLog.log(getLoggingKey() + "control/position/actual", inputs_.position, Radians);
+        MwLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, RadiansPerSecond);
+        MwLog.log(getLoggingKey() + "control/velocity/actual", inputs_.velocity, RadiansPerSecond);
+        MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
+        MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
+        MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.currentDraw[0], Amps);
     }
 
     /**
@@ -448,7 +419,7 @@ public class RollerMech extends MechBase {
      * @return the position in radians
      */
     public double getCurrentPosition() {
-        return position_;
+        return inputs_.position;
     }
 
     /**
@@ -457,7 +428,7 @@ public class RollerMech extends MechBase {
      * @return the velocity in radians per second
      */
     public double getCurrentVelocity() {
-        return velocity_;
+        return inputs_.velocity;
     }
 
     /**
@@ -466,7 +437,7 @@ public class RollerMech extends MechBase {
      * @return the current draw in amps
      */
     public double getLeaderCurrent() {
-        return current_draw_[0];
+        return inputs_.currentDraw[0];
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.marswars.sensors.gyro;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.Alert;
@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.RobotBase;
 
 import com.marswars.subsystem.SubsystemIoBase;
+import org.littletonrobotics.junction.Logger;
 
 public abstract class Gyro implements SubsystemIoBase {
 
@@ -17,15 +18,10 @@ public abstract class Gyro implements SubsystemIoBase {
     private final String gyro_name_;
     private String logging_prefix_;
 
-    protected boolean connected = false;
-    private boolean connected_debounced_ = false;
-    protected Rotation2d yawPosition = new Rotation2d();
-    protected Rotation2d pitchPosition = new Rotation2d();
-    protected Rotation2d rollPosition = new Rotation2d();
-    protected double yawVelocityRadPerSec = 0.0;
-
     protected final boolean IS_SIM;
-    
+
+    protected final GyroInputsAutoLogged inputs_ = new GyroInputsAutoLogged();
+
     public Gyro(String logging_prefix) {
         // Identify the mecahnism name
         String name = this.getClass().getSimpleName();
@@ -58,42 +54,45 @@ public abstract class Gyro implements SubsystemIoBase {
 
     @Override
     public void readInputs(double timestamp) {
-        readGyro();
-        connected_debounced_ = connection_debouncer_.calculate(connected);
-        gyroDisconnectedAlert.set(IS_SIM? false: !connected_debounced_);
+        if (!MwLog.isReplay()) {
+            readGyro();
+            inputs_.connectedDebounced = connection_debouncer_.calculate(inputs_.connected);
+        }
+        Logger.processInputs(getLoggingKey() + "Inputs", inputs_);
+        gyroDisconnectedAlert.set(IS_SIM ? false : !inputs_.connectedDebounced);
     }
 
     public abstract void readGyro();
 
     public boolean isConnected() {
-        return connected_debounced_;
+        return inputs_.connectedDebounced;
     }
 
     public void setYaw(Rotation2d yaw) {}
 
     public Rotation2d getYawPosition() {
-        return yawPosition;
+        return inputs_.yawPosition;
     }
 
     public Rotation2d getPitchPosition() {
-        return pitchPosition;
+        return inputs_.pitchPosition;
     }
 
     public Rotation2d getRollPosition() {
-        return rollPosition;
+        return inputs_.rollPosition;
     }
 
     public double getYawVelocityRadPerSec() {
-        return yawVelocityRadPerSec;
+        return inputs_.yawVelocityRadPerSec;
     }
 
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "Connected", connected_debounced_);
-        DogLog.log(getLoggingKey() + "YawPositionDeg", yawPosition.getDegrees());
-        DogLog.log(getLoggingKey() + "PitchPositionDeg", pitchPosition.getDegrees());
-        DogLog.log(getLoggingKey() + "RollPositionDeg", rollPosition.getDegrees());
-        DogLog.log(getLoggingKey() + "YawVelocityRadPerSec", yawVelocityRadPerSec);
+        MwLog.log(getLoggingKey() + "Connected", inputs_.connectedDebounced);
+        MwLog.log(getLoggingKey() + "YawPositionDeg", inputs_.yawPosition.getDegrees());
+        MwLog.log(getLoggingKey() + "PitchPositionDeg", inputs_.pitchPosition.getDegrees());
+        MwLog.log(getLoggingKey() + "RollPositionDeg", inputs_.rollPosition.getDegrees());
+        MwLog.log(getLoggingKey() + "YawVelocityRadPerSec", inputs_.yawVelocityRadPerSec);
     }
 
     @Override

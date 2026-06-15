@@ -36,6 +36,8 @@ import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import com.marswars.logging.MwLog;
+import org.littletonrobotics.junction.Logger;
 
 /**
  * Provides an interface for asynchronously reading high-frequency measurements to a set of queues.
@@ -63,6 +65,7 @@ public class PhoenixOdometryThread extends Thread {
 
     private final boolean IS_CANFD;
     private final boolean IS_SIM = RobotBase.isSimulation();
+    private final SwerveSamplesInputsAutoLogged swerve_samples_inputs_ = new SwerveSamplesInputsAutoLogged();
     private final double ODOMETRY_FREQUENCY;
     private final String bus_name_;
     private final double wheel_circumference_m_;
@@ -124,6 +127,7 @@ public class PhoenixOdometryThread extends Thread {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        if (MwLog.isReplay()) return;
         if (!IS_SIM && all_signals_.length > 0) {
             super.start();
         } else {
@@ -302,36 +306,56 @@ public class PhoenixOdometryThread extends Thread {
      * @return list of combined swerve measurements
      */
     public List<SwerveMeasurement> getSwerveSamples() {
-        List<SwerveMeasurement> swerveSamples = new ArrayList<>();
-        odometry_lock_.lock();
-
-        try {
-            // Empty the odometry queue into the samples list
-            SwerveMeasurement sample;
-            int num_samples = gyro_queue_.size();
-            for (int i = 0; i <= 3; i++) {
-                num_samples = Math.min(num_samples, module_queues_.get(i).size());
-            }
-
-            for (int i = 0; i < num_samples; i++) {
-                sample = new SwerveMeasurement();
-                GyroMeasurement gyroMeasurement = gyro_queue_.poll();
-                sample.timestamp = gyroMeasurement.timestamp;
-                sample.gyro_yaw = gyroMeasurement.gyro_yaw;
-
-                SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
-                for (int j = 0; j < 4; j++) {
-                    ModuleMeasurement moduleMeasurement = module_queues_.get(j).poll();
-                    modulePositions[j] = moduleMeasurement.module_positions;
+        if (!MwLog.isReplay()) {
+            odometry_lock_.lock();
+            try {
+                int num_samples = gyro_queue_.size();
+                for (int i = 0; i <= 3; i++) {
+                    num_samples = Math.min(num_samples, module_queues_.get(i).size());
                 }
-                sample.module_positions = modulePositions;
 
-                swerveSamples.add(sample);
+                double[] timestamps = new double[num_samples];
+                double[] gyroYawsRad = new double[num_samples];
+                double[] moduleDistancesMeters = new double[num_samples * 4];
+                double[] moduleSteerAnglesRad = new double[num_samples * 4];
+
+                for (int i = 0; i < num_samples; i++) {
+                    GyroMeasurement gyroMeasurement = gyro_queue_.poll();
+                    timestamps[i] = gyroMeasurement.timestamp;
+                    gyroYawsRad[i] = gyroMeasurement.gyro_yaw.getRadians();
+                    for (int j = 0; j < 4; j++) {
+                        ModuleMeasurement moduleMeasurement = module_queues_.get(j).poll();
+                        moduleDistancesMeters[i * 4 + j] = moduleMeasurement.module_positions.distanceMeters;
+                        moduleSteerAnglesRad[i * 4 + j] = moduleMeasurement.module_positions.angle.getRadians();
+                    }
+                }
+
+                swerve_samples_inputs_.timestamps = timestamps;
+                swerve_samples_inputs_.gyroYawsRad = gyroYawsRad;
+                swerve_samples_inputs_.moduleDistancesMeters = moduleDistancesMeters;
+                swerve_samples_inputs_.moduleSteerAnglesRad = moduleSteerAnglesRad;
+            } finally {
+                odometry_lock_.unlock();
             }
-        } finally {
-            odometry_lock_.unlock();
         }
 
+        Logger.processInputs("Odometry/SwerveSamples", swerve_samples_inputs_);
+
+        int num_samples = swerve_samples_inputs_.timestamps.length;
+        List<SwerveMeasurement> swerveSamples = new ArrayList<>(num_samples);
+        for (int i = 0; i < num_samples; i++) {
+            SwerveMeasurement sample = new SwerveMeasurement();
+            sample.timestamp = swerve_samples_inputs_.timestamps[i];
+            sample.gyro_yaw = new Rotation2d(swerve_samples_inputs_.gyroYawsRad[i]);
+            SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+            for (int j = 0; j < 4; j++) {
+                modulePositions[j] = new SwerveModulePosition(
+                        swerve_samples_inputs_.moduleDistancesMeters[i * 4 + j],
+                        new Rotation2d(swerve_samples_inputs_.moduleSteerAnglesRad[i * 4 + j]));
+            }
+            sample.module_positions = modulePositions;
+            swerveSamples.add(sample);
+        }
         return swerveSamples;
     }
 

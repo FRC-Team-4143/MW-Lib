@@ -360,9 +360,9 @@ public class LaunchCalculator {
      *     shooterSubsystem.setSpeed(params.flywheel_speed);
      *     
      *     // DIAGNOSTIC ONLY - Log these 3 parameters for debugging/visualization:
-     *     DogLog.log("Shooter/TargetDistance", params.distance);
-     *     DogLog.log("Shooter/DirectDistance", params.distance_no_lookahead);
-     *     DogLog.log("Shooter/TimeOfFlight", params.time_of_flight);
+     *     MwLog.log("Shooter/TargetDistance", params.distance);
+     *     MwLog.log("Shooter/DirectDistance", params.distance_no_lookahead);
+     *     MwLog.log("Shooter/TimeOfFlight", params.time_of_flight);
      * }
      * }</pre>
      * 
@@ -482,7 +482,7 @@ public class LaunchCalculator {
         // ============================================================================
         // Use the compensated distance to look up the required hood angle and
         // flywheel speed from our interpolating maps. These maps are tuned
-        // empirically and can be adjusted live via DogLog.
+        // empirically and can be adjusted live via MwLog.
         double hood_angle = hood_angle_map_.get(lookahead_launcher_to_target_distance);
         double flywheel_speed = flywheel_speed_map_.get(lookahead_launcher_to_target_distance);
         

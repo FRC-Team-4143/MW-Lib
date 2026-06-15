@@ -2,7 +2,7 @@ package com.marswars.logging;
 
 import com.playingwithfusion.BattFuelGauge;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.Alert;
@@ -22,6 +22,7 @@ public class BatteryLogger {
     private static boolean connected_ = false;
 
     public static void logBatteryData() {
+        if (MwLog.isReplay()) return;
         try {
             // Initialize the battery fuel gauge if not already done
             if (bfg_ == null) {
@@ -41,18 +42,18 @@ public class BatteryLogger {
             batteryDisconnectedAlert_.set(!connected_);
             
             if (connected_) {
-                DogLog.log("BFG/Charge Percent", chargePercent);
-                DogLog.log("BFG/Voltage", voltage);
-                DogLog.log("BFG/Current", current);
-                DogLog.log("BFG/Connected", true);
+                MwLog.log("BFG/Charge Percent", chargePercent);
+                MwLog.log("BFG/Voltage", voltage);
+                MwLog.log("BFG/Current", current);
+                MwLog.log("BFG/Connected", true);
             } else {
-                DogLog.log("BFG/Connected", false);
+                MwLog.log("BFG/Connected", false);
             }
         } catch (Exception e) {
             // If we get an exception, the device is likely not connected
             connected_ = connectionDebouncer_.calculate(false);
             batteryDisconnectedAlert_.set(!connected_);
-            DogLog.log("BFG/Connected", false);
+            MwLog.log("BFG/Connected", false);
         }
     }
 }

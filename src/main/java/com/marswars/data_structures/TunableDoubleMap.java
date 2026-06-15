@@ -1,6 +1,6 @@
 package com.marswars.data_structures;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 
 import java.util.TreeMap;
@@ -13,7 +13,7 @@ import java.util.TreeMap;
  * Each y-value in the map gets a corresponding tunable entry in DogLog with the format:
  * {@code <prefix>/<x_value>}
  * 
- * <p>The tunable values are automatically synchronized when changed via DogLog.
+ * <p>The tunable values are automatically synchronized when changed via MwLog.
  * 
  * <p>Example usage:
  * <pre>{@code
@@ -50,7 +50,7 @@ public class TunableDoubleMap {
     /**
      * Puts a key-value pair into the map and registers it as a DogLog tunable
      * 
-     * <p>The tunable will automatically update the map when changed via DogLog.
+     * <p>The tunable will automatically update the map when changed via MwLog.
      * 
      * @param key The x-value (input)
      * @param value The y-value (output) - becomes tunable in DogLog
@@ -72,7 +72,7 @@ public class TunableDoubleMap {
         // Register tunable entry in DogLog with callback (if not in unit test)
         if (!isUnitTest) {
             String tunable_key = getTunableKey(key);
-            DogLog.tunable(tunable_key, value, (val) -> updateValue(key, val));
+            MwLog.tunable(tunable_key, value, (val) -> updateValue(key, val));
         }
     }
     

@@ -15,7 +15,8 @@ import edu.wpi.first.wpilibj.Timer;
 import com.marswars.data_structures.ConcurrentFifoQueue;
 import com.marswars.vision.MwVisionSim;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
+import org.littletonrobotics.junction.Logger;
 
 import com.marswars.proxy_server.OdomPacket.OdometryData;
 import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
@@ -132,6 +133,7 @@ public class ProxyServerThread extends Thread {
     private final ConcurrentFifoQueue<ModuleStatesData> module_states_readings_ = new ConcurrentFifoQueue<>(20);
     private final ConcurrentFifoQueue<TagSolutionData> tag_solutions_ = new ConcurrentFifoQueue<>(20);
     private final ConcurrentFifoQueue<PieceDetectionData> piece_detections_ = new ConcurrentFifoQueue<>(20);
+    private final TagSolutionsInputsAutoLogged tag_solutions_inputs_ = new TagSolutionsInputsAutoLogged();
 
     // Socket Config
     private final int PORT = 5809; // local port to bind server
@@ -174,8 +176,8 @@ public class ProxyServerThread extends Thread {
         
         void updatePacketReceived(int packet_id) {
             this.last_packet_time = Timer.getFPGATimestamp();
-            DogLog.log("/Proxy/"+name + "/LastPacketTime", last_packet_time);
-            DogLog.log("/Proxy/"+name + "/LastPacket", packet_id);
+            MwLog.log("/Proxy/"+name + "/LastPacketTime", last_packet_time);
+            MwLog.log("/Proxy/"+name + "/LastPacket", packet_id);
         }
         
         void updateConnectionStatus() {
@@ -215,7 +217,7 @@ public class ProxyServerThread extends Thread {
         
         void updatePacketReceived() {
             this.last_packet_time = Timer.getFPGATimestamp();
-            DogLog.log("/Proxy/Camera/" + cameraSerial + "/LastPacketTime", last_packet_time);
+            MwLog.log("/Proxy/Camera/" + cameraSerial + "/LastPacketTime", last_packet_time);
         }
         
         void updateConnectionStatus() {
@@ -248,6 +250,7 @@ public class ProxyServerThread extends Thread {
 
     @Override
     public void start(){
+        if (MwLog.isReplay()) return;
         instance_.configureServer();
         super.start();
     }
@@ -642,7 +645,57 @@ public class ProxyServerThread extends Thread {
      * @return list of recent {@link TagSolutionData} with pose estimates and detected tag IDs
      */
     public List<TagSolutionData> getLatestTagSolutions() {
-        return tag_solutions_.toList();
+        if (!MwLog.isReplay()) {
+            List<TagSolutionData> solutions = tag_solutions_.toList();
+            int n = solutions.size();
+
+            double[] timestamps = new double[n];
+            Pose2d[] poses = new Pose2d[n];
+            String[] cameraSerials = new String[n];
+            int[] tagIdCounts = new int[n];
+            int totalTags = 0;
+            for (TagSolutionData s : solutions) totalTags += s.detectedIds.size();
+            int[] tagIds = new int[totalTags];
+
+            int tagIdx = 0;
+            for (int i = 0; i < n; i++) {
+                TagSolutionData s = solutions.get(i);
+                timestamps[i] = s.timestamp.getSeconds();
+                poses[i] = s.pose;
+                cameraSerials[i] = s.cameraSerial != null ? s.cameraSerial : "";
+                tagIdCounts[i] = s.detectedIds.size();
+                for (int id : s.detectedIds) {
+                    tagIds[tagIdx++] = id;
+                }
+            }
+
+            tag_solutions_inputs_.timestamps = timestamps;
+            tag_solutions_inputs_.poses = poses;
+            tag_solutions_inputs_.cameraSerials = cameraSerials;
+            tag_solutions_inputs_.tagIdCounts = tagIdCounts;
+            tag_solutions_inputs_.tagIds = tagIds;
+        }
+
+        Logger.processInputs("Proxy/TagSolutions", tag_solutions_inputs_);
+
+        int n = tag_solutions_inputs_.timestamps.length;
+        List<TagSolutionData> result = new ArrayList<>(n);
+        int tagIdx = 0;
+        for (int i = 0; i < n; i++) {
+            double ts = tag_solutions_inputs_.timestamps[i];
+            int secs = (int) ts;
+            int nsecs = (int) ((ts - secs) * 1_000_000_000);
+            ArrayList<Integer> ids = new ArrayList<>(tag_solutions_inputs_.tagIdCounts[i]);
+            for (int j = 0; j < tag_solutions_inputs_.tagIdCounts[i]; j++) {
+                ids.add(tag_solutions_inputs_.tagIds[tagIdx++]);
+            }
+            result.add(new TagSolutionData(
+                    tag_solutions_inputs_.poses[i],
+                    ids,
+                    new Packet.Timestamp(secs, nsecs),
+                    tag_solutions_inputs_.cameraSerials[i]));
+        }
+        return result;
     }   
     
     /**
