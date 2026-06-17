@@ -2,6 +2,8 @@
 
 A Java library for FRC (FIRST Robotics Competition) teams, providing utilities for swerve drive, mechanisms, geometry, and more.
 
+📖 **API docs:** https://frc-team-4143.github.io/MW-Lib/
+
 ## Features
 
 - **Swerve Drive Library**: Complete swerve drive implementation with Phoenix 6 support
