@@ -48,14 +48,16 @@ public final class MwLog {
 
         recordMetadata(buildConstants);
 
-        if (isReplay()) {
-            String logPath = LogFileUtil.findReplayLog();
-            Logger.setReplaySource(new WPILOGReader(logPath));
-            Logger.addDataReceiver(
-                    new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_replay")));
-        } else if (RobotBase.isSimulation()) {
-            Logger.addDataReceiver(new WPILOGWriter());
-            Logger.addDataReceiver(new NT4Publisher());
+        if (RobotBase.isSimulation()) {
+            String replayPath = System.getenv("AKIT_LOG_PATH");
+            if (replayPath != null) {
+                Logger.setReplaySource(new WPILOGReader(replayPath));
+                Logger.addDataReceiver(
+                        new WPILOGWriter(LogFileUtil.addPathSuffix(replayPath, "_replay")));
+            } else {
+                Logger.addDataReceiver(new WPILOGWriter());
+                Logger.addDataReceiver(new NT4Publisher());
+            }
         } else {
             Logger.addDataReceiver(new WPILOGWriter("/U/logs"));
             Logger.addDataReceiver(new NT4Publisher());
