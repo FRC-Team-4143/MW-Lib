@@ -114,6 +114,23 @@ After publishing, your package will be available at:
 https://github.com/FRC-Team-4143/MW-Lib/packages
 ```
 
+## API Documentation (GitHub Pages)
+
+The **Make Release** workflow (`.github/workflows/make-release.yml`) generates Javadoc and deploys
+it to GitHub Pages via its `deploy-docs` job. The docs are a single "latest" site published at:
+
+```
+https://frc-team-4143.github.io/MW-Lib/
+```
+
+The `javadoc` task (configured in `build.gradle`) cross-links to WPILib and several vendor libraries.
+CTRE Phoenix6 / maple-sim / PlayingWithFusion / Grapple don't host browsable Javadoc, so we download
+their `-javadoc.jar`, publish an extracted copy under `/vendor/<name>/`, and link to it.
+
+**One-time setup (repo admin):** In **GitHub repo Settings → Pages**, set **Source = "GitHub
+Actions"**. This is required for the `actions/deploy-pages` deploy step and cannot be set from the
+workflow file. To preview locally: `./gradlew javadoc` then open `build/docs/javadoc/index.html`.
+
 ## Using the Published Package
 
 To use this library in another project, add to your `build.gradle`:

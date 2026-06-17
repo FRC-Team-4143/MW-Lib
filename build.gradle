@@ -136,6 +136,76 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
+// ---- Javadoc generation + API cross-linking ----
+// Published docs site root (GitHub Pages). Used to build linkOffline URLs.
+def docsBaseUrl = 'https://frc-team-4143.github.io/MW-Lib'
+
+// Vendors that ship a real -javadoc.jar but have no plain-linkable hosted site (CTRE's public
+// site is Doxygen, the others don't host javadoc at all). We download each -javadoc.jar, host an
+// extracted copy under <docsBaseUrl>/vendor/<name>/, and linkOffline to it so their types
+// (TalonFX, CANcoder, etc.) render as clickable links. The release workflow publishes the
+// extracted dirs alongside the main docs.
+def vendorJavadocs = [
+    phoenix6: 'com.ctre.phoenix6:wpiapi-java:26.1.1',
+    maplesim: 'org.ironmaple:maplesim-java:0.4.0-beta',
+    pwf     : 'com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25',
+    grapple : 'au.grapplerobotics:libgrapplefrcjava:2025.1.3',
+]
+
+configurations { vendorJavadoc }
+dependencies {
+    vendorJavadocs.each { name, coord -> vendorJavadoc "${coord}:javadoc@jar" }
+}
+
+def vendorDocsRoot = layout.buildDirectory.dir('docs/vendor')
+def extractVendorJavadoc = tasks.register('extractVendorJavadoc') {
+    description = 'Extracts vendor -javadoc.jar artifacts for offline javadoc cross-linking.'
+    group = 'Documentation'
+    inputs.files configurations.vendorJavadoc
+    outputs.dir vendorDocsRoot
+    doLast {
+        def artifacts = configurations.vendorJavadoc.resolvedConfiguration.resolvedArtifacts
+        vendorJavadocs.each { name, coord ->
+            def artifact = artifacts.find { a ->
+                "${a.moduleVersion.id.group}:${a.moduleVersion.id.name}:${a.moduleVersion.id.version}" == coord
+            }
+            copy {
+                from zipTree(artifact.file)
+                into vendorDocsRoot.get().dir(name)
+            }
+        }
+    }
+}
+
+javadoc {
+    dependsOn extractVendorJavadoc
+    title = 'MW-Lib API'
+    options {
+        encoding = 'UTF-8'
+        charSet = 'UTF-8'
+        memberLevel = JavadocMemberLevel.PROTECTED         // document the public API surface
+        addBooleanOption('Xdoclint:none', true)            // don't fail on malformed/missing comments
+        addStringOption('Xmaxwarns', '1')                  // keep CI logs quiet
+
+        // Plain online cross-links (verified to serve an element-list):
+        links 'https://docs.oracle.com/en/java/javase/17/docs/api/'
+        links 'https://github.wpilib.org/allwpilib/docs/release/java/'   // WPILib (Pose2d, Command, units, ...)
+        links 'https://javadoc.io/doc/com.google.code.gson/gson/2.13.2/'
+        links 'https://javadoc.io/doc/org.ejml/ejml-simple/0.44.0/'
+        links 'https://javadoc.io/doc/org.dyn4j/dyn4j/5.0.2/'
+    }
+
+    // Bundled vendor docs (downloaded + self-hosted). linksOffline reads the element-list from the
+    // extracted dir locally and emits links pointing at where we publish it. Called on `options`
+    // directly so method resolution doesn't depend on the nested-closure delegate chain.
+    vendorJavadocs.each { name, coord ->
+        options.linksOffline("${docsBaseUrl}/vendor/${name}".toString(),
+                             vendorDocsRoot.get().dir(name).asFile.absolutePath.toString())
+    }
+
+    failOnError = false   // loose doc comments / vendor quirks shouldn't break a release
+}
+
 // Disable C++ builds - Java only project
 
 // Enable publish.gradle for vendor dependency
