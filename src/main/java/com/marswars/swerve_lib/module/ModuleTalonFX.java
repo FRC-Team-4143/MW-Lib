@@ -1,11 +1,12 @@
 package com.marswars.swerve_lib.module;
+import org.wpilib.driverstation.RobotState;
 
 import static com.marswars.util.PhoenixUtil.tryUntilOk;
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.Rotation;
-import static edu.wpi.first.units.Units.Volts;
+import static org.wpilib.units.Units.Amps;
+import static org.wpilib.units.Units.Radians;
+import static org.wpilib.units.Units.RadiansPerSecond;
+import static org.wpilib.units.Units.Rotation;
+import static org.wpilib.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -22,21 +23,17 @@ import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.system.plant.LinearSystemId;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Current;
-import edu.wpi.first.units.measure.Voltage;
-import edu.wpi.first.wpilibj.AnalogEncoder;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.math.controller.PIDController;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.math.system.Models;
+import org.wpilib.math.util.Units;
+import org.wpilib.hardware.rotation.AnalogEncoder;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.system.Timer;
+import org.wpilib.simulation.DCMotorSim;
 import com.marswars.swerve_lib.PhoenixOdometryThread;
 import com.marswars.util.MWPreferences;
 import org.ejml.simple.UnsupportedOperation;
@@ -72,16 +69,16 @@ public class ModuleTalonFX extends Module {
             new VelocityTorqueCurrentFOC(0.0);
 
     // Inputs from drive motor
-    protected final StatusSignal<Angle> drive_position_sig_;
-    protected final StatusSignal<AngularVelocity> drive_velocity_sig_;
-    protected final StatusSignal<Voltage> drive_applied_volts_sig_;
-    protected final StatusSignal<Current> drive_current_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal drive_position_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal drive_velocity_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal drive_applied_volts_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal drive_current_sig_;
 
     // Inputs from steer motor
-    protected final StatusSignal<Angle> steer_absolute_position_sig_;
-    protected final StatusSignal<AngularVelocity> steer_velocity_sig_;
-    protected final StatusSignal<Voltage> steer_applied_volts_sig_;
-    protected final StatusSignal<Current> steer_current_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal steer_absolute_position_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal steer_velocity_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal steer_applied_volts_sig_;
+    @SuppressWarnings("rawtypes") protected final StatusSignal steer_current_sig_;
 
     // Analog encoder input (if used)
     protected double encoder_value_abs_;
@@ -112,13 +109,13 @@ public class ModuleTalonFX extends Module {
 
         drive_talonfx_ =
                 new TalonFX(
-                        config_.drive_motor_config.can_id, config_.drive_motor_config.canbus_name);
+                        config_.drive_motor_config.can_id, new CANBus(config_.drive_motor_config.canbus_name));
         steer_talonfx_ =
                 new TalonFX(
-                        config_.steer_motor_config.can_id, config_.steer_motor_config.canbus_name);
+                        config_.steer_motor_config.can_id, new CANBus(config_.steer_motor_config.canbus_name));
 
         if (config_.encoder_type != SwerveModuleConfig.EncoderType.ANALOG_ENCODER) {
-            cancoder = new CANcoder(config_.encoder_id, config_.drive_motor_config.canbus_name);
+            cancoder = new CANcoder(config_.encoder_id, new CANBus(config_.drive_motor_config.canbus_name));
             encoder = null;
         } else {
             cancoder = null;
@@ -216,14 +213,14 @@ public class ModuleTalonFX extends Module {
         // Create drive motor simulation
         drive_sim_ =
                 new DCMotorSim(
-                        LinearSystemId.createDCMotorSystem(
+                        Models.singleJointedArmFromPhysicalConstants(
                                 DRIVE_MOTOR_MODEL, 0.025, config_.module_type.driveRatio),
                         DRIVE_MOTOR_MODEL);
-        
+
         // Create steer motor simulation
         steer_sim_ =
                 new DCMotorSim(
-                        LinearSystemId.createDCMotorSystem(
+                        Models.singleJointedArmFromPhysicalConstants(
                                 STEER_MOTOR_MODEL, 0.004, config_.module_type.steerRatio),
                         STEER_MOTOR_MODEL);
         
@@ -253,34 +250,34 @@ public class ModuleTalonFX extends Module {
         if (drive_closed_loop_) {
             sim_drive_applied_volts_ =
                     drive_ff_volts_
-                            + drive_controller_.calculate(drive_sim_.getAngularVelocityRadPerSec());
+                            + drive_controller_.calculate(drive_sim_.getAngularVelocity());
         } else {
             drive_controller_.reset();
         }
         
         if (steer_closed_loop_) {
-            sim_steer_applied_volts_ = steer_controller_.calculate(steer_sim_.getAngularPositionRad());
+            sim_steer_applied_volts_ = steer_controller_.calculate(steer_sim_.getAngularPosition());
         } else {
             steer_controller_.reset();
         }
         
         // Update simulation state
-        drive_sim_.setInputVoltage(MathUtil.clamp(sim_drive_applied_volts_, -12.0, 12.0));
-        steer_sim_.setInputVoltage(MathUtil.clamp(sim_steer_applied_volts_, -12.0, 12.0));
+        drive_sim_.setInputVoltage(Math.clamp(sim_drive_applied_volts_, -12.0, 12.0));
+        steer_sim_.setInputVoltage(Math.clamp(sim_steer_applied_volts_, -12.0, 12.0));
         drive_sim_.update(SIM_PERIOD_SECS);
         steer_sim_.update(SIM_PERIOD_SECS);
         
         // Update drive inputs from simulation
-        drive_position_rad_ = drive_sim_.getAngularPositionRad();
-        drive_velocity_rad_per_sec_ = drive_sim_.getAngularVelocityRadPerSec();
+        drive_position_rad_ = drive_sim_.getAngularPosition();
+        drive_velocity_rad_per_sec_ = drive_sim_.getAngularVelocity();
         drive_applied_volts_ = sim_drive_applied_volts_;
-        drive_current_amps_ = Math.abs(drive_sim_.getCurrentDrawAmps());
+        drive_current_amps_ = Math.abs(drive_sim_.getCurrentDraw());
         
         // Update steer inputs from simulation
-        steer_absolute_position_ = new Rotation2d(steer_sim_.getAngularPositionRad());
-        steer_velocity_rad_per_sec_ = steer_sim_.getAngularVelocityRadPerSec();
+        steer_absolute_position_ = new Rotation2d(steer_sim_.getAngularPosition());
+        steer_velocity_rad_per_sec_ = steer_sim_.getAngularVelocity();
         steer_applied_volts_ = sim_steer_applied_volts_;
-        steer_current_amps_ = Math.abs(steer_sim_.getCurrentDrawAmps());
+        steer_current_amps_ = Math.abs(steer_sim_.getCurrentDraw());
         
         // Simulation is always "connected"
         drive_disconnected_alert_.set(false);
@@ -289,7 +286,7 @@ public class ModuleTalonFX extends Module {
         
         // Enqueue odometry sample for simulation
         // Create single-sample arrays with current timestamp and positions
-        double currentTime = Timer.getFPGATimestamp();
+        double currentTime = Timer.getTimestamp();
         PhoenixOdometryThread.getInstance().enqueueModuleSamples(
                 module_index_,
                 new double[] {currentTime},
@@ -443,7 +440,7 @@ public class ModuleTalonFX extends Module {
     public void setModuleOffset() {
         if (IS_SIM) {
             // In simulation, reset the steer position to zero
-            steer_sim_.setState(0.0, steer_sim_.getAngularVelocityRadPerSec());
+            steer_sim_.setState(0.0, steer_sim_.getAngularVelocity());
         } else {
             MWPreferences.getInstance()
                     .setPreference(
@@ -458,8 +455,8 @@ public class ModuleTalonFX extends Module {
     public void setNeutralMode(NeutralModeValue mode) {
         neutral_mode_ = mode;
         if (!IS_SIM) {
-            steer_talonfx_.setNeutralMode(mode);
-            drive_talonfx_.setNeutralMode(mode);
+            steer_talonfx_.configNeutralMode(mode);
+            drive_talonfx_.configNeutralMode(mode);
         }
         DogLog.log(getLoggingKey() + "NeutralMode", mode);
     }
@@ -468,7 +465,7 @@ public class ModuleTalonFX extends Module {
     @Override
     public void writeOutputs(double timestamp) {
         // In simulation, stop motors when disabled
-        if (IS_SIM && DriverStation.isDisabled()) {
+        if (IS_SIM && RobotState.isDisabled()) {
             drive_closed_loop_ = false;
             steer_closed_loop_ = false;
             sim_drive_applied_volts_ = 0.0;

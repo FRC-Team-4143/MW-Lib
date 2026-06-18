@@ -4,7 +4,7 @@ import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.controller.PIDController;
+import org.wpilib.math.controller.PIDController;
 
 import java.util.function.Consumer;
 

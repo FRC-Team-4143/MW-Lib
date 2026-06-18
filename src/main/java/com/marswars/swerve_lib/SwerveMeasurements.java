@@ -1,7 +1,7 @@
 package com.marswars.swerve_lib;
 
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.SwerveModulePosition;
 
 /**
  * Data containers for time-stamped swerve odometry measurements.

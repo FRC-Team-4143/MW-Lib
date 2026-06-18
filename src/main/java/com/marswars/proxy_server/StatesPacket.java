@@ -1,7 +1,7 @@
 package com.marswars.proxy_server;
 
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
 import java.nio.ByteBuffer;
 
 /**
@@ -16,11 +16,11 @@ public abstract class StatesPacket implements Packet {
      */
     public static class ModuleStatesData {
         /** Array of swerve module states (4 modules) */
-        public final SwerveModuleState[] moduleStates;
+        public final SwerveModuleVelocity[] moduleStates;
         /** Timestamp when the states were recorded */
         public final Timestamp timestamp;
 
-        public ModuleStatesData(SwerveModuleState[] moduleStates, Timestamp timestamp) {
+        public ModuleStatesData(SwerveModuleVelocity[] moduleStates, Timestamp timestamp) {
             this.moduleStates = moduleStates.clone();
             this.timestamp = timestamp;
         }
@@ -55,24 +55,24 @@ public abstract class StatesPacket implements Packet {
                 ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
         
         // Parse module states
-        SwerveModuleState[] moduleStates = new SwerveModuleState[4];
+        SwerveModuleVelocity[] moduleStates = new SwerveModuleVelocity[4];
         
-        moduleStates[0] = new SwerveModuleState(
+        moduleStates[0] = new SwerveModuleVelocity(
                 ByteBuffer.wrap(buffer, MODULE_1_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
                 new Rotation2d(
                         ByteBuffer.wrap(buffer, MODULE_1_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
         
-        moduleStates[1] = new SwerveModuleState(
+        moduleStates[1] = new SwerveModuleVelocity(
                 ByteBuffer.wrap(buffer, MODULE_2_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
                 new Rotation2d(
                         ByteBuffer.wrap(buffer, MODULE_2_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
         
-        moduleStates[2] = new SwerveModuleState(
+        moduleStates[2] = new SwerveModuleVelocity(
                 ByteBuffer.wrap(buffer, MODULE_3_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
                 new Rotation2d(
                         ByteBuffer.wrap(buffer, MODULE_3_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
         
-        moduleStates[3] = new SwerveModuleState(
+        moduleStates[3] = new SwerveModuleVelocity(
                 ByteBuffer.wrap(buffer, MODULE_4_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
                 new Rotation2d(
                         ByteBuffer.wrap(buffer, MODULE_4_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));

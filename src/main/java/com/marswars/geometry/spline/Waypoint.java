@@ -1,6 +1,6 @@
 package com.marswars.geometry.spline;
 
-import edu.wpi.first.math.geometry.Translation3d;
+import org.wpilib.math.geometry.Translation3d;
 
 public class Waypoint {
     public Translation3d translation;

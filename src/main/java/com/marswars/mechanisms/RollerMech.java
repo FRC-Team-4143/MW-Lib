@@ -1,13 +1,13 @@
 package com.marswars.mechanisms;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Celsius;
-import static edu.wpi.first.units.Units.Percent;
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Volts;
+import static org.wpilib.units.Units.Amps;
+import static org.wpilib.units.Units.Celsius;
+import static org.wpilib.units.Units.Percent;
+import static org.wpilib.units.Units.Radians;
+import static org.wpilib.units.Units.RadiansPerSecond;
+import static org.wpilib.units.Units.Rotations;
+import static org.wpilib.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
@@ -26,14 +26,14 @@ import com.ctre.phoenix6.hardware.TalonFXS;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.system.plant.LinearSystemId;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import org.wpilib.math.controller.PIDController;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.math.system.Models;
+import org.wpilib.math.util.Units;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.simulation.DCMotorSim;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
@@ -182,10 +182,10 @@ public class RollerMech extends MechBase {
         for (int i = 0; i < motors_.length; i++) {
             motor_disconnected_alerts_[i] = new Alert(
                     "Disconnected motor " + i + " in " + getLoggingKey(),
-                    AlertType.kError);
+                    Alert.Level.HIGH);
             motor_temp_alerts_[i] = new Alert(
                     "High temperature on motor " + i + " in " + getLoggingKey(),
-                    AlertType.kWarning);
+                    Alert.Level.MEDIUM);
             motor_conn_debouncers_[i] = new Debouncer(0.5);
         }
 
@@ -209,7 +209,7 @@ public class RollerMech extends MechBase {
 
         roller_sim_ =
                 new DCMotorSim(
-                        LinearSystemId.createDCMotorSystem(
+                        Models.singleJointedArmFromPhysicalConstants(
                                 motor_type_, roller_inertia_, gear_ratio_),
                         motor_type_);
 
@@ -255,12 +255,12 @@ public class RollerMech extends MechBase {
         BaseStatusSignal.refreshAll(signals_);
 
         // always read the sensor data
-        position_ = motors_[0].getPosition().getValue().in(Radians);
-        velocity_ = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
+        position_ = Units.rotationsToRadians(motors_[0].getPosition().getValueAsDouble());
+        velocity_ = Units.rotationsToRadians(motors_[0].getVelocity().getValueAsDouble());
         for (int i = 0; i < motors_.length; i++) {
             applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
-            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
+            current_draw_[i] = motors_[i].getSupplyCurrent().getValueAsDouble();
+            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValueAsDouble();
             bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
             
             // Update alerts for each motor
@@ -292,11 +292,11 @@ public class RollerMech extends MechBase {
             double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
-            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            double load_current = motor_load_torque / motor_type_.Kt;
             
             // The voltage actually seen by the motor after the load consumes some current
             // is reduced by the voltage drop across the resistance due to load current
-            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            double effective_voltage = controller_voltage - (load_current * motor_type_.R);
             
             // Apply the effective voltage to the simulation
             roller_sim_.setInput(effective_voltage);
@@ -311,8 +311,8 @@ public class RollerMech extends MechBase {
             // The simulation gives mechanism (output) position/velocity in radians
             // setRawRotorPosition expects raw rotor (motor) position in rotations
             // Since gear_ratio_ = motor/mechanism, we need motor = mechanism * gear_ratio_
-            double mechanismPositionRad = roller_sim_.getAngularPositionRad();
-            double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocityRadPerSec();
+            double mechanismPositionRad = roller_sim_.getAngularPosition();
+            double mechanismVelocityRadPerSec = roller_sim_.getAngularVelocity();
             
             double motorPositionRad = mechanismPositionRad * gear_ratio_;
             double motorVelocityRadPerSec = mechanismVelocityRadPerSec * gear_ratio_;

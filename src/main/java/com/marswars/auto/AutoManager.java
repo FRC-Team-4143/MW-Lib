@@ -2,16 +2,15 @@ package com.marswars.auto;
 
 import java.util.Optional;
 
-import javax.xml.crypto.Data;
 
-import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
+import org.wpilib.system.DataLogManager;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.smartdashboard.Field2d;
+import org.wpilib.smartdashboard.SendableChooser;
+import org.wpilib.smartdashboard.SmartDashboard;
+import org.wpilib.command2.Commands;
+import org.wpilib.command2.button.Trigger;
 
 /**
  * Singleton manager for autonomous routine selection and visualization.
@@ -75,8 +74,8 @@ public class AutoManager {
    * ConcurrentModificationException.
    */
   public void periodic() {
-    if(current_alliance_ != DriverStation.getAlliance()) {
-      current_alliance_ = DriverStation.getAlliance();
+    if(current_alliance_ != MatchState.getAlliance()) {
+      current_alliance_ = MatchState.getAlliance();
       pending_auto_update_ = true;
       DataLogManager.log("Alliance changed, Triggering auto update");
     }
@@ -103,7 +102,7 @@ public class AutoManager {
     Auto selected_auto = getSelectedAuto();
 
     // determine our alliance for path flipping
-    Optional<Alliance> alliance = DriverStation.getAlliance();
+    Optional<Alliance> alliance = MatchState.getAlliance();
 
     if (alliance.isEmpty()) {
       DataLogManager.log("Alliance not yet determined; cannot visualize auto path");
@@ -111,7 +110,7 @@ public class AutoManager {
     }
 
     // hot load its paths
-    selected_auto.cacheTrajetories(alliance.get() == Alliance.Red);
+    selected_auto.cacheTrajetories(alliance.get() == Alliance.RED);
 
     // update the dashboard with the new path
     auto_display.getObject("Auto Path").setPoses(selected_auto.getPath());

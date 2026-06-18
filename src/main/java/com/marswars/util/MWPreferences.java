@@ -1,10 +1,11 @@
 package com.marswars.util;
+import org.wpilib.driverstation.DriverStationErrors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Filesystem;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.system.Filesystem;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -40,7 +41,7 @@ public class MWPreferences extends JSONReader {
         try {
             loadJson(pref_path_);
         } catch (IOException e) {
-            DriverStation.reportError("Failed to load preferences file !!!", e.getStackTrace());
+            DriverStationErrors.reportError("Failed to load preferences file !!!", e.getStackTrace());
         }
     }
 
@@ -51,7 +52,7 @@ public class MWPreferences extends JSONReader {
             mapper_.writeValue(json_file, root_node_);
 
         } catch (Exception e) {
-            DriverStation.reportError("Failed to write preferences file!!!!", e.getStackTrace());
+            DriverStationErrors.reportError("Failed to write preferences file!!!!", e.getStackTrace());
         }
     }
 

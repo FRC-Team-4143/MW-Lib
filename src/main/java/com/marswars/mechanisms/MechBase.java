@@ -1,6 +1,7 @@
 package com.marswars.mechanisms;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXSConfiguration;
@@ -12,7 +13,7 @@ import com.ctre.phoenix6.hardware.core.CoreTalonFX;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 import com.ctre.phoenix6.signals.MotorArrangementValue;
 
-import edu.wpi.first.wpilibj.RobotBase;
+import org.wpilib.framework.RobotBase;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.subsystem.SubsystemIoBase;
@@ -114,10 +115,10 @@ public abstract class MechBase implements SubsystemIoBase {
             }
 
             if(cfg.isFXS()){
-                constructed.motors[i] = new TalonFXS(cfg.can_id, cfg.canbus_name);
+                constructed.motors[i] = new TalonFXS(cfg.can_id, new CANBus(cfg.canbus_name));
 
             } else{
-                constructed.motors[i] = new TalonFX(cfg.can_id, cfg.canbus_name);
+                constructed.motors[i] = new TalonFX(cfg.can_id, new CANBus(cfg.canbus_name));
             }
 
             ArrayList<BaseStatusSignal> motor_signals = new ArrayList<>();

@@ -1,19 +1,20 @@
 package com.marswars.proxy_server;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.Timer;
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.driverstation.Alliance;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.MatchType;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.system.Timer;
 
 import com.marswars.data_structures.ConcurrentFifoQueue;
-import com.marswars.vision.MwVisionSim;
+//import com.marswars.vision.MwVisionSim;
 
 import dev.doglog.DogLog;
 
@@ -145,7 +146,7 @@ public class ProxyServerThread extends Thread {
     
     // Initial connection tracking
     private boolean has_ever_connected_ = false; // Track if any client has ever connected
-    private final Alert no_clients_alert_ = new Alert("Proxy Server: No clients connected", AlertType.kError);
+    private final Alert no_clients_alert_ = new Alert("Proxy Server: No clients connected", Alert.Level.HIGH);
     
     /**
      * Tracks connection state for an individual client
@@ -162,24 +163,24 @@ public class ProxyServerThread extends Thread {
         
         ClientConnection(SocketAddress address) {
             this.address = address;
-            this.last_packet_time = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getTimestamp();
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
             // Create alert with client-specific name. strip just the address for readability (e.g. "
             this.name = address.toString().replaceAll("[/:]", "_"); // Sanitize for logging
-            this.alert = new Alert("Proxy Server: Lost connection to " + name, AlertType.kError);
-            this.no_cameras_alert = new Alert("Proxy Server: No cameras from " + name, AlertType.kError);
+            this.alert = new Alert("Proxy Server: Lost connection to " + name, Alert.Level.HIGH);
+            this.no_cameras_alert = new Alert("Proxy Server: No cameras from " + name, Alert.Level.HIGH);
             this.has_camera_ever_connected = false;
         }
         
         void updatePacketReceived(int packet_id) {
-            this.last_packet_time = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getTimestamp();
             DogLog.log("/Proxy/"+name + "/LastPacketTime", last_packet_time);
             DogLog.log("/Proxy/"+name + "/LastPacket", packet_id);
         }
         
         void updateConnectionStatus() {
-            double current_time = Timer.getFPGATimestamp();
+            double current_time = Timer.getTimestamp();
             double time_since_last_packet = current_time - last_packet_time;
             boolean is_receiving = time_since_last_packet < CONNECTION_TIMEOUT_SECONDS;
             connected = debouncer.calculate(is_receiving);
@@ -205,21 +206,21 @@ public class ProxyServerThread extends Thread {
         CameraConnection(String cameraSerial, String clientKey, String clientName) {
             this.cameraSerial = cameraSerial;
             this.clientKey = clientKey;
-            this.last_packet_time = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getTimestamp();
             this.debouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
             this.connected = true; // Start as connected when first packet received
             // Create alert with camera-specific name including client for debugging
             this.alert = new Alert("Proxy Server: Lost camera '" + cameraSerial + 
-                                 "' from client " + clientName, AlertType.kError);
+                                 "' from client " + clientName, Alert.Level.HIGH);
         }
         
         void updatePacketReceived() {
-            this.last_packet_time = Timer.getFPGATimestamp();
+            this.last_packet_time = Timer.getTimestamp();
             DogLog.log("/Proxy/Camera/" + cameraSerial + "/LastPacketTime", last_packet_time);
         }
         
         void updateConnectionStatus() {
-            double current_time = Timer.getFPGATimestamp();
+            double current_time = Timer.getTimestamp();
             double time_since_last_packet = current_time - last_packet_time;
             boolean is_receiving = time_since_last_packet < CAMERA_TIMEOUT_SECONDS;
             connected = debouncer.calculate(is_receiving);
@@ -228,7 +229,7 @@ public class ProxyServerThread extends Thread {
     }
     
     // Vision simulation (only used in simulation mode)
-    private MwVisionSim visionSim = null;
+    //private MwVisionSim visionSim = null;
 
     // Singleton instance
     private static ProxyServerThread instance_ = null;
@@ -488,7 +489,7 @@ public class ProxyServerThread extends Thread {
      */
     public double getTimeSinceLastPacket() {
         return clients_.values().stream()
-            .mapToDouble(c -> Timer.getFPGATimestamp() - c.last_packet_time)
+            .mapToDouble(c -> Timer.getTimestamp() - c.last_packet_time)
             .min()
             .orElse(Double.MAX_VALUE);
     }
@@ -533,7 +534,7 @@ public class ProxyServerThread extends Thread {
         if (camera == null) {
             return Double.MAX_VALUE;
         }
-        return Timer.getFPGATimestamp() - camera.last_packet_time;
+        return Timer.getTimestamp() - camera.last_packet_time;
     }
 
     /**
@@ -622,13 +623,13 @@ public class ProxyServerThread extends Thread {
     }
 
     /**
-     * Gets the current robot module states as individual SwerveModuleState arrays.
+     * Gets the current robot module states as individual SwerveModuleVelocity arrays.
      * This is a convenience method that extracts the module states arrays from the data objects.
      * 
-     * @return list of SwerveModuleState arrays (for backward compatibility)
+     * @return list of SwerveModuleVelocity arrays (for backward compatibility)
      */
-    public List<SwerveModuleState[]> getLatestModuleStatesArrays() {
-        List<SwerveModuleState[]> module_states_arrays = new ArrayList<>();
+    public List<SwerveModuleVelocity[]> getLatestModuleStatesArrays() {
+        List<SwerveModuleVelocity[]> module_states_arrays = new ArrayList<>();
         for (ModuleStatesData states_data : module_states_readings_.toList()) {
             module_states_arrays.add(states_data.moduleStates);
         }
@@ -662,7 +663,7 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean snapshot(String tag_name) {
-        int tag_name_length = (int) MathUtil.clamp(tag_name.length(), 0, 400);
+        int tag_name_length = (int) Math.clamp(tag_name.length(), 0, 400);
         byte[] buffer = new byte[1 + tag_name_length];
         buffer[0] = 52; // Message ID
         for (int i = 0; i < tag_name_length; i++) {
@@ -678,10 +679,10 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean syncMatchData() {
-        String event_name = DriverStation.getEventName();
+        String event_name = MatchState.getEventName();
         byte[] buffer = new byte[5 + event_name.length()];
         buffer[0] = 50; // Message ID
-        buffer[1] = (byte) DriverStation.getMatchNumber();
+        buffer[1] = (byte) MatchState.getMatchNumber();
         buffer[2] = serializeMatchType();
         buffer[3] = serializeAllianceStation();
         buffer[4] = (byte) event_name.length();
@@ -758,20 +759,20 @@ public class ProxyServerThread extends Thread {
      * @return byte value representing match type
      */
     private byte serializeMatchType() {
-        switch (DriverStation.getMatchType()) {
-            case Practice:
+        switch (MatchState.getMatchType()) {
+            case PRACTICE:
                 {
                     return 1;
                 }
-            case Qualification:
+            case QUALIFICATION:
                 {
                     return 2;
                 }
-            case Elimination:
+            case ELIMINATION:
                 {
                     return 3;
                 }
-            case None:
+            case NONE:
             default:
                 return 0;
         }
@@ -784,10 +785,10 @@ public class ProxyServerThread extends Thread {
      * @return byte value representing station location
      */
     private byte serializeAllianceStation() {
-        OptionalInt optional = DriverStation.getLocation();
+        OptionalInt optional = MatchState.getLocation();
         if (optional.isPresent()) {
             int station = optional.getAsInt();
-            if (DriverStation.getAlliance().get() == Alliance.Blue) {
+            if (MatchState.getAlliance().get() == Alliance.BLUE) {
                 // If on Blue Alliance apply no offset {1, 2, 3}
                 return (byte) station;
             } else {
@@ -809,13 +810,13 @@ public class ProxyServerThread extends Thread {
      * @param fieldLayout the AprilTag field layout to use
      * @return the created MwVisionSimulation instance, or null if not in simulation
      */
-    public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout field_layout) {
-        if (RobotBase.isSimulation() && visionSim == null) {
-            visionSim = new MwVisionSim(field_layout);
-            System.out.println("ProxyServerThread: Vision simulation initialized");
-        }
-        return visionSim;
-    }
+    // public MwVisionSim initializeVisionSimulation(AprilTagFieldLayout field_layout) {
+    //     if (RobotBase.isSimulation() && visionSim == null) {
+    //         visionSim = new MwVisionSim(field_layout);
+    //         System.out.println("ProxyServerThread: Vision simulation initialized");
+    //     }
+    //     return visionSim;
+    // }
     
     /**
      * Updates the vision simulation with the current robot pose and generates vision data.
@@ -825,18 +826,18 @@ public class ProxyServerThread extends Thread {
      * 
      * @param robotPose the current simulated robot pose
      */
-    public void updateVisionSimulation(Pose2d robot_pose) {
-        if (!RobotBase.isSimulation() || visionSim == null) {
-            return;
-        }
+    // public void updateVisionSimulation(Pose2d robot_pose) {
+    //     if (!RobotBase.isSimulation() || visionSim == null) {
+    //         return;
+    //     }
         
-        // Update the vision system with current robot pose
-        visionSim.update(robot_pose);
+    //     // Update the vision system with current robot pose
+    //     visionSim.update(robot_pose);
         
-        // Get generated tag solutions and add them to the queue
-        List<TagSolutionData> simulated_solutions = visionSim.getTagSolutions(robot_pose);
-        for (TagSolutionData solution : simulated_solutions) {
-            tag_solutions_.add(solution);
-        }
-    }
+    //     // Get generated tag solutions and add them to the queue
+    //     List<TagSolutionData> simulated_solutions = visionSim.getTagSolutions(robot_pose);
+    //     for (TagSolutionData solution : simulated_solutions) {
+    //         tag_solutions_.add(solution);
+    //     }
+    // }
 }

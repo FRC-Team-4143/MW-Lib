@@ -1,123 +1,90 @@
-// import edu.wpi.first.toolchain.*  // Disabled - Java only build
-
 plugins {
-  // id 'cpp'  // Disabled - Java only build
-  id 'java'
-  // id 'google-test'  // Disabled - Java only build
-  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2025.0'
-  // id 'edu.wpi.first.NativeUtils' version '2026.0.1'  // Disabled - Java only build
-  // id 'edu.wpi.first.GradleJni' version '1.1.0'  // Disabled - Java only build
-  id 'edu.wpi.first.GradleVsCode' version '2.1.0'
-}
-
-// WPILib Version
-ext.wpilibVersion = "2026.+"
-
-repositories {
-  mavenCentral()
-  maven {
-    url = "https://maven.ctr-electronics.com/release/"
-  }
-  maven {
-    url = "https://doglog.dev/doglog-maven/"
-  }
-  maven {
-    url = "https://jitpack.io"
-  }
-  maven {
-    url = "https://maven.revrobotics.com/"
-  }
-  maven {
-    url = "https://shenzhen-robotics-alliance.github.io/maple-sim/vendordep/repos/releases"
-  }
-  maven {
-    url = "https://www.playingwithfusion.com/frc/maven/"
-  }
-  maven {
-    url = "https://storage.googleapis.com/grapple-frc-maven"
-  }
-  maven {
-    url = "https://maven.photonvision.org/repository/internal"
-  }
-  maven {
-    url = "https://maven.photonvision.org/repository/snapshots"
-  }
-  maven {
-    url = "https://frcmaven.wpi.edu/artifactory/sleipnirgroup-mvn-release/"
-  }
-  maven {
-    url = "https://docs.home.thethriftybot.com"
-  }
-}
-if (project.hasProperty('releaseMode')) {
-  wpilibRepositories.addAllReleaseRepositories(project)
-} else {
-  wpilibRepositories.addAllDevelopmentRepositories(project)
+    id 'java'
+    id 'maven-publish'
 }
 
 java {
-  sourceCompatibility = JavaVersion.VERSION_17
-  targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
-var javaVersion = "17"
 
-// Configure source sets to include all src subdirectories
+def wpiVersion = "2027.0.0-alpha-6"
+def alpha1Base = "/home/ubuntu/wpilib/2027_alpha1/maven/edu/wpi/first"
+
+repositories {
+    // Alpha-5 WPILib local maven
+    maven { url = uri('/home/ubuntu/wpilib/2027_alpha5/maven') }
+
+    // Vendor library repositories
+    maven { url = "https://maven.ctr-electronics.com/release/" }
+    maven { url = "https://shenzhen-robotics-alliance.github.io/maple-sim/vendordep/repos/releases" }
+    maven {
+        url = "https://maven.photonvision.org/repository/internal"
+        content { includeGroup "org.photonvision" }
+    }
+    maven {
+        url = "https://maven.photonvision.org/repository/snapshots"
+        content { includeGroup "org.photonvision" }
+    }
+    maven { url = "https://frcmaven.wpi.edu/artifactory/sleipnirgroup-mvn-release/" }
+    maven { url = "https://www.playingwithfusion.com/frc/maven/" }
+    maven { url = "https://storage.googleapis.com/grapple-frc-maven" }
+    maven { url = "https://jitpack.io" }
+    mavenCentral()
+}
+
 sourceSets {
-  main {
-    java {
-      srcDirs = ['src/main/java']
+    main {
+        java { srcDirs = ['src/main/java'] }
     }
-  }
-  test {
-    java {
-      srcDirs = ['src/test/java']
+    test {
+        java { srcDirs = ['src/test/java'] }
     }
-  }
 }
 
-// Apply C++ configuration - Disabled for Java only build
-// apply from: 'config.gradle'
-
-// Apply Java configuration
 dependencies {
-    implementation "edu.wpi.first.cscore:cscore-java:$wpilibVersion"
-    implementation "edu.wpi.first.cameraserver:cameraserver-java:$wpilibVersion"
-    implementation "edu.wpi.first.ntcore:ntcore-java:$wpilibVersion"
-    implementation "edu.wpi.first.wpilibj:wpilibj-java:$wpilibVersion"
-    implementation "edu.wpi.first.wpiutil:wpiutil-java:$wpilibVersion"
-    implementation "edu.wpi.first.wpimath:wpimath-java:$wpilibVersion"
-    implementation "edu.wpi.first.wpiunits:wpiunits-java:$wpilibVersion"
-    implementation "edu.wpi.first.hal:hal-java:$wpilibVersion"
-    implementation "edu.wpi.first.wpilibNewCommands:wpilibNewCommands-java:$wpilibVersion"
-    implementation "edu.wpi.first.apriltag:apriltag-java:$wpilibVersion"
-    implementation "org.ejml:ejml-simple:0.44.0"
-    implementation "com.fasterxml.jackson.core:jackson-annotations:2.19.2"
-    implementation "com.fasterxml.jackson.core:jackson-core:2.19.2"
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.19.2"
-    implementation 'edu.wpi.first.thirdparty.frc2025.opencv:opencv-java:4.10.0-2'
-    
+    // WPILib alpha-5 (org.wpilib.*)
+    implementation "org.wpilib.wpilibj:wpilibj-java:$wpiVersion"
+    implementation "org.wpilib.wpimath:wpimath-java:$wpiVersion"
+    implementation "org.wpilib.wpiutil:wpiutil-java:$wpiVersion"
+    implementation "org.wpilib.wpiunits:wpiunits-java:$wpiVersion"
+    implementation "org.wpilib.ntcore:ntcore-java:$wpiVersion"
+    implementation "org.wpilib.hal:hal-java:$wpiVersion"
+    implementation "org.wpilib.apriltag:apriltag-java:$wpiVersion"
+    implementation "org.wpilib.commandsv2:commandsv2-java:$wpiVersion"
+
+    // Old WPILib alpha-1 jars as compileOnly so CTRE/MapleSim/PhotonVision can resolve edu.wpi.first.* types
+    compileOnly files(
+        "$alpha1Base/wpiunits/wpiunits-java/2027.0.0-alpha-2/wpiunits-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/wpimath/wpimath-java/2027.0.0-alpha-2/wpimath-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/wpiutil/wpiutil-java/2027.0.0-alpha-2/wpiutil-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/apriltag/apriltag-java/2027.0.0-alpha-2/apriltag-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/hal/hal-java/2027.0.0-alpha-2/hal-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/wpilibj/wpilibj-java/2027.0.0-alpha-2/wpilibj-java-2027.0.0-alpha-2.jar",
+        "$alpha1Base/ntcore/ntcore-java/2027.0.0-alpha-2/ntcore-java-2027.0.0-alpha-2.jar"
+    )
+
     // Vendor dependencies
-    implementation "com.ctre.phoenix6:wpiapi-java:26.1.1"
-    implementation "org.ironmaple:maplesim-java:0.4.0-beta"
-    implementation "com.github.jonahsnider:doglog:2026.5.0"
-    implementation "org.dyn4j:dyn4j:5.0.2"
-    implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25"
+    implementation "com.ctre.phoenix6:wpiapi-java:26.50.0-alpha-1"
+    //implementation "org.ironmaple:maplesim-java:0.4.0-beta"
+    implementation "choreo:ChoreoLib-java:2027.0.0-alpha-1"
+    //implementation "org.photonvision:photonlib-java:v2026.2.2"
+    //implementation "org.photonvision:photontargeting-java:v2026.2.2"
+    //implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25"
+    implementation "com.github.jonahsnider:doglog:2027.1.0"
     implementation "au.grapplerobotics:libgrapplefrcjava:2025.1.3"
-    
-    // Choreo
-    implementation "choreo:ChoreoLib-java:2026.0.1"
+    implementation "org.ejml:ejml-simple:0.44.0"
+    implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.google.code.gson:gson:2.13.2"
-    
-    // PhotonVision for simulation only
-    implementation "org.photonvision:photonlib-java:v2026.2.2"
-    implementation "org.photonvision:photontargeting-java:v2026.2.2"
-    
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.19.2"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.19.2"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.19.2"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'
 }
 
-// Set up java tests
 test {
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
@@ -127,20 +94,13 @@ test {
     }
 }
 
-if (project.hasProperty('onlylinuxathena') || project.hasProperty('onlylinuxarm32') || project.hasProperty('onlylinuxarm64') || project.hasProperty('onlywindowsarm64') || project.hasProperty('onlylinuxsystemcore')) {
-    test.enabled = false
-}
-
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
     options.encoding = 'UTF-8'
 }
 
-// Disable C++ builds - Java only project
-
-// Enable publish.gradle for vendor dependency
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '8.14.3'
+    gradleVersion = '9.4.1'
 }

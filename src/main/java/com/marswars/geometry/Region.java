@@ -1,7 +1,7 @@
 package com.marswars.geometry;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /** This class models a region of the field. Credit to frc-3061 for base code */
 public abstract class Region {
@@ -28,7 +28,7 @@ public abstract class Region {
      * @param time time to project forward
      * @return if the pose is inside the region after moving
      */
-    public boolean willContain(Pose2d robotPose, ChassisSpeeds robotSpeed, double time){
-        return contains(robotPose.exp(robotSpeed.toTwist2d(time)));
+    public boolean willContain(Pose2d robotPose, ChassisVelocities robotSpeed, double time){
+        return contains(robotPose.plus(robotSpeed.toTwist2d(time).exp()));
     }
 }

@@ -2,8 +2,9 @@ package com.marswars.auto;
 
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.command2.SequentialCommandGroup;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -94,19 +95,21 @@ public class Auto extends SequentialCommandGroup {
     if (trajectories_.isEmpty() || trajectories_.values().iterator().next() == null) {
       return Pose2d.kZero;
     }
-    return trajectories_.values().iterator().next().getTrajectory().getPoses()[0];
+    SwerveSample first = trajectories_.values().iterator().next().getTrajectory().samples().get(0);
+    return new Pose2d(first.x, first.y, new Rotation2d(first.heading));
   }
 
   /**
    * Get the full path as an array of Pose2d
-   * 
+   *
    * @return Array of Pose2d representing the path
    */
   public Pose2d[] getPath() {
     synchronized (trajectories_) {
       return trajectories_.values().stream()
           .filter(t -> t != null)
-          .flatMap(t -> Arrays.stream(t.getTrajectory().getPoses()))
+          .flatMap(t -> t.getTrajectory().samples().stream())
+          .map(s -> new Pose2d(s.x, s.y, new Rotation2d(s.heading)))
           .toArray(Pose2d[]::new);
     }
   }

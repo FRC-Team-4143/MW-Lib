@@ -13,19 +13,15 @@
 
 package com.marswars.sensors.gyro;
 
-import static edu.wpi.first.units.Units.Radians;
-
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.Pigeon2Configuration;
 import com.ctre.phoenix6.hardware.Pigeon2;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.util.Units;
 import com.marswars.swerve_lib.PhoenixOdometryThread;
 
 /** IO implementation for Pigeon 2. */
@@ -33,10 +29,10 @@ public class Pigeon2Gyro extends Gyro {
 
     // real pigeon members
     private Pigeon2 pigeon;
-    private StatusSignal<Angle> yaw;
-    private StatusSignal<Angle> pitch;
-    private StatusSignal<Angle> roll;
-    private StatusSignal<AngularVelocity> yawVelocity;
+    @SuppressWarnings("rawtypes") private StatusSignal yaw;
+    @SuppressWarnings("rawtypes") private StatusSignal pitch;
+    @SuppressWarnings("rawtypes") private StatusSignal roll;
+    @SuppressWarnings("rawtypes") private StatusSignal yawVelocity;
 
     public Pigeon2Gyro(
             String logging_prefix, int id, String can_bus_name) {
@@ -44,7 +40,7 @@ public class Pigeon2Gyro extends Gyro {
         
         if (!IS_SIM) {
             // Create Pigeon
-            pigeon = new Pigeon2(id, can_bus_name);
+            pigeon = new Pigeon2(id, new CANBus(can_bus_name));
             yaw = pigeon.getYaw();
             pitch = pigeon.getPitch();
             roll = pigeon.getRoll();
@@ -76,10 +72,10 @@ public class Pigeon2Gyro extends Gyro {
             yawVelocityRadPerSec = 0.0;
         } else {
             connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
-            yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
+            yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(Units.degreesToRadians(yaw.getValueAsDouble())));
             yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
-            pitchPosition = Rotation2d.fromRadians(MathUtil.angleModulus(pitch.getValue().in(Radians)));
-            rollPosition = Rotation2d.fromRadians(MathUtil.angleModulus(roll.getValue().in(Radians)));
+            pitchPosition = Rotation2d.fromRadians(MathUtil.angleModulus(Units.degreesToRadians(pitch.getValueAsDouble())));
+            rollPosition = Rotation2d.fromRadians(MathUtil.angleModulus(Units.degreesToRadians(roll.getValueAsDouble())));
         }
     }
 

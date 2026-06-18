@@ -1,14 +1,14 @@
 package com.marswars.geometry;
 
 import com.marswars.data_structures.TunableDoubleMap;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.LinearFilter;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Twist2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.math.filter.LinearFilter;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Transform2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.geometry.Twist2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
  * LaunchCalculator - Map-based trajectory calculator for shooting
@@ -329,7 +329,7 @@ public class LaunchCalculator {
      */
     public LaunchParameters calculateLaunchParameters(
             Pose2d robot_pose,
-            ChassisSpeeds robot_velocity,
+            ChassisVelocities robot_velocity,
             Pose2d target_pose) {
         return calculateLaunchParameters(
             robot_pose,
@@ -379,7 +379,7 @@ public class LaunchCalculator {
      */
     public LaunchParameters calculateLaunchParameters(
             Pose2d robot_pose,
-            ChassisSpeeds robot_velocity,
+            ChassisVelocities robot_velocity,
             Translation2d target_translation) {
         
         // ============================================================================
@@ -388,12 +388,12 @@ public class LaunchCalculator {
         // Account for the time between calculating the shot and actually releasing it.
         // This includes processing delay, communication lag, and actuator response time.
         // We predict where the robot will be when the shot actually fires.
-        Pose2d estimated_pose = robot_pose.exp(
+        Pose2d estimated_pose = robot_pose.plus(
             new Twist2d(
-                robot_velocity.vxMetersPerSecond * phase_delay_,
-                robot_velocity.vyMetersPerSecond * phase_delay_,
-                robot_velocity.omegaRadiansPerSecond * phase_delay_
-            )
+                robot_velocity.vx * phase_delay_,
+                robot_velocity.vy * phase_delay_,
+                robot_velocity.omega * phase_delay_
+            ).exp()
         );
         
         // ============================================================================
@@ -412,8 +412,8 @@ public class LaunchCalculator {
         // This is a simplified calculation that assumes the launcher velocity equals
         // the robot's translational velocity (ignoring angular velocity effects on
         // the launcher's position, which is typically a small error).
-        double launcher_velocity_x = robot_velocity.vxMetersPerSecond;
-        double launcher_velocity_y = robot_velocity.vyMetersPerSecond;
+        double launcher_velocity_x = robot_velocity.vx;
+        double launcher_velocity_y = robot_velocity.vy;
         
         // ============================================================================
         // STEP 4: Iterative Motion Compensation (Lookahead)
@@ -571,7 +571,7 @@ public class LaunchCalculator {
         double target_distance = target.getDistance(robot_pose.getTranslation());
         Rotation2d offset_angle = new Rotation2d(
             Math.asin(
-                MathUtil.clamp(
+                Math.clamp(
                     robot_to_launcher_.getTranslation().getY() / target_distance,
                     -1.0,
                     1.0

@@ -1,7 +1,7 @@
 package com.marswars.data_structures;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
+import org.wpilib.math.interpolation.InterpolatingDoubleTreeMap;
 
 import java.util.TreeMap;
 

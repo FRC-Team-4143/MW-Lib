@@ -1,7 +1,7 @@
 package com.marswars.util;
 
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.wpilibj.Timer;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.system.Timer;
 
 /**
  * A slew rate limiter that allows the rate limit to be changed dynamically without losing state.
@@ -20,7 +20,7 @@ public class DynamicSlewRateLimiter {
     public DynamicSlewRateLimiter(double rate_limit) {
         this.rate_limit_ = rate_limit;
         this.prev_val_ = 0.0;
-        this.prev_time_ = Timer.getFPGATimestamp();
+        this.prev_time_ = Timer.getTimestamp();
     }
 
     /**
@@ -32,7 +32,7 @@ public class DynamicSlewRateLimiter {
     public DynamicSlewRateLimiter(double rate_limit, double initial_value) {
         this.rate_limit_ = rate_limit;
         this.prev_val_ = initial_value;
-        this.prev_time_ = Timer.getFPGATimestamp();
+        this.prev_time_ = Timer.getTimestamp();
     }
 
     /**
@@ -42,12 +42,12 @@ public class DynamicSlewRateLimiter {
      * @return The filtered value, which will not change faster than the slew rate.
      */
     public double calculate(double input) {
-        double current_time = Timer.getFPGATimestamp();
+        double current_time = Timer.getTimestamp();
         double elapsed_time = current_time - prev_time_;
         prev_time_ = current_time;
         prev_val_ =
                 prev_val_
-                        + MathUtil.clamp(
+                        + Math.clamp(
                                 input - prev_val_,
                                 -rate_limit_ * elapsed_time,
                                 rate_limit_ * elapsed_time);
@@ -61,7 +61,7 @@ public class DynamicSlewRateLimiter {
      */
     public void reset(double value) {
         prev_val_ = value;
-        prev_time_ = Timer.getFPGATimestamp();
+        prev_time_ = Timer.getTimestamp();
     }
 
     /**

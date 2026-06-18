@@ -2,8 +2,8 @@ package com.marswars.proxy_server;
 
 import java.nio.ByteBuffer;
 
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.RobotController;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.system.RobotController;
 
 /**
  * Packet handler for time synchronization responses.
@@ -94,7 +94,7 @@ public abstract class TimesyncResponse implements Packet {
      */
     public static TimesyncResponseData createResponse(TimesyncRequest.TimesyncRequestData request) {
         // Get current system time for server timestamps
-        long currentTime = RobotController.getFPGATime();
+        long currentTime = RobotController.getTime();
         int serverTimeSeconds = (int) (currentTime / 1e6);
         int serverTimeNanoseconds = (int) ((currentTime % 1e6) * 1e3);
         

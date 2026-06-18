@@ -12,20 +12,17 @@
 // GNU General Public License for more details.
 
 package com.marswars.swerve_lib;
-
-import static edu.wpi.first.units.Units.Radians;
-import static edu.wpi.first.units.Units.Rotations;
+import org.wpilib.driverstation.DriverStationErrors;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.RobotController;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.util.Units;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.system.RobotController;
 import com.marswars.swerve_lib.SwerveMeasurements.GyroMeasurement;
 import com.marswars.swerve_lib.SwerveMeasurements.ModuleMeasurement;
 import com.marswars.swerve_lib.SwerveMeasurements.SwerveMeasurement;
@@ -45,12 +42,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * This also allows Phoenix Pro users to benefit from lower latency between devices using CANivore
  * time synchronization.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class PhoenixOdometryThread extends Thread {
-    private List<StatusSignal<Angle>> steer_signals_ =
+    private List<StatusSignal> steer_signals_ =
             new ArrayList<>(Arrays.asList(null, null, null, null));
-    private List<StatusSignal<Angle>> drive_signals_ =
+    private List<StatusSignal> drive_signals_ =
             new ArrayList<>(Arrays.asList(null, null, null, null));
-    private StatusSignal<Angle> gyro_signal_;
+    private StatusSignal gyro_signal_;
 
     private BaseStatusSignal[] all_signals_ = new BaseStatusSignal[0];
 
@@ -77,7 +75,7 @@ public class PhoenixOdometryThread extends Thread {
      */
     public static void configure(String bus_name, double wheel_radius_m) {
         if (instance != null) {
-            DriverStation.reportWarning("PhoenixOdometryThread already configured!", false);
+            DriverStationErrors.reportWarning("PhoenixOdometryThread already configured!", false);
         }
         instance = new PhoenixOdometryThread(bus_name, wheel_radius_m);
     }
@@ -138,7 +136,7 @@ public class PhoenixOdometryThread extends Thread {
      *
      * @param yaw_signal The yaw status signal to sample
      */
-    public void registerGyro(StatusSignal<Angle> yaw_signal) {
+    public void registerGyro(StatusSignal yaw_signal) {
         signals_lock_.lock();
         try {
             // Add the signal to the all_signals array
@@ -159,7 +157,7 @@ public class PhoenixOdometryThread extends Thread {
      * @param drive_signal Drive position signal
      */
     public void registerModule(
-            int module_index, StatusSignal<Angle> steer_signal, StatusSignal<Angle> drive_signal) {
+            int module_index, StatusSignal steer_signal, StatusSignal drive_signal) {
         if (module_index < 0 || module_index >= 4) {
             throw new IllegalArgumentException("Module index must be between 0 and 3");
         }
@@ -219,7 +217,7 @@ public class PhoenixOdometryThread extends Thread {
     public void enqueueModuleSamples(
             int index, double[] stamps, Rotation2d[] steer_positions, double[] drive_positions) {
         if (!IS_SIM) {
-            DriverStation.reportWarning(
+            DriverStationErrors.reportWarning(
                     "Attempted to enqueue module measurement on real robot!", false);
             return;
         }
@@ -272,7 +270,7 @@ public class PhoenixOdometryThread extends Thread {
      */
     public void enqueueGyroSamples(double[] timestamps, Rotation2d[] samples) {
         if (!IS_SIM) {
-            DriverStation.reportWarning(
+            DriverStationErrors.reportWarning(
                     "Attempted to enqueue gyro measurement on real robot!", false);
             return;
         }
@@ -363,7 +361,7 @@ public class PhoenixOdometryThread extends Thread {
                 // Sample timestamp is current FPGA time minus average CAN latency
                 // Default timestamps from Phoenix are NOT compatible with
                 // FPGA timestamps, this solution is imperfect but close
-                double timestamp = RobotController.getFPGATime() / 1e6;
+                double timestamp = RobotController.getTime() / 1e6;
                 double totalLatency = 0.0;
                 for (BaseStatusSignal signal : all_signals_) {
                     totalLatency += signal.getTimestamp().getLatency();
@@ -378,13 +376,12 @@ public class PhoenixOdometryThread extends Thread {
                     measurement.timestamp = timestamp;
                     measurement.module_positions =
                             new SwerveModulePosition(
-                                    drive_signals_.get(module_index).getValue().in(Rotations)
+                                    drive_signals_.get(module_index).getValueAsDouble()
                                             * wheel_circumference_m_,
-                                    Rotation2d.fromRadians(
+                                    Rotation2d.fromRotations(
                                             steer_signals_
                                                     .get(module_index)
-                                                    .getValue()
-                                                    .in(Radians)));
+                                                    .getValueAsDouble()));
 
                     // Add measurement to queue
                     Queue<ModuleMeasurement> module_queue = module_queues_.get(module_index);
@@ -400,7 +397,7 @@ public class PhoenixOdometryThread extends Thread {
                     GyroMeasurement gyro_measurement = new GyroMeasurement();
                     gyro_measurement.timestamp = timestamp;
                     gyro_measurement.gyro_yaw =
-                            Rotation2d.fromRadians(gyro_signal_.getValue().in(Radians));
+                            Rotation2d.fromDegrees(gyro_signal_.getValueAsDouble());
 
                     // Add measurement to queue
                     if (!gyro_queue_.offer(gyro_measurement)) {

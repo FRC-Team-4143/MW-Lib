@@ -1,13 +1,13 @@
 package com.marswars.mechanisms;
 
-import static edu.wpi.first.units.Units.Amps;
-import static edu.wpi.first.units.Units.Celsius;
-import static edu.wpi.first.units.Units.Meters;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.Percent;
-import static edu.wpi.first.units.Units.Rotations;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Volts;
+import static org.wpilib.units.Units.Amps;
+import static org.wpilib.units.Units.Celsius;
+import static org.wpilib.units.Units.Meters;
+import static org.wpilib.units.Units.MetersPerSecond;
+import static org.wpilib.units.Units.Percent;
+import static org.wpilib.units.Units.Rotations;
+import static org.wpilib.units.Units.RotationsPerSecond;
+import static org.wpilib.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
@@ -25,15 +25,15 @@ import com.ctre.phoenix6.hardware.TalonFXS;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import dev.doglog.DogLog;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.simulation.ElevatorSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
-import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import org.wpilib.math.controller.PIDController;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.simulation.ElevatorSim;
+import org.wpilib.smartdashboard.Mechanism2d;
+import org.wpilib.smartdashboard.MechanismLigament2d;
+import org.wpilib.smartdashboard.SmartDashboard;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
@@ -317,10 +317,10 @@ public class ElevatorMech extends MechBase {
         for (int i = 0; i < motors_.length; i++) {
             motor_disconnected_alerts_[i] = new Alert(
                     "Disconnected motor " + i + " in " + getLoggingKey(),
-                    AlertType.kError);
+                    Alert.Level.HIGH);
             motor_temp_alerts_[i] = new Alert(
                     "High temperature on motor " + i + " in " + getLoggingKey(),
-                    AlertType.kWarning);
+                    Alert.Level.MEDIUM);
             motor_conn_debouncers_[i] = new Debouncer(0.5);
         }
 
@@ -400,13 +400,13 @@ public class ElevatorMech extends MechBase {
         BaseStatusSignal.refreshAll(signals_);
 
         // always read the sensor data
-        position_ = rotations_to_position_ * motors_[0].getPosition().getValue().in(Rotations);
+        position_ = rotations_to_position_ * motors_[0].getPosition().getValueAsDouble();
         velocity_ =
-                rotations_to_position_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
+                rotations_to_position_ * motors_[0].getVelocity().getValueAsDouble();
         for (int i = 0; i < motors_.length; i++) {
             applied_voltage_[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-            current_draw_[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
-            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
+            current_draw_[i] = motors_[i].getSupplyCurrent().getValueAsDouble();
+            motor_temp_c_[i] = motors_[i].getDeviceTemp().getValueAsDouble();
             bus_voltage_[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
             
             // Update alerts for each motor
@@ -430,11 +430,11 @@ public class ElevatorMech extends MechBase {
             double motor_load_torque = sim_load_torque_nm_ * gear_ratio_;
             
             // Calculate the current needed to produce this load torque
-            double load_current = motor_load_torque / motor_type_.KtNMPerAmp;
+            double load_current = motor_load_torque / motor_type_.Kt;
             
             // The voltage actually seen by the motor after the load consumes some current
             // is reduced by the voltage drop across the resistance due to load current
-            double effective_voltage = controller_voltage - (load_current * motor_type_.rOhms);
+            double effective_voltage = controller_voltage - (load_current * motor_type_.R);
             
             // Apply the effective voltage to the simulation
             elevator_sim_.setInput(effective_voltage);
@@ -449,9 +449,9 @@ public class ElevatorMech extends MechBase {
             // Convert mechanism position to motor position
             // position_to_rotations_ converts meters to mechanism rotations
             // gear_ratio_ = motor/mechanism, so motor = mechanism * gear_ratio_
-            double mechanismRotations = elevator_sim_.getPositionMeters() * position_to_rotations_;
+            double mechanismRotations = elevator_sim_.getPosition() * position_to_rotations_;
             double mechanismRotationsPerSec = 
-                    elevator_sim_.getVelocityMetersPerSecond() * position_to_rotations_;
+                    elevator_sim_.getVelocity() * position_to_rotations_;
             
             double motorPosition = mechanismRotations * gear_ratio_;
             double motorVelocity = mechanismRotationsPerSec * gear_ratio_;

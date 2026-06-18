@@ -1,6 +1,6 @@
 package com.marswars.swerve_lib.module;
 
-import edu.wpi.first.wpilibj.DataLogManager;
+import org.wpilib.system.DataLogManager;
 import com.marswars.util.ConstantsLoader;
 import java.util.Hashtable;
 

@@ -2,13 +2,13 @@ package com.marswars.subsystem;
 
 import dev.doglog.DogLog;
 import dev.doglog.DogLogOptions;
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.networktables.StringPublisher;
-import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.Timer;
+import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.networktables.StringPublisher;
+import org.wpilib.system.DataLogManager;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.system.Notifier;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.system.Timer;
 
 import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.GitLogger;
@@ -38,12 +38,9 @@ public abstract class SubsystemManager {
 
         DogLogOptions options =
                 new DogLogOptions()
-                        .withNtPublish(true)
-                        .withCaptureNt(true)
                         .withNtTunables(true)
                         .withCaptureDs(true)
-                        .withLogExtras(false)
-                        .withLogEntryQueueCapacity(1500);
+                        .withLogExtras(false);
 
         // setup all logging
         DogLog.setOptions(options);
@@ -78,7 +75,7 @@ public abstract class SubsystemManager {
                 List<SubsystemIoBase> ios = subsystem.getIos();
 
                 // Run the subsystem update loop
-                double timestamp = Timer.getFPGATimestamp();
+                double timestamp = Timer.getTimestamp();
 
                 for (SubsystemIoBase io : ios) {
                     io.readInputs(timestamp);

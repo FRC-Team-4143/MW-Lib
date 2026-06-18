@@ -2,12 +2,12 @@ package com.marswars.geometry;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.util.Units;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Transform2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.util.Units;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +65,7 @@ class LaunchCalculatorTest {
     void testStationaryShot() {
         // Robot at origin, target at (3, 0)
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0); // Stationary
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0); // Stationary
         Translation2d target = new Translation2d(3.0, 0.0);
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
@@ -98,7 +98,7 @@ class LaunchCalculatorTest {
     void testMovingShot() {
         // Robot at origin, moving forward at 1 m/s, target at (3, 0)
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(1.0, 0, 0); // Moving forward
+        ChassisVelocities robotVelocity = new ChassisVelocities(1.0, 0, 0); // Moving forward
         Translation2d target = new Translation2d(3.0, 0.0);
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
@@ -124,7 +124,7 @@ class LaunchCalculatorTest {
     void testLateralMotionCompensation() {
         // Robot at (2, 0), moving sideways at 2 m/s, target at (4, 2)
         Pose2d robotPose = new Pose2d(2.0, 0.0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 2.0, 0); // Moving sideways
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 2.0, 0); // Moving sideways
         Translation2d target = new Translation2d(4.0, 2.0);
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
@@ -146,7 +146,7 @@ class LaunchCalculatorTest {
     void testOutOfRangeShot() {
         // Robot at origin, target too far away
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0);
         Translation2d target = new Translation2d(10.0, 0.0); // 10m away
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(
@@ -190,7 +190,7 @@ class LaunchCalculatorTest {
     @Test
     void testCacheClearing() {
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0);
         Translation2d target = new Translation2d(3.0, 0.0);
         
         // Calculate once
@@ -246,7 +246,7 @@ class LaunchCalculatorTest {
         
         // Should be able to calculate
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0);
         Translation2d target = new Translation2d(2.0, 0.0);
         
         LaunchCalculator.LaunchParameters params = calc.calculateLaunchParameters(
@@ -262,7 +262,7 @@ class LaunchCalculatorTest {
     void testInterpolation() {
         // Test that interpolation works between defined points
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0);
         
         // Target at distance that requires interpolation
         // With launcher 0.3m behind robot center, need to account for that
@@ -290,7 +290,7 @@ class LaunchCalculatorTest {
     void testPoseTargetOverload() {
         // Test the overload that takes a Pose2d for target instead of Translation2d
         Pose2d robotPose = new Pose2d(0, 0, new Rotation2d());
-        ChassisSpeeds robotVelocity = new ChassisSpeeds(0, 0, 0);
+        ChassisVelocities robotVelocity = new ChassisVelocities(0, 0, 0);
         Pose2d targetPose = new Pose2d(3.0, 0.0, Rotation2d.fromDegrees(90)); // Rotation should be ignored
         
         LaunchCalculator.LaunchParameters params = calculator.calculateLaunchParameters(

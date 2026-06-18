@@ -1,11 +1,11 @@
 package com.marswars.sensors.gyro;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.RobotBase;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.framework.RobotBase;
 
 import com.marswars.subsystem.SubsystemIoBase;
 
@@ -40,7 +40,7 @@ public abstract class Gyro implements SubsystemIoBase {
         setLoggingPrefix(logging_prefix);
 
         gyroDisconnectedAlert =
-                new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
+                new Alert("Disconnected gyro, using kinematics as fallback.", Alert.Level.HIGH);
     }
 
     private void setLoggingPrefix(String subsystem_name) {

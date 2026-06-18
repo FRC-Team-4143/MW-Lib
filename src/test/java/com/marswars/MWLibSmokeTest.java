@@ -14,12 +14,12 @@ public class MWLibSmokeTest {
         assertTrue(true, "MW-Lib should load successfully");
     }
 
-    @Test 
+    @Test
     public void testWPILibDependency() {
         // Verify WPILib classes are available (these don't require native libs)
         assertDoesNotThrow(() -> {
-            Class.forName("edu.wpi.first.math.geometry.Pose2d");
-            Class.forName("edu.wpi.first.math.kinematics.ChassisSpeeds");
+            Class.forName("org.wpilib.math.geometry.Pose2d");
+            Class.forName("org.wpilib.math.kinematics.ChassisVelocities");
         }, "WPILib math classes should be available");
     }
 

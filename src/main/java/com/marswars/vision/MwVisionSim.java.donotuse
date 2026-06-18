@@ -1,0 +1,282 @@
+package com.marswars.vision;
+
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
+import org.wpilib.vision.apriltag.AprilTagFields;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Pose3d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Transform3d;
+import org.wpilib.math.geometry.Translation3d;
+import org.wpilib.framework.RobotBase;
+import com.marswars.proxy_server.Packet.Timestamp;
+import com.marswars.proxy_server.TagSolutionPacket;
+import org.photonvision.PhotonCamera;
+import org.photonvision.simulation.PhotonCameraSim;
+import org.photonvision.simulation.SimCameraProperties;
+import org.photonvision.simulation.VisionSystemSim;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Handles PhotonVision simulation for generating vision data in simulation mode.
+ * Bridges between the new org.wpilib.* type system and the old edu.wpi.first.*
+ * types used by PhotonVision.
+ */
+public class MwVisionSim {
+    private static final String VISION_SIM_LABEL = "proxy-vision-sim";
+
+    private final VisionSystemSim vision_sim_;
+    private final List<CameraSimulation> cameras_;
+    // Stored as old edu.wpi.first type since PhotonVision uses old types
+    private final edu.wpi.first.apriltag.AprilTagFieldLayout field_layout_old_;
+    private final AprilTagFieldLayout field_layout_;
+
+    /**
+     * Represents a single simulated camera with its properties and transform.
+     * robotToCamera is stored as the old edu.wpi.first type to match PhotonVision.
+     */
+    public static class CameraSimulation {
+        public final PhotonCamera camera;
+        public final PhotonCameraSim cameraSim;
+        // Stored as old type to interface with PhotonVision
+        public final edu.wpi.first.math.geometry.Transform3d robotToCamera;
+
+        public CameraSimulation(String camera_name, SimCameraProperties properties,
+                edu.wpi.first.math.geometry.Transform3d robot_to_camera) {
+            this.camera = new PhotonCamera(camera_name);
+            this.cameraSim = new PhotonCameraSim(camera, properties);
+            this.robotToCamera = robot_to_camera;
+        }
+
+        public CameraSimulation(String camera_name, SimCameraProperties properties,
+                edu.wpi.first.math.geometry.Transform3d robot_to_camera, double max_sight_range) {
+            this.camera = new PhotonCamera(camera_name);
+            this.cameraSim = new PhotonCameraSim(camera, properties);
+            this.robotToCamera = robot_to_camera;
+            this.cameraSim.setMaxSightRange(max_sight_range);
+        }
+    }
+
+    public MwVisionSim(AprilTagFieldLayout field_layout) {
+        this.vision_sim_ = new VisionSystemSim(VISION_SIM_LABEL);
+        this.cameras_ = new ArrayList<>();
+        this.field_layout_ = field_layout;
+        this.field_layout_old_ = field_layout != null ? convertFieldLayout(field_layout) : null;
+
+        if (field_layout_old_ != null) {
+            vision_sim_.addAprilTags(field_layout_old_);
+        }
+    }
+
+    public MwVisionSim(AprilTagFields field) {
+        this.vision_sim_ = new VisionSystemSim(VISION_SIM_LABEL);
+        this.cameras_ = new ArrayList<>();
+
+        AprilTagFieldLayout layout = null;
+        edu.wpi.first.apriltag.AprilTagFieldLayout old_layout = null;
+        try {
+            layout = AprilTagFieldLayout.loadField(field);
+            old_layout = convertFieldLayout(layout);
+            vision_sim_.addAprilTags(old_layout);
+        } catch (Exception e) {
+            System.err.println("Failed to load AprilTag field layout: " + e.getMessage());
+        }
+        this.field_layout_ = layout;
+        this.field_layout_old_ = old_layout;
+    }
+
+    public void addDefaultCameras() {
+        double camera_height = 0.3;
+        double camera_offset = 0.3;
+        double camera_angle = Math.toRadians(-20);
+
+        addCamera("camera-front", new Transform3d(
+                new Translation3d(camera_offset, 0, camera_height),
+                new Rotation3d(0, camera_angle, 0)));
+        addCamera("camera-left", new Transform3d(
+                new Translation3d(0, camera_offset, camera_height),
+                new Rotation3d(0, camera_angle, Math.toRadians(90))));
+        addCamera("camera-right", new Transform3d(
+                new Translation3d(0, -camera_offset, camera_height),
+                new Rotation3d(0, camera_angle, Math.toRadians(-90))));
+        addCamera("camera-back", new Transform3d(
+                new Translation3d(-camera_offset, 0, camera_height),
+                new Rotation3d(0, camera_angle, Math.toRadians(180))));
+    }
+
+    public CameraSimulation addCamera(String camera_name, Transform3d robot_to_camera) {
+        return addCamera(camera_name, createDefaultCameraProperties(), robot_to_camera, 9.0);
+    }
+
+    public CameraSimulation addCamera(String camera_name, SimCameraProperties properties,
+            Transform3d robot_to_camera, double max_sight_range) {
+        edu.wpi.first.math.geometry.Transform3d old_transform = toOldTransform3d(robot_to_camera);
+        CameraSimulation cam_sim = new CameraSimulation(camera_name, properties, old_transform, max_sight_range);
+        cameras_.add(cam_sim);
+        vision_sim_.addCamera(cam_sim.cameraSim, old_transform);
+        cam_sim.cameraSim.enableRawStream(false);
+        cam_sim.cameraSim.enableProcessedStream(false);
+        return cam_sim;
+    }
+
+    public static SimCameraProperties createDefaultCameraProperties() {
+        SimCameraProperties props = new SimCameraProperties();
+        props.setCalibration(1280, 960,
+                new edu.wpi.first.math.geometry.Rotation2d(Math.toRadians(90)));
+        props.setCalibError(0.2, 0.05);
+        props.setFPS(30);
+        props.setAvgLatencyMs(30);
+        props.setLatencyStdDevMs(5);
+        return props;
+    }
+
+    public void update(Pose2d robot_pose) {
+        if (!RobotBase.isSimulation()) {
+            return;
+        }
+        edu.wpi.first.math.geometry.Pose3d robot_pose_3d = new edu.wpi.first.math.geometry.Pose3d(
+                robot_pose.getX(),
+                robot_pose.getY(),
+                0.0,
+                new edu.wpi.first.math.geometry.Rotation3d(0, 0, robot_pose.getRotation().getRadians()));
+        vision_sim_.update(robot_pose_3d);
+    }
+
+    public List<CameraSimulation> getCameras() {
+        return cameras_;
+    }
+
+    public VisionSystemSim getVisionSim() {
+        return vision_sim_;
+    }
+
+    public AprilTagFieldLayout getFieldLayout() {
+        return field_layout_;
+    }
+
+    @SuppressWarnings("deprecation")
+    public List<TagSolutionPacket.TagSolutionData> getTagSolutions(Pose2d robot_pose) {
+        if (!RobotBase.isSimulation()) {
+            return new ArrayList<>();
+        }
+
+        List<TagSolutionPacket.TagSolutionData> solutions = new ArrayList<>();
+
+        for (CameraSimulation cam_sim : cameras_) {
+            var result = cam_sim.camera.getLatestResult();
+
+            if (!result.hasTargets()) {
+                continue;
+            }
+
+            var best_target = result.getBestTarget();
+
+            ArrayList<Integer> detected_ids = new ArrayList<>();
+            for (var target : result.getTargets()) {
+                if (target.getFiducialId() >= 0) {
+                    detected_ids.add(target.getFiducialId());
+                }
+            }
+
+            if (detected_ids.isEmpty()) {
+                continue;
+            }
+
+            Pose2d estimated_pose = robot_pose;
+
+            if (best_target.getBestCameraToTarget() != null && field_layout_old_ != null) {
+                try {
+                    Optional<edu.wpi.first.math.geometry.Pose3d> tag_pose_opt =
+                            field_layout_old_.getTagPose(best_target.getFiducialId());
+                    if (tag_pose_opt.isPresent()) {
+                        edu.wpi.first.math.geometry.Pose3d tag_pose_3d = tag_pose_opt.get();
+                        edu.wpi.first.math.geometry.Transform3d camera_to_target =
+                                best_target.getBestCameraToTarget();
+                        edu.wpi.first.math.geometry.Transform3d robot_to_camera =
+                                cam_sim.robotToCamera;
+
+                        edu.wpi.first.math.geometry.Pose3d camera_pose =
+                                tag_pose_3d.transformBy(camera_to_target.inverse());
+                        edu.wpi.first.math.geometry.Pose3d estimated_robot_pose =
+                                camera_pose.transformBy(robot_to_camera.inverse());
+
+                        estimated_pose = new Pose2d(
+                                estimated_robot_pose.getX(),
+                                estimated_robot_pose.getY(),
+                                new Rotation2d(estimated_robot_pose.getRotation().getZ()));
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to estimate pose from tag: " + e.getMessage());
+                }
+            }
+
+            long timestamp_micros = (long) (result.getTimestampSeconds() * 1_000_000);
+            Timestamp timestamp = new Timestamp(
+                    (int) (timestamp_micros / 1_000_000),
+                    (int) ((timestamp_micros % 1_000_000) * 1000));
+
+            String cameraSerial = cam_sim.camera.getName();
+
+            TagSolutionPacket.TagSolutionData solution = new TagSolutionPacket.TagSolutionData(
+                    estimated_pose, detected_ids, timestamp, cameraSerial);
+            solutions.add(solution);
+        }
+
+        return solutions;
+    }
+
+    public void adjustCamera(CameraSimulation camera_sim, Transform3d new_robot_to_camera) {
+        vision_sim_.adjustCamera(camera_sim.cameraSim, toOldTransform3d(new_robot_to_camera));
+    }
+
+    public void enableRawStream(boolean enable) {
+        for (CameraSimulation cam_sim : cameras_) {
+            cam_sim.cameraSim.enableRawStream(enable);
+        }
+    }
+
+    public void enableProcessedStream(boolean enable) {
+        for (CameraSimulation cam_sim : cameras_) {
+            cam_sim.cameraSim.enableProcessedStream(enable);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Type conversion helpers (new org.wpilib → old edu.wpi.first)
+    // -------------------------------------------------------------------------
+
+    private static edu.wpi.first.math.geometry.Translation3d toOldTranslation3d(
+            org.wpilib.math.geometry.Translation3d t) {
+        return new edu.wpi.first.math.geometry.Translation3d(t.getX(), t.getY(), t.getZ());
+    }
+
+    private static edu.wpi.first.math.geometry.Rotation3d toOldRotation3d(
+            org.wpilib.math.geometry.Rotation3d r) {
+        return new edu.wpi.first.math.geometry.Rotation3d(r.getX(), r.getY(), r.getZ());
+    }
+
+    private static edu.wpi.first.math.geometry.Pose3d toOldPose3d(
+            org.wpilib.math.geometry.Pose3d p) {
+        return new edu.wpi.first.math.geometry.Pose3d(
+                toOldTranslation3d(p.getTranslation()), toOldRotation3d(p.getRotation()));
+    }
+
+    private static edu.wpi.first.math.geometry.Transform3d toOldTransform3d(
+            org.wpilib.math.geometry.Transform3d t) {
+        return new edu.wpi.first.math.geometry.Transform3d(
+                toOldTranslation3d(t.getTranslation()), toOldRotation3d(t.getRotation()));
+    }
+
+    private static edu.wpi.first.apriltag.AprilTagFieldLayout convertFieldLayout(
+            AprilTagFieldLayout layout) {
+        var old_tags = new java.util.ArrayList<edu.wpi.first.apriltag.AprilTag>();
+        for (var tag : layout.getTags()) {
+            old_tags.add(new edu.wpi.first.apriltag.AprilTag(tag.ID, toOldPose3d(tag.pose)));
+        }
+        return new edu.wpi.first.apriltag.AprilTagFieldLayout(
+                old_tags, layout.getFieldLength(), layout.getFieldWidth());
+    }
+}

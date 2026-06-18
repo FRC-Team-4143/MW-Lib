@@ -16,14 +16,14 @@ package com.marswars.swerve_lib.module;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import edu.wpi.first.math.filter.Debouncer;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import org.wpilib.math.filter.Debouncer;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
+import org.wpilib.math.util.Units;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
 import com.marswars.mechanisms.MechBase;
 
 /**
@@ -46,7 +46,7 @@ public abstract class Module extends MechBase {
     protected final int module_index_;
     protected NeutralModeValue neutral_mode_ = NeutralModeValue.Brake;
 
-    protected SwerveModuleState setpoint_ = new SwerveModuleState();
+    protected SwerveModuleVelocity setpoint_ = new SwerveModuleVelocity();
 
     protected double drive_position_rad_ = 0.0;
     protected double drive_velocity_rad_per_sec_ = 0.0;
@@ -81,35 +81,35 @@ public abstract class Module extends MechBase {
                         "Disconnected drive motor on module "
                                 + Integer.toString(this.module_index_)
                                 + ".",
-                        AlertType.kError);
+                        Alert.Level.HIGH);
         steer_disconnected_alert_ =
                 new Alert(
                         "Disconnected steer motor on module "
                                 + Integer.toString(this.module_index_)
                                 + ".",
-                        AlertType.kError);
+                        Alert.Level.HIGH);
         module_encoder_alert_ =
                 new Alert(
                         "Disconnected module encoder on module "
                                 + Integer.toString(this.module_index_)
                                 + ".",
-                        AlertType.kWarning);
+                        Alert.Level.MEDIUM);
     }
 
     /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
     public void runSetpoint(
-            SwerveModuleState state, DriveControlMode DriveMode, SteerControlMode SteerMode) {
+            SwerveModuleVelocity state, DriveControlMode DriveMode, SteerControlMode SteerMode) {
         // Optimize velocity setpoint
-        state.optimize(getAngle());
-        state.cosineScale(steer_absolute_position_);
+        state = state.optimize(getAngle());
+        state = state.cosineScale(steer_absolute_position_);
         setpoint_ = state;
 
         // Apply setpoints
         switch (DriveMode) {
             case CLOSED_LOOP ->
-                    setDriveVelocity(state.speedMetersPerSecond / config_.wheel_radius_m);
+                    setDriveVelocity(state.velocity / config_.wheel_radius_m);
             case OPEN_LOOP ->
-                    setDriveOpenLoop(state.speedMetersPerSecond / config_.speed_at_12_volts * 12.0);
+                    setDriveOpenLoop(state.velocity / config_.speed_at_12_volts * 12.0);
         }
         switch (SteerMode) {
             case CLOSED_LOOP -> setSteerPosition(state.angle);
@@ -150,12 +150,12 @@ public abstract class Module extends MechBase {
     }
 
     /** Returns the module state (turn angle and drive velocity). */
-    public SwerveModuleState getCurrentState() {
-        return new SwerveModuleState(getVelocityMetersPerSec(), getAngle());
+    public SwerveModuleVelocity getCurrentState() {
+        return new SwerveModuleVelocity(getVelocityMetersPerSec(), getAngle());
     }
 
     /** Returns the module setpoint state (turn angle and drive velocity). */
-    public SwerveModuleState getSetpointState() {
+    public SwerveModuleVelocity getSetpointState() {
         return setpoint_;
     }
 

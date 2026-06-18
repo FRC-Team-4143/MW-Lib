@@ -1,9 +1,10 @@
 package com.marswars.util;
+import org.wpilib.driverstation.DriverStationErrors;
 
-import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.apriltag.AprilTagFields;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Filesystem;
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
+import org.wpilib.vision.apriltag.AprilTagFields;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.system.Filesystem;
 import java.io.IOException;
 
 public abstract class TagLayouts {
@@ -14,7 +15,7 @@ public abstract class TagLayouts {
             layout =
                     new AprilTagFieldLayout(Filesystem.getDeployDirectory().toPath().resolve(path));
         } catch (IOException E) {
-            DriverStation.reportWarning(
+            DriverStationErrors.reportWarning(
                     "Unable to find path to aprilTagFeild, k2025ReefscapeWelded used", false);
         }
         return layout;

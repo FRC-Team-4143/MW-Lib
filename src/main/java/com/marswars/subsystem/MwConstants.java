@@ -1,6 +1,6 @@
 package com.marswars.subsystem;
 
-import edu.wpi.first.wpilibj.DataLogManager;
+import org.wpilib.system.DataLogManager;
 import com.marswars.util.ConstantsLoader;
 import com.marswars.util.MWPreferences;
 

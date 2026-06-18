@@ -1,6 +1,7 @@
 package com.marswars.util;
 
-import static edu.wpi.first.units.Units.*;
+import static edu.wpi.first.units.Units.Rotations;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 import static edu.wpi.first.units.Units.Seconds;
 
 import com.ctre.phoenix6.StatusCode;
@@ -12,11 +13,14 @@ import com.ctre.phoenix6.sim.TalonFXSimState;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Voltage;
-import edu.wpi.first.wpilibj.Timer;
+
+// import org.ironmaple.simulation.SimulatedArena;
+// import org.ironmaple.simulation.motorsims.SimulatedBattery;
+import org.wpilib.system.Timer;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.motorsims.SimulatedBattery;
-import org.ironmaple.simulation.motorsims.SimulatedMotorController;
+// import org.ironmaple.simulation.SimulatedArena;
+// import org.ironmaple.simulation.motorsims.SimulatedBattery;
+// import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 public class PhoenixUtil {
     /** Attempts to run the command until no error is produced. */
@@ -39,7 +43,7 @@ public class PhoenixUtil {
                 : InvertedValue.CounterClockwise_Positive;
     }
 
-    public static class TalonFXMotorControllerSim implements SimulatedMotorController {
+    public static class TalonFXMotorControllerSim /* implements SimulatedMotorController */ {
         private static int instances = 0;
         public final int id;
 
@@ -56,17 +60,17 @@ public class PhoenixUtil {
             this.talonFXSimState = talonFX.getSimState();
         }
 
-        @Override
-        public Voltage updateControlSignal(
-                Angle mechanismAngle,
-                AngularVelocity mechanismVelocity,
-                Angle encoderAngle,
-                AngularVelocity encoderVelocity) {
-            talonFXSimState.setRawRotorPosition(encoderAngle);
-            talonFXSimState.setRotorVelocity(encoderVelocity);
-            talonFXSimState.setSupplyVoltage(SimulatedBattery.getBatteryVoltage());
-            return talonFXSimState.getMotorVoltageMeasure();
-        }
+        // @Override
+        // public Voltage updateControlSignal(
+        //         Angle mechanismAngle,
+        //         AngularVelocity mechanismVelocity,
+        //         Angle encoderAngle,
+        //         AngularVelocity encoderVelocity) {
+        //     talonFXSimState.setRawRotorPosition(encoderAngle.in(Rotations));
+        //     talonFXSimState.setRotorVelocity(encoderVelocity.in(RotationsPerSecond));
+        //     talonFXSimState.setSupplyVoltage(SimulatedBattery.getBatteryVoltage().in(edu.wpi.first.units.Units.Volts));
+        //     return edu.wpi.first.units.Units.Volts.of(talonFXSimState.getMotorVoltageMeasure().in(org.wpilib.units.Units.Volts));
+        // }
     }
 
     public static class TalonFXMotorControllerWithRemoteCancoderSim
@@ -84,18 +88,18 @@ public class PhoenixUtil {
             this.remoteCancoderSimState = cancoder.getSimState();
         }
 
-        @Override
-        public Voltage updateControlSignal(
-                Angle mechanismAngle,
-                AngularVelocity mechanismVelocity,
-                Angle encoderAngle,
-                AngularVelocity encoderVelocity) {
-            remoteCancoderSimState.setRawPosition(mechanismAngle);
-            remoteCancoderSimState.setVelocity(mechanismVelocity);
+        // @Override
+        // public Voltage updateControlSignal(
+        //         Angle mechanismAngle,
+        //         AngularVelocity mechanismVelocity,
+        //         Angle encoderAngle,
+        //         AngularVelocity encoderVelocity) {
+        //     remoteCancoderSimState.setRawPosition(mechanismAngle.in(Rotations));
+        //     remoteCancoderSimState.setVelocity(mechanismVelocity.in(RotationsPerSecond));
 
-            return super.updateControlSignal(
-                    mechanismAngle, mechanismVelocity, encoderAngle, encoderVelocity);
-        }
+        //     return super.updateControlSignal(
+        //             mechanismAngle, mechanismVelocity, encoderAngle, encoderVelocity);
+        // }
     }
 
     /**
@@ -103,16 +107,16 @@ public class PhoenixUtil {
      * 
      * @return an array of timestamps covering one simulation period
      */
-    public static double[] getSimulationOdometryTimeStamps() {
-        final double[] odometryTimeStamps =
-                new double[SimulatedArena.getSimulationSubTicksIn1Period()];
-        for (int i = 0; i < odometryTimeStamps.length; i++) {
-            odometryTimeStamps[i] =
-                    Timer.getFPGATimestamp()
-                            - 0.02
-                            + i * SimulatedArena.getSimulationDt().in(Seconds);
-        }
+    // public static double[] getSimulationOdometryTimeStamps() {
+    //     final double[] odometryTimeStamps =
+    //             new double[SimulatedArena.getSimulationSubTicksIn1Period()];
+    //     for (int i = 0; i < odometryTimeStamps.length; i++) {
+    //         odometryTimeStamps[i] =
+    //                 Timer.getTimestamp()
+    //                         - 0.02
+    //                         + i * SimulatedArena.getSimulationDt().in(Seconds);
+    //     }
 
-        return odometryTimeStamps;
-    }
+    //     return odometryTimeStamps;
+    // }
 }

@@ -7,7 +7,8 @@ import java.util.Map;
 import choreo.trajectory.EventMarker;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import edu.wpi.first.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
 
 public class ChoreoTrajectory {
 
@@ -36,7 +37,8 @@ public class ChoreoTrajectory {
             // Get the pose at this event's timestamp
             var sample = trajectory.sampleAt(event.timestamp, is_red_alliance);
             if (sample.isPresent()) {
-                event_pose_map_.put(eventName, sample.get().getPose());
+                SwerveSample s = sample.get();
+                event_pose_map_.put(eventName, new Pose2d(s.x, s.y, new Rotation2d(s.heading)));
             }
         }
         
@@ -44,6 +46,12 @@ public class ChoreoTrajectory {
 
     public Trajectory<SwerveSample> getTrajectory() {
         return trajectory_;
+    }
+
+    public Pose2d[] getPoses() {
+        return trajectory_.samples().stream()
+                .map(s -> new Pose2d(s.x, s.y, new Rotation2d(s.heading)))
+                .toArray(Pose2d[]::new);
     }
 
     public Map<String, Double> getEventTimestampMap() {

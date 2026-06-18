@@ -1,8 +1,8 @@
 package com.marswars.geometry;
 
 import com.marswars.data_structures.TunableDoubleMap;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation3d;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Translation3d;
 
 public class LaunchTrajectory {
 

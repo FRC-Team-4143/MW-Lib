@@ -2,13 +2,13 @@ package com.marswars.swerve_lib;
 
 import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
+import org.wpilib.math.util.MathUtil;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.kinematics.SwerveDriveKinematics;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
 import com.marswars.swerve_lib.module.Module;
 
 /**
@@ -45,7 +45,7 @@ public interface ChassisRequest {
     /** Contains everything the control requests need to calculate the module state. */
     public class ChassisRequestParameters {
         public SwerveDriveKinematics kinematics;
-        public ChassisSpeeds currentChassisSpeed;
+        public ChassisVelocities currentChassisSpeed;
         public Pose2d currentPose;
         public double timestamp;
         public Translation2d[] moduleLocations;
@@ -78,8 +78,8 @@ public interface ChassisRequest {
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
 
             for (int i = 0; i < modulesToApply.length; ++i) {
-                SwerveModuleState state =
-                        new SwerveModuleState(0, parameters.moduleLocations[i].getAngle());
+                SwerveModuleVelocity state =
+                        new SwerveModuleVelocity(0, parameters.moduleLocations[i].getAngle());
                 modulesToApply[i].runSetpoint(state, DriveRequestType, SteerRequestType);
             }
         }
@@ -117,7 +117,7 @@ public interface ChassisRequest {
     public class FieldCentric implements ChassisRequest {
 
         /** The desired chassis speeds (field-relative) */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /** The allowable deadband of the request. */
         public double Deadband = 0;
@@ -142,12 +142,12 @@ public interface ChassisRequest {
                 ChassisRequest.XPositiveReference.OperatorPerspective;
 
         /** The last applied state in case we don't have anything to drive. */
-        protected SwerveModuleState[] m_lastAppliedState = null;
+        protected SwerveModuleVelocity[] m_lastAppliedState = null;
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Speeds.vxMetersPerSecond;
-            double toApplyY = Speeds.vyMetersPerSecond;
+            double toApplyX = Speeds.vx;
+            double toApplyY = Speeds.vy;
             if (XPositiveReference == ChassisRequest.XPositiveReference.OperatorPerspective) {
                 /* If we're operator perspective, modify the X/Y translation by the angle */
                 Translation2d tmp = new Translation2d(toApplyX, toApplyY);
@@ -155,7 +155,7 @@ public interface ChassisRequest {
                 toApplyX = tmp.getX();
                 toApplyY = tmp.getY();
             }
-            double toApplyOmega = Speeds.omegaRadiansPerSecond;
+            double toApplyOmega = Speeds.omega;
             if (Math.sqrt(toApplyX * toApplyX + toApplyY * toApplyY) < Deadband) {
                 toApplyX = 0;
                 toApplyY = 0;
@@ -164,16 +164,12 @@ public interface ChassisRequest {
                 toApplyOmega = 0;
             }
 
-            ChassisSpeeds speeds =
-                    ChassisSpeeds.discretize(
-                            ChassisSpeeds.fromFieldRelativeSpeeds(
-                                    toApplyX,
-                                    toApplyY,
-                                    toApplyOmega,
-                                    parameters.currentPose.getRotation()),
-                            parameters.updatePeriod);
+            ChassisVelocities speeds =
+                    new ChassisVelocities(toApplyX, toApplyY, toApplyOmega)
+                            .toRobotRelative(parameters.currentPose.getRotation())
+                            .discretize(parameters.updatePeriod);
 
-            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(speeds, CenterOfRotation);
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -181,13 +177,13 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear and angular velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * The linear and angular velocity to apply to the drivetrain, specified as ChassisVelocities.
          * These speeds are assumed to be field-relative.
          *
          * @param speeds Field-relative chassis speeds to apply
          * @return this request
          */
-        public FieldCentric withSpeeds(ChassisSpeeds speeds) {
+        public FieldCentric withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }
@@ -273,7 +269,7 @@ public interface ChassisRequest {
     public class FieldCentricFacingAngle implements ChassisRequest {
 
         /** The desired chassis speeds (field-relative, rotation component ignored) */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /**
          * The direction the robot should face. 0 Degrees is defined as in the direction of the X
@@ -320,8 +316,8 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Speeds.vxMetersPerSecond;
-            double toApplyY = Speeds.vyMetersPerSecond;
+            double toApplyX = Speeds.vx;
+            double toApplyY = Speeds.vy;
             Rotation2d angleToFace = TargetDirection;
             HeadingController.enableContinuousInput(0, 2 * Math.PI);
             if (XPositiveReference == ChassisRequest.XPositiveReference.OperatorPerspective) {
@@ -356,19 +352,15 @@ public interface ChassisRequest {
             }
             if (MaxAbsRotationalRate > 0) {
                 toApplyOmega =
-                        MathUtil.clamp(toApplyOmega, -MaxAbsRotationalRate, MaxAbsRotationalRate);
+                        Math.clamp(toApplyOmega, -MaxAbsRotationalRate, MaxAbsRotationalRate);
             }
 
-            ChassisSpeeds speeds =
-                    ChassisSpeeds.discretize(
-                            ChassisSpeeds.fromFieldRelativeSpeeds(
-                                    toApplyX,
-                                    toApplyY,
-                                    toApplyOmega,
-                                    parameters.currentPose.getRotation()),
-                            parameters.updatePeriod);
+            ChassisVelocities speeds =
+                    new ChassisVelocities(toApplyX, toApplyY, toApplyOmega)
+                            .toRobotRelative(parameters.currentPose.getRotation())
+                            .discretize(parameters.updatePeriod);
 
-            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(speeds, CenterOfRotation);
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -376,14 +368,14 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * The linear velocity to apply to the drivetrain, specified as ChassisVelocities.
          * Only the translational components are used; rotation is controlled by the target heading.
          * These speeds are assumed to be field-relative.
          *
          * @param speeds Field-relative chassis speeds (only vx and vy are used)
          * @return this request
          */
-        public FieldCentricFacingAngle withSpeeds(ChassisSpeeds speeds) {
+        public FieldCentricFacingAngle withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }
@@ -536,7 +528,7 @@ public interface ChassisRequest {
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
 
             for (int i = 0; i < modulesToApply.length; ++i) {
-                SwerveModuleState state = new SwerveModuleState(0, ModuleDirection);
+                SwerveModuleVelocity state = new SwerveModuleVelocity(0, ModuleDirection);
                 modulesToApply[i].runSetpoint(state, DriveRequestType, SteerRequestType);
             }
         }
@@ -590,7 +582,7 @@ public interface ChassisRequest {
     public class RobotCentric implements ChassisRequest {
 
         /** The desired chassis speeds (robot-relative) */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /** The allowable deadband of the request. */
         public double Deadband = 0;
@@ -612,9 +604,9 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            double toApplyX = Speeds.vxMetersPerSecond;
-            double toApplyY = Speeds.vyMetersPerSecond;
-            double toApplyOmega = Speeds.omegaRadiansPerSecond;
+            double toApplyX = Speeds.vx;
+            double toApplyY = Speeds.vy;
+            double toApplyOmega = Speeds.omega;
             if (Math.sqrt(toApplyX * toApplyX + toApplyY * toApplyY) < Deadband) {
                 toApplyX = 0;
                 toApplyY = 0;
@@ -622,9 +614,9 @@ public interface ChassisRequest {
             if (Math.abs(toApplyOmega) < RotationalDeadband) {
                 toApplyOmega = 0;
             }
-            ChassisSpeeds speeds = new ChassisSpeeds(toApplyX, toApplyY, toApplyOmega);
+            ChassisVelocities speeds = new ChassisVelocities(toApplyX, toApplyY, toApplyOmega);
 
-            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(speeds, CenterOfRotation);
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -632,13 +624,13 @@ public interface ChassisRequest {
         }
 
         /**
-         * The linear and angular velocity to apply to the drivetrain, specified as ChassisSpeeds.
+         * The linear and angular velocity to apply to the drivetrain, specified as ChassisVelocities.
          * These speeds are assumed to be robot-relative.
          *
          * @param speeds Robot-relative chassis speeds to apply
          * @return this request
          */
-        public RobotCentric withSpeeds(ChassisSpeeds speeds) {
+        public RobotCentric withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }
@@ -699,11 +691,11 @@ public interface ChassisRequest {
         }
     }
 
-    /** Accepts a generic ChassisSpeeds to apply to the drivetrain. */
+    /** Accepts a generic ChassisVelocities to apply to the drivetrain. */
     public class ApplyChassisSpeeds implements ChassisRequest {
 
         /** The chassis speeds to apply to the drivetrain. */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /** The center of rotation to rotate around. */
         public Translation2d CenterOfRotation = new Translation2d(0, 0);
@@ -716,7 +708,7 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            var states = parameters.kinematics.toSwerveModuleStates(Speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(Speeds, CenterOfRotation);
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
             }
@@ -728,7 +720,7 @@ public interface ChassisRequest {
          * @param speeds Chassis speeds to apply to the drivetrain
          * @return this request
          */
-        public ApplyChassisSpeeds withSpeeds(ChassisSpeeds speeds) {
+        public ApplyChassisSpeeds withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }
@@ -767,11 +759,11 @@ public interface ChassisRequest {
         }
     }
 
-    /** Accepts a generic Field Relative ChassisSpeeds to apply to the drivetrain. */
+    /** Accepts a generic Field Relative ChassisVelocities to apply to the drivetrain. */
     public class ApplyFieldSpeeds implements ChassisRequest {
 
         /** The chassis speeds to apply to the drivetrain. */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /**
          * The center of rotation the robot should rotate around. This is (0,0) by default, which
@@ -787,13 +779,11 @@ public interface ChassisRequest {
 
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
-            ChassisSpeeds speeds =
-                    ChassisSpeeds.discretize(
-                            ChassisSpeeds.fromFieldRelativeSpeeds(
-                                    Speeds, parameters.currentPose.getRotation()),
-                            parameters.updatePeriod);
+            ChassisVelocities speeds =
+                    Speeds.toRobotRelative(parameters.currentPose.getRotation())
+                            .discretize(parameters.updatePeriod);
 
-            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(speeds, CenterOfRotation);
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -806,7 +796,7 @@ public interface ChassisRequest {
          * @param speeds Chassis speeds to apply to the drivetrain
          * @return this request
          */
-        public ApplyFieldSpeeds withSpeeds(ChassisSpeeds speeds) {
+        public ApplyFieldSpeeds withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }
@@ -853,7 +843,7 @@ public interface ChassisRequest {
     public class RobotCentricFacingAngle implements ChassisRequest {
 
         /** The robot-relative chassis speeds to apply to the drivetrain. */
-        public ChassisSpeeds Speeds = new ChassisSpeeds();
+        public ChassisVelocities Speeds = new ChassisVelocities();
 
         /**
          * The direction the robot should face. 0 Degrees is defined as in the direction of the X
@@ -897,8 +887,8 @@ public interface ChassisRequest {
     /** {@inheritDoc} */
     public void apply(ChassisRequestParameters parameters, Module... modulesToApply) {
             // Get the robot-relative speeds
-            double toApplyVx = Speeds.vxMetersPerSecond;
-            double toApplyVy = Speeds.vyMetersPerSecond;
+            double toApplyVx = Speeds.vx;
+            double toApplyVy = Speeds.vy;
             if (Math.sqrt(toApplyVx * toApplyVx + toApplyVy * toApplyVy) < Deadband) {
                 toApplyVx = 0;
                 toApplyVy = 0;
@@ -925,16 +915,15 @@ public interface ChassisRequest {
             }
             if (MaxAbsRotationalRate > 0) {
                 toApplyOmega =
-                        MathUtil.clamp(toApplyOmega, -MaxAbsRotationalRate, MaxAbsRotationalRate);
+                        Math.clamp(toApplyOmega, -MaxAbsRotationalRate, MaxAbsRotationalRate);
             }
 
             // Create chassis speeds with robot-relative translation and calculated rotation
-            ChassisSpeeds speeds =
-                    ChassisSpeeds.discretize(
-                            new ChassisSpeeds(toApplyVx, toApplyVy, toApplyOmega),
-                            parameters.updatePeriod);
+            ChassisVelocities speeds =
+                    new ChassisVelocities(toApplyVx, toApplyVy, toApplyOmega)
+                            .discretize(parameters.updatePeriod);
 
-            var states = parameters.kinematics.toSwerveModuleStates(speeds, CenterOfRotation);
+            var states = parameters.kinematics.toSwerveModuleVelocities(speeds, CenterOfRotation);
 
             for (int i = 0; i < modulesToApply.length; ++i) {
                 modulesToApply[i].runSetpoint(states[i], DriveRequestType, SteerRequestType);
@@ -947,7 +936,7 @@ public interface ChassisRequest {
          * @param speeds Robot-relative chassis speeds to apply
          * @return this request
          */
-        public RobotCentricFacingAngle withSpeeds(ChassisSpeeds speeds) {
+        public RobotCentricFacingAngle withSpeeds(ChassisVelocities speeds) {
             this.Speeds = speeds;
             return this;
         }

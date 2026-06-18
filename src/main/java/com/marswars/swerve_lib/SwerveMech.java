@@ -1,26 +1,26 @@
 package com.marswars.swerve_lib;
+import org.wpilib.driverstation.RobotState;
 
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import dev.doglog.DogLog;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Twist2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveModulePosition;
-import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.util.sendable.Sendable;
-import edu.wpi.first.util.sendable.SendableBuilder;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Translation2d;
+import org.wpilib.math.geometry.Twist2d;
+import org.wpilib.math.kinematics.ChassisVelocities;
+import org.wpilib.math.kinematics.SwerveDriveKinematics;
+import org.wpilib.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.kinematics.SwerveModuleVelocity;
+import org.wpilib.util.sendable.Sendable;
+import org.wpilib.util.sendable.SendableBuilder;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.system.Timer;
+import org.wpilib.smartdashboard.SmartDashboard;
+import org.wpilib.command2.Commands;
+import org.wpilib.command2.button.Trigger;
 
 import com.marswars.mechanisms.MechBase;
 import com.marswars.sensors.gyro.Gyro;
@@ -35,19 +35,19 @@ import com.marswars.util.TunablePid;
  */
 public class SwerveMech extends MechBase {
 
-    private SwerveModuleState[] current_module_states_ =
-            new SwerveModuleState[] {
-                new SwerveModuleState(),
-                new SwerveModuleState(),
-                new SwerveModuleState(),
-                new SwerveModuleState()
+    private SwerveModuleVelocity[] current_module_states_ =
+            new SwerveModuleVelocity[] {
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity()
             };
-    private SwerveModuleState[] setpoint_module_states_ =
-            new SwerveModuleState[] {
-                new SwerveModuleState(),
-                new SwerveModuleState(),
-                new SwerveModuleState(),
-                new SwerveModuleState()
+    private SwerveModuleVelocity[] setpoint_module_states_ =
+            new SwerveModuleVelocity[] {
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity(),
+                new SwerveModuleVelocity()
             };
     private SwerveModulePosition[] module_positions_ =
             new SwerveModulePosition[] {
@@ -71,8 +71,8 @@ public class SwerveMech extends MechBase {
                 new SwerveModulePosition()
             };
 
-    private ChassisSpeeds current_chassis_speeds_ = new ChassisSpeeds();
-    private ChassisSpeeds setpoint_chassis_speeds_ = new ChassisSpeeds();
+    private ChassisVelocities current_chassis_speeds_ = new ChassisVelocities();
+    private ChassisVelocities setpoint_chassis_speeds_ = new ChassisVelocities();
     private Rotation2d yaw_ = Rotation2d.kZero;
 
     private ChassisRequest current_request_ = new ChassisRequest.Idle();
@@ -83,7 +83,7 @@ public class SwerveMech extends MechBase {
 
     private final SwerveDriveKinematics kinematics_;
 
-    private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
+    // user button removed in alpha-5 (SystemCore has no user button)
 
     /**
      * Creates a new swerve mechanism using the provided drivetrain configuration.
@@ -139,10 +139,6 @@ public class SwerveMech extends MechBase {
                 this::setSteerGains,
                 SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.getAsFXConfig().Slot0));
 
-        user_button_trigger_.onTrue(Commands.startEnd(
-            () -> setNeutralMode(NeutralModeValue.Coast),
-            () -> setNeutralMode(NeutralModeValue.Brake)
-            ).withTimeout(30.0).ignoringDisable(true));
 
         // Adds Custom Swerve Drive Sendable to SmartDashboard for easy debugging of module states and gyro angle
         SmartDashboard.putData("Swerve Drive", new Sendable() {
@@ -182,13 +178,13 @@ public class SwerveMech extends MechBase {
             module_positions_[i] = modules_[i].getPosition();
             module_deltas[i] =
                     new SwerveModulePosition(
-                            module_positions_[i].distanceMeters
-                                    - last_module_positions_[i].distanceMeters,
+                            module_positions_[i].distance
+                                    - last_module_positions_[i].distance,
                             module_positions_[i].angle);
             last_module_positions_[i] = module_positions_[i];
         }
-        current_chassis_speeds_ = kinematics_.toChassisSpeeds(current_module_states_);
-        setpoint_chassis_speeds_ = kinematics_.toChassisSpeeds(setpoint_module_states_);
+        current_chassis_speeds_ = kinematics_.toChassisVelocities(current_module_states_);
+        setpoint_chassis_speeds_ = kinematics_.toChassisVelocities(setpoint_module_states_);
 
         // Update gyro angle
         if (gyro_.isConnected()) {
@@ -201,7 +197,7 @@ public class SwerveMech extends MechBase {
             
             // Enqueue the calculated gyro rotation for odometry
             // This ensures pose estimation continues working even when gyro is disconnected
-            double currentTime = Timer.getFPGATimestamp();
+            double currentTime = Timer.getTimestamp();
             PhoenixOdometryThread.getInstance().enqueueGyroSamples(
                 new double[] {currentTime},
                 new Rotation2d[] {yaw_});
@@ -211,7 +207,7 @@ public class SwerveMech extends MechBase {
     /** {@inheritDoc} */
     public void writeOutputs(double timestamp) {
         // Stop moving when disabled
-        if (DriverStation.isDisabled()) {
+        if (RobotState.isDisabled()) {
             for (var module : modules_) {
                 module.stop();
             }
@@ -235,8 +231,8 @@ public class SwerveMech extends MechBase {
         DogLog.log(getLoggingKey() + "ModulePositions", module_positions_);
         DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
         DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds/Current", current_chassis_speeds_);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds/Setpoint", setpoint_chassis_speeds_);
+        DogLog.log(getLoggingKey() + "ChassisVelocities/Current", current_chassis_speeds_);
+        DogLog.log(getLoggingKey() + "ChassisVelocities/Setpoint", setpoint_chassis_speeds_);
         DogLog.log(getLoggingKey() + "ChassisYaw", yaw_);
         DogLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
         DogLog.log(
@@ -262,8 +258,8 @@ public class SwerveMech extends MechBase {
         current_request_parameters_.currentChassisSpeed = current_chassis_speeds_;
         current_request_parameters_.currentPose = pose;
         current_request_parameters_.updatePeriod =
-                Timer.getFPGATimestamp() - current_request_parameters_.timestamp;
-        current_request_parameters_.timestamp = Timer.getFPGATimestamp();
+                Timer.getTimestamp() - current_request_parameters_.timestamp;
+        current_request_parameters_.timestamp = Timer.getTimestamp();
         current_request_parameters_.operatorForwardDirection = operator_forward_direction;
     }
 
@@ -320,36 +316,36 @@ public class SwerveMech extends MechBase {
     /**
      * Returns the measured chassis speeds of the robot.
      *
-     * @return ChassisSpeeds object representing the robot's chassis speeds
+     * @return ChassisVelocities object representing the robot's chassis speeds
      */
-    public ChassisSpeeds getCurrentChassisSpeeds() {
+    public ChassisVelocities getCurrentChassisSpeeds() {
         return current_chassis_speeds_;
     }
 
     /**
      * Returns the setpoint chassis speeds of the robot.
      *
-     * @return ChassisSpeeds object representing the robot's setpoint chassis speeds
+     * @return ChassisVelocities object representing the robot's setpoint chassis speeds
      */
-    public ChassisSpeeds getSetpointChassisSpeeds() {
+    public ChassisVelocities getSetpointChassisSpeeds() {
         return setpoint_chassis_speeds_;
     }
 
     /**
      * Returns the module states of the swerve drive.
      *
-     * @return SwerveModuleState[] array of module states
+     * @return SwerveModuleVelocity[] array of module states
      */
-    public SwerveModuleState[] getCurrentModuleStates() {
+    public SwerveModuleVelocity[] getCurrentModuleStates() {
         return current_module_states_;
     }
 
     /**
      * Returns the setpoint module states of the swerve drive.
      *
-     * @return SwerveModuleState[] array of setpoint module states
+     * @return SwerveModuleVelocity[] array of setpoint module states
      */
-    public SwerveModuleState[] getSetpointModuleStates() {
+    public SwerveModuleVelocity[] getSetpointModuleStates() {
         return setpoint_module_states_;
     }
 

@@ -1,18 +1,19 @@
 package com.marswars.util;
+import org.wpilib.driverstation.DriverStationErrors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform3d;
-import edu.wpi.first.math.geometry.Translation3d;
-import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Filesystem;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.RobotState;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Commands;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Transform3d;
+import org.wpilib.math.geometry.Translation3d;
+import org.wpilib.math.util.Units;
+import org.wpilib.system.DataLogManager;
+import org.wpilib.driverstation.DriverStation;
+import org.wpilib.system.Filesystem;
+import org.wpilib.framework.RobotBase;
+import org.wpilib.driverstation.RobotState;
+import org.wpilib.smartdashboard.SmartDashboard;
+import org.wpilib.command2.Commands;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,14 +41,14 @@ public class ConstantsLoader extends JSONReader {
             if (System.getenv("ROBOT_NAME") != null) {
                 robot_name = System.getenv("ROBOT_NAME");
             }
-            DriverStation.reportWarning(
+            DriverStationErrors.reportWarning(
                     "Simulation Environment Detected, Using Robot Name: " + robot_name, false);
         } else if (MWPreferences.getInstance().hasPreference(robot_name_pref_name)) {
             robot_name =
                     MWPreferences.getInstance()
                             .getPreferenceString(robot_name_pref_name, robot_name);
         } else {
-            DriverStation.reportError(
+            DriverStationErrors.reportError(
                     "Failed to retrieve robot name on startup, using default: " + robot_name,
                     false);
         }
@@ -60,7 +61,7 @@ public class ConstantsLoader extends JSONReader {
         try {
             loadJson(json_path);
         } catch (IOException e) {
-            DriverStation.reportError(
+            DriverStationErrors.reportError(
                     "Failed to load robot constants for " + robot_name, e.getStackTrace());
         }
 
@@ -69,7 +70,7 @@ public class ConstantsLoader extends JSONReader {
         SmartDashboard.putData(
                 "Config/Burn RobotName",
                 Commands.runOnce(() -> burnRobotName())
-                        .onlyIf(RobotState::isTest)
+                        .onlyIf(RobotState::isUtility)
                         .ignoringDisable(true));
     }
 

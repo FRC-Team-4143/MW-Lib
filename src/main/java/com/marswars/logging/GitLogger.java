@@ -1,9 +1,9 @@
 package com.marswars.logging;
 
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.networktables.StringPublisher;
-import edu.wpi.first.wpilibj.Alert;
-import edu.wpi.first.wpilibj.Alert.AlertType;
+import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.networktables.StringPublisher;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
 
 public abstract class GitLogger {
 
@@ -20,7 +20,7 @@ public abstract class GitLogger {
   private static StringPublisher dirty_pub_ =
       NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
 
-  private static Alert dirty_alert_ = new Alert("Dirty git directory, this can lead to unreproducible results", AlertType.kInfo);
+  private static Alert dirty_alert_ = new Alert("Dirty git directory, this can lead to unreproducible results", Alert.Level.LOW);
 
   /**
    * Logs Git and build metadata to NetworkTables using reflection.
