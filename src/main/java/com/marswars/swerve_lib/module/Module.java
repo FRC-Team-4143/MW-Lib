@@ -48,15 +48,7 @@ public abstract class Module extends MechBase {
 
     protected SwerveModuleState setpoint_ = new SwerveModuleState();
 
-    protected double drive_position_rad_ = 0.0;
-    protected double drive_velocity_rad_per_sec_ = 0.0;
-    protected double drive_applied_volts_ = 0.0;
-    protected double drive_current_amps_ = 0.0;
-
-    protected Rotation2d steer_absolute_position_ = new Rotation2d();
-    protected double steer_velocity_rad_per_sec_ = 0.0;
-    protected double steer_applied_volts_ = 0.0;
-    protected double steer_current_amps_ = 0.0;
+    protected final ModuleInputsAutoLogged inputs_ = new ModuleInputsAutoLogged();
 
     // Connection debouncers
     protected final Debouncer drive_conn_deb_ = new Debouncer(0.5);
@@ -101,7 +93,7 @@ public abstract class Module extends MechBase {
             SwerveModuleState state, DriveControlMode DriveMode, SteerControlMode SteerMode) {
         // Optimize velocity setpoint
         state.optimize(getAngle());
-        state.cosineScale(steer_absolute_position_);
+        state.cosineScale(inputs_.steerAbsolutePosition);
         setpoint_ = state;
 
         // Apply setpoints
@@ -131,17 +123,17 @@ public abstract class Module extends MechBase {
 
     /** Returns the current turn angle of the module. */
     public Rotation2d getAngle() {
-        return steer_absolute_position_;
+        return inputs_.steerAbsolutePosition;
     }
 
     /** Returns the current drive position of the module in meters. */
     public double getPositionMeters() {
-        return drive_position_rad_ * config_.wheel_radius_m;
+        return inputs_.drivePositionRad * config_.wheel_radius_m;
     }
 
     /** Returns the current drive velocity of the module in meters per second. */
     public double getVelocityMetersPerSec() {
-        return drive_velocity_rad_per_sec_ * config_.wheel_radius_m;
+        return inputs_.driveVelocityRadPerSec * config_.wheel_radius_m;
     }
 
     /** Returns the module position (turn angle and drive position). */
@@ -161,12 +153,12 @@ public abstract class Module extends MechBase {
 
     /** Returns the module position in radians. */
     public double getWheelRadiusCharacterizationPosition() {
-        return drive_position_rad_;
+        return inputs_.drivePositionRad;
     }
 
     /** Returns the module velocity in rotations/sec (Phoenix native units). */
     public double getFFCharacterizationVelocity() {
-        return Units.radiansToRotations(drive_velocity_rad_per_sec_);
+        return Units.radiansToRotations(inputs_.driveVelocityRadPerSec);
     }
 
     /**

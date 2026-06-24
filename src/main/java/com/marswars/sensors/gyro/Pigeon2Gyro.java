@@ -69,17 +69,17 @@ public class Pigeon2Gyro extends Gyro {
     public void readGyro() {
         if (IS_SIM) {
             // In simulation, report as disconnected so odometry-based yaw is used
-            connected = false;
-            yawPosition = new Rotation2d();
-            pitchPosition = new Rotation2d();
-            rollPosition = new Rotation2d();
-            yawVelocityRadPerSec = 0.0;
+            inputs_.connected = false;
+            inputs_.yawPosition = new Rotation2d();
+            inputs_.pitchPosition = new Rotation2d();
+            inputs_.rollPosition = new Rotation2d();
+            inputs_.yawVelocityRadPerSec = 0.0;
         } else {
-            connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
-            yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
-            yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
-            pitchPosition = Rotation2d.fromRadians(MathUtil.angleModulus(pitch.getValue().in(Radians)));
-            rollPosition = Rotation2d.fromRadians(MathUtil.angleModulus(roll.getValue().in(Radians)));
+            inputs_.connected = BaseStatusSignal.refreshAll(yaw, yawVelocity).equals(StatusCode.OK);
+            inputs_.yawPosition = Rotation2d.fromRadians(MathUtil.angleModulus(yaw.getValue().in(Radians)));
+            inputs_.yawVelocityRadPerSec = Units.degreesToRadians(yawVelocity.getValueAsDouble());
+            inputs_.pitchPosition = Rotation2d.fromRadians(MathUtil.angleModulus(pitch.getValue().in(Radians)));
+            inputs_.rollPosition = Rotation2d.fromRadians(MathUtil.angleModulus(roll.getValue().in(Radians)));
         }
     }
 

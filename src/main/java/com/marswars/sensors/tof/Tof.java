@@ -2,17 +2,19 @@ package com.marswars.sensors.tof;
 
 import com.marswars.subsystem.SubsystemIoBase;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.wpilibj.RobotBase;
+import org.littletonrobotics.junction.Logger;
 
-public class Tof implements SubsystemIoBase{
-    
+public abstract class Tof implements SubsystemIoBase{
+
     protected final String tof_name_;
 
-    protected double range_;
     protected final boolean IS_SIM;
 
     private String logging_prefix_ = "Tof/Unknown/";
+
+    protected final TofInputsAutoLogged inputs_ = new TofInputsAutoLogged();
 
     public enum RangeMode {
         SHORT,
@@ -29,12 +31,11 @@ public class Tof implements SubsystemIoBase{
         }
         tof_name_ = name + id;
 
-        range_ = 0.0;
         // identiy if we are in simulation
         IS_SIM = RobotBase.isSimulation();
         setLoggingPrefix(logging_prefix);
         if(IS_SIM){
-            DogLog.tunable(getLoggingKey() + "Range Override", 0.0, (val) -> range_ = val);
+            MwLog.tunable(getLoggingKey() + "Range Override", 0.0, (val) -> inputs_.range = val);
         }
     }
 
@@ -53,9 +54,13 @@ public class Tof implements SubsystemIoBase{
 
     @Override
     public void readInputs(double timestamp) {
-        // TODO Auto-generated method stub
-        
+        if (!MwLog.isReplay()) {
+            readTof();
+        }
+        Logger.processInputs(getLoggingKey() + "Inputs", inputs_);
     }
+
+    protected abstract void readTof();
 
     @Override
     public void writeOutputs(double timestamp) {
@@ -64,7 +69,7 @@ public class Tof implements SubsystemIoBase{
 
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "Range", range_);
+        MwLog.log(getLoggingKey() + "Range", inputs_.range);
     }
 
     /**
@@ -72,7 +77,7 @@ public class Tof implements SubsystemIoBase{
      * @return range in meters
      */
     public double getRange(){
-        return range_;
+        return inputs_.range;
     }
 
     /**
@@ -81,7 +86,7 @@ public class Tof implements SubsystemIoBase{
      */
     public void setRange(double range){
         if(IS_SIM){
-            range_ = range;
+            inputs_.range = range;
         }
     }
 }

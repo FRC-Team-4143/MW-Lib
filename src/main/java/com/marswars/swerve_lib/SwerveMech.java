@@ -3,7 +3,7 @@ package com.marswars.swerve_lib;
 import com.ctre.phoenix6.configs.SlotConfigs;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
@@ -17,7 +17,6 @@ import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.util.sendable.SendableBuilder;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -201,10 +200,11 @@ public class SwerveMech extends MechBase {
             
             // Enqueue the calculated gyro rotation for odometry
             // This ensures pose estimation continues working even when gyro is disconnected
-            double currentTime = Timer.getFPGATimestamp();
-            PhoenixOdometryThread.getInstance().enqueueGyroSamples(
-                new double[] {currentTime},
-                new Rotation2d[] {yaw_});
+            if (!MwLog.isReplay()) {
+                PhoenixOdometryThread.getInstance().enqueueGyroSamples(
+                    new double[] {MwLog.timestampSeconds()},
+                    new Rotation2d[] {yaw_});
+            }
         }
     }
 
@@ -230,16 +230,16 @@ public class SwerveMech extends MechBase {
     /** {@inheritDoc} */
     @Override
     public void logData() {
-        DogLog.log(getLoggingKey() + "ModuleStates/Current", current_module_states_);
-        DogLog.log(getLoggingKey() + "ModuleStates/Setpoint", setpoint_module_states_);
-        DogLog.log(getLoggingKey() + "ModulePositions", module_positions_);
-        DogLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
-        DogLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds/Current", current_chassis_speeds_);
-        DogLog.log(getLoggingKey() + "ChassisSpeeds/Setpoint", setpoint_chassis_speeds_);
-        DogLog.log(getLoggingKey() + "ChassisYaw", yaw_);
-        DogLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
-        DogLog.log(
+        MwLog.log(getLoggingKey() + "ModuleStates/Current", current_module_states_);
+        MwLog.log(getLoggingKey() + "ModuleStates/Setpoint", setpoint_module_states_);
+        MwLog.log(getLoggingKey() + "ModulePositions", module_positions_);
+        MwLog.log(getLoggingKey() + "ModuleDeltas", module_deltas);
+        MwLog.log(getLoggingKey() + "LastModulePositions", last_module_positions_);
+        MwLog.log(getLoggingKey() + "ChassisSpeeds/Current", current_chassis_speeds_);
+        MwLog.log(getLoggingKey() + "ChassisSpeeds/Setpoint", setpoint_chassis_speeds_);
+        MwLog.log(getLoggingKey() + "ChassisYaw", yaw_);
+        MwLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
+        MwLog.log(
                 getLoggingKey() + "CurrentRequestType", current_request_.getClass().getSimpleName());
     }
 
@@ -262,8 +262,8 @@ public class SwerveMech extends MechBase {
         current_request_parameters_.currentChassisSpeed = current_chassis_speeds_;
         current_request_parameters_.currentPose = pose;
         current_request_parameters_.updatePeriod =
-                Timer.getFPGATimestamp() - current_request_parameters_.timestamp;
-        current_request_parameters_.timestamp = Timer.getFPGATimestamp();
+                MwLog.timestampSeconds() - current_request_parameters_.timestamp;
+        current_request_parameters_.timestamp = MwLog.timestampSeconds();
         current_request_parameters_.operatorForwardDirection = operator_forward_direction;
     }
 

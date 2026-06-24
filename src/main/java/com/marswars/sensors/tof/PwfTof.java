@@ -38,11 +38,9 @@ public class PwfTof extends Tof {
     }
 
     @Override
-    public void readInputs(double timestamp) {
+    protected void readTof() {
         if(!IS_SIM){
-            range_ = sensor_.getRange() / 1000.0; // convert mm to meters
-        } else {
-            // Let external function set the range in simulation
+            inputs_.range = sensor_.getRange() / 1000.0; // convert mm to meters
         }
     }
     

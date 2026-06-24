@@ -57,16 +57,14 @@ public class GrappleTof extends Tof {
     }
 
     @Override
-    public void readInputs(double timestamp) {
+    protected void readTof() {
         if(!IS_SIM){
             measurement_ = sensor_.getMeasurement();
             if(measurement_ != null && measurement_.status == LaserCan.LASERCAN_STATUS_VALID_MEASUREMENT){
-                range_ = measurement_.distance_mm / 1000.0; // convert mm to meters
+                inputs_.range = measurement_.distance_mm / 1000.0; // convert mm to meters
             } else {
-                range_ = -1.0; // invalid range
+                inputs_.range = -1.0; // invalid range
             }
-        } else {
-            // Let external function set the range in simulation
         }
     }
     

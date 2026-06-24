@@ -1,17 +1,13 @@
 package com.marswars.subsystem;
 
-import dev.doglog.DogLog;
-import dev.doglog.DogLogOptions;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.DataLogManager;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.Timer;
 
 import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.GitLogger;
+import com.marswars.logging.MwLog;
 import com.marswars.util.ConstantsLoader;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,20 +32,10 @@ public abstract class SubsystemManager {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
-        DogLogOptions options =
-                new DogLogOptions()
-                        .withNtPublish(true)
-                        .withCaptureNt(true)
-                        .withNtTunables(true)
-                        .withCaptureDs(true)
-                        .withLogExtras(false)
-                        .withLogEntryQueueCapacity(1500);
+        // Start AdvantageKit logging (idempotent; sets up receivers + Logger.start)
+        MwLog.init(build_constants);
 
-        // setup all logging
-        DogLog.setOptions(options);
-        DogLog.setEnabled(true);
-
-        // Log robot metadata
+        // Log robot metadata to NT (GitLogger continues using NT publishers directly)
         GitLogger.logGitData(build_constants);
         robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
         BatteryLogger.logBatteryData();
@@ -70,15 +56,18 @@ public abstract class SubsystemManager {
 
     /** Preform the control loop for all subsystems */
     public void doControlLoop() {
+        // Poll tunables and fire onChange consumers before subsystem logic runs
+        MwLog.periodic();
+
         // For each subsystem run its update loop
         for (MwSubsystemBase subsystem : subsystems) {
             try {
-                DogLog.time(subsystem.getSubsystemKey() + "/loop_time");
+                MwLog.time(subsystem.getSubsystemKey() + "/loop_time");
 
                 List<SubsystemIoBase> ios = subsystem.getIos();
 
-                // Run the subsystem update loop
-                double timestamp = Timer.getFPGATimestamp();
+                // Deterministic timestamp — sourced from the log during replay
+                double timestamp = MwLog.timestampSeconds();
 
                 for (SubsystemIoBase io : ios) {
                     io.readInputs(timestamp);
@@ -91,7 +80,7 @@ public abstract class SubsystemManager {
                     io.logData();
                 }
 
-                DogLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
+                MwLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
             } catch (Exception e) {
                 DataLogManager.log(
                         " Failed to run update loop for "

@@ -1,6 +1,6 @@
 package com.marswars.subsystem;
 
-import dev.doglog.DogLog;
+import com.marswars.logging.MwLog;
 
 public abstract class MwSubsystem<
                 StateType extends Enum<StateType>, ConstantsType extends MwConstants>
@@ -68,11 +68,11 @@ public abstract class MwSubsystem<
     @Override
     public void update(double timestamp) {
         // log the wanted state before we handle the transition
-        DogLog.log(getSubsystemKey() + "WantedState", wanted_state_);
+        MwLog.log(getSubsystemKey() + "WantedState", wanted_state_);
         handleStateTransition(wanted_state_);
 
         // log the current state before we run the logic
-        DogLog.log(getSubsystemKey() + "State", system_state_);
+        MwLog.log(getSubsystemKey() + "State", system_state_);
         updateLogic(timestamp);
     }
 
