@@ -26,6 +26,7 @@ import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -239,7 +240,7 @@ public class ProxyServerThread extends Thread {
      *
      * @return the ProxyServerThread instance
      */
-    public static ProxyServerThread getInstance() {
+    public static synchronized ProxyServerThread getInstance() {
         if (instance_ == null) {
             instance_ = new ProxyServerThread();
             instance_.start();
@@ -249,29 +250,48 @@ public class ProxyServerThread extends Thread {
 
     @Override
     public void start(){
-        instance_.configureServer();
+        configureServer();
         super.start();
     }
 
     @Override
     public void run(){
         while (true) {
+            if (socket_ == null) {
+                // Not bound yet (e.g. port held by another process). Back off and retry
+                // instead of spinning a tight NPE/retry loop on every iteration.
+                try {
+                    System.err.println("ProxyServerThread: socket not bound, retrying in 1s...");
+                    configureServer();
+                    if (socket_ == null) {
+                        Thread.sleep(1000);
+                        continue;
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+
             try {
                 updateData();
                 updateConnectionStatus();
             } catch (Exception e) {
                 System.err.println("ProxyServerThread encountered an error: " + e.getMessage());
                 e.printStackTrace();
-                
+
                 // Try to recover by reconfiguring the server
                 System.err.println("Attempting to recover ProxyServerThread...");
                 try {
                     if (socket_ != null && !socket_.isClosed()) {
                         socket_.close();
                     }
+                    socket_ = null;
                     Thread.sleep(100); // Brief pause before retry
                     configureServer();
-                    System.err.println("ProxyServerThread recovered successfully");
+                    if (socket_ != null) {
+                        System.err.println("ProxyServerThread recovered successfully");
+                    }
                 } catch (Exception recoveryError) {
                     System.err.println("Failed to recover ProxyServerThread: " + recoveryError.getMessage());
                     recoveryError.printStackTrace();
@@ -293,11 +313,16 @@ public class ProxyServerThread extends Thread {
         // check if socket is already bound
         if (socket_ == null || !socket_.isBound()) {
             try {
-                socket_ = new DatagramSocket(PORT);
+                // Allow rebinding to a port still held in a lingering state by a
+                // previous (e.g. crashed or not-yet-exited) instance of this server.
+                socket_ = new DatagramSocket(null);
+                socket_.setReuseAddress(true);
+                socket_.bind(new InetSocketAddress(PORT));
                 // set receive blocking timeout (ms)
                 socket_.setSoTimeout(TIMEOUT);
             } catch (SocketException e) {
                 e.printStackTrace();
+                socket_ = null;
                 return false;
             }
             // socket configured successfully

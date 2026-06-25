@@ -109,10 +109,12 @@ public class AutoManager {
       return;
     }
 
-    // hot load its paths
-    selected_auto.cacheTrajetories(alliance.get() == Alliance.RED);
+    // Choreo trajectory loading is disabled here: there is no up-to-date Choreo
+    // build for the current WPILib alpha, so calling into it crashes the robot.
+    // Leave Auto.cacheTrajetories()/getPath() untouched; just don't invoke them.
+    // selected_auto.cacheTrajetories(alliance.get() == Alliance.RED);
 
     // update the dashboard with the new path
-    auto_display.getObject("Auto Path").setPoses(selected_auto.getPath());
+    // auto_display.getObject("Auto Path").setPoses(selected_auto.getPath());
   }
 }

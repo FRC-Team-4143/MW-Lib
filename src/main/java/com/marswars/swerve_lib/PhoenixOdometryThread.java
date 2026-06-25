@@ -107,7 +107,7 @@ public class PhoenixOdometryThread extends Thread {
         } else {
             IS_CANFD = true; // assume CAN FD on sim robot
         }
-        ODOMETRY_FREQUENCY = IS_CANFD ? 250.0 : 100.0;
+        ODOMETRY_FREQUENCY = /*IS_CANFD ? 250.0 :*/ 100.0;
 
         // Queue of odometry measurements
         module_queues_ = new ArrayList<>(4);
