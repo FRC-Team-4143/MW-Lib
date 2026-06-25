@@ -7,7 +7,6 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Percent;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
@@ -301,10 +300,11 @@ public class ElevatorMech extends MechBase {
         this.rotations_to_position_ = 2.0 * Math.PI * drum_radius_;
 
         // size the input arrays to motor count
-        inputs_.appliedVoltage = new double[motors_.length];
-        inputs_.currentDraw    = new double[motors_.length];
-        inputs_.motorTempC     = new double[motors_.length];
-        inputs_.busVoltage     = new double[motors_.length];
+        inputs_.appliedVoltage    = new double[motors_.length];
+        inputs_.supplyCurrentDraw = new double[motors_.length];
+        inputs_.statorcurrentDraw = new double[motors_.length];
+        inputs_.motorTempC        = new double[motors_.length];
+        inputs_.busVoltage        = new double[motors_.length];
 
         // Initialize alerts and debouncers for each motor
         motor_disconnected_alerts_ = new Alert[motors_.length];
@@ -401,7 +401,8 @@ public class ElevatorMech extends MechBase {
                     rotations_to_position_ * motors_[0].getVelocity().getValue().in(RotationsPerSecond);
             for (int i = 0; i < motors_.length; i++) {
                 inputs_.appliedVoltage[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-                inputs_.currentDraw[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+                inputs_.supplyCurrentDraw[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+                inputs_.statorcurrentDraw[i] = motors_[i].getStatorCurrent().getValue().in(Amps);
                 inputs_.motorTempC[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
                 inputs_.busVoltage[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
 
@@ -487,7 +488,7 @@ public class ElevatorMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.currentDraw[0], Math.abs(current_target_)), current_target_);
+                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.statorcurrentDraw[0], Math.abs(current_target_)), current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -508,7 +509,7 @@ public class ElevatorMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.currentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.statorcurrentDraw[0], Amps);
     }
 
     /**
@@ -587,12 +588,21 @@ public class ElevatorMech extends MechBase {
     }
 
     /**
-     * Gets the current draw of the leader motor in amps
+     * Gets the supply (battery-side) current draw of the leader motor in amps.
      *
-     * @return the current draw of the leader motor in amps
+     * @return the leader supply current in amps
      */
-    public double getLeaderCurrent() {
-        return inputs_.currentDraw[0];
+    public double getLeaderSupplyCurrent() {
+        return inputs_.supplyCurrentDraw[0];
+    }
+
+    /**
+     * Gets the stator (motor-winding) current draw of the leader motor in amps.
+     *
+     * @return the leader stator current in amps
+     */
+    public double getLeaderStatorCurrent() {
+        return inputs_.statorcurrentDraw[0];
     }
 
     /**

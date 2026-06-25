@@ -11,8 +11,9 @@ import org.littletonrobotics.junction.AutoLog;
 public class MechInputs {
     public double position = 0.0;
     public double velocity = 0.0;
-    public double[] appliedVoltage = new double[0];
-    public double[] currentDraw    = new double[0];
-    public double[] motorTempC     = new double[0];
-    public double[] busVoltage     = new double[0];
+    public double[] appliedVoltage      = new double[0];
+    public double[] supplyCurrentDraw   = new double[0];
+    public double[] statorcurrentDraw   = new double[0];
+    public double[] motorTempC          = new double[0];
+    public double[] busVoltage          = new double[0];
 }
