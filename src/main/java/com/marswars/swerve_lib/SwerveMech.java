@@ -308,7 +308,7 @@ public class SwerveMech extends MechBase {
      *
      * @return Translation2d[] array of module translations
      */
-    private Translation2d[] getModuleTranslations() {
+    public Translation2d[] getModuleTranslations() {
         return new Translation2d[] {
             modules_[0].getTranslation(), // FL
             modules_[1].getTranslation(), // FR
