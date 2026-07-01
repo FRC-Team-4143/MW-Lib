@@ -15,7 +15,16 @@ public class SwerveDriveConfig {
     public final String PIGEON2_CANBUS_NAME;
 
     /**
-     * Creates a new swerve drive configuration.
+     * Default skid-detection threshold (max allowed spread of per-module velocities) used
+     * when a configuration does not specify one.
+     */
+    public static final double DEFAULT_SKID_DETECTION_RANGE = 0.3;
+
+    /** Skid-detection threshold (max allowed spread of per-module velocities). */
+    public final double SKID_DETECTION_RANGE;
+
+    /**
+     * Creates a new swerve drive configuration with the default skid-detection threshold.
      *
      * @param fl_module_constants Front-left module configuration
      * @param fr_module_constants Front-right module configuration
@@ -31,6 +40,36 @@ public class SwerveDriveConfig {
             SwerveModuleConfig br_module_constants,
             int pigeon2_id,
             String pigeon2_canbus_name) {
+        this(
+                fl_module_constants,
+                fr_module_constants,
+                bl_module_constants,
+                br_module_constants,
+                pigeon2_id,
+                pigeon2_canbus_name,
+                DEFAULT_SKID_DETECTION_RANGE);
+    }
+
+    /**
+     * Creates a new swerve drive configuration.
+     *
+     * @param fl_module_constants Front-left module configuration
+     * @param fr_module_constants Front-right module configuration
+     * @param bl_module_constants Back-left module configuration
+     * @param br_module_constants Back-right module configuration
+     * @param pigeon2_id Pigeon2 CAN device ID
+     * @param pigeon2_canbus_name Pigeon2 CAN bus name
+     * @param skid_detection_range Skid-detection threshold (max allowed spread of
+     *     per-module velocities)
+     */
+    public SwerveDriveConfig(
+            SwerveModuleConfig fl_module_constants,
+            SwerveModuleConfig fr_module_constants,
+            SwerveModuleConfig bl_module_constants,
+            SwerveModuleConfig br_module_constants,
+            int pigeon2_id,
+            String pigeon2_canbus_name,
+            double skid_detection_range) {
         FL_MODULE_CONSTANTS = fl_module_constants;
         FR_MODULE_CONSTANTS = fr_module_constants;
         BL_MODULE_CONSTANTS = bl_module_constants;
@@ -38,5 +77,6 @@ public class SwerveDriveConfig {
 
         PIGEON2_ID = pigeon2_id;
         PIGEON2_CANBUS_NAME = pigeon2_canbus_name;
+        SKID_DETECTION_RANGE = skid_detection_range;
     }
 }

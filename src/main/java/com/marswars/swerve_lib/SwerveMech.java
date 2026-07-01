@@ -82,6 +82,12 @@ public class SwerveMech extends MechBase {
 
     private final SwerveDriveKinematics kinematics_;
 
+    // Dedicated kinematics for skid detection. SwerveDriveKinematics caches module
+    // headings internally, so reusing kinematics_ here would corrupt the drivetrain's
+    // zero-velocity hold angles and snap the wheels into a rotation pattern.
+    private final SwerveDriveKinematics skid_kinematics_;
+    private double skid_range_;
+
     private final Trigger user_button_trigger_ = new Trigger(RobotController::getUserButton);
 
     /**
@@ -121,6 +127,10 @@ public class SwerveMech extends MechBase {
 
         // configure the kinematics after the modules are created
         kinematics_ = new SwerveDriveKinematics(getModuleTranslations());
+        // Independent kinematics for skid detection so its math never mutates the
+        // drivetrain kinematics' cached module headings.
+        skid_kinematics_ = new SwerveDriveKinematics(getModuleTranslations());
+        skid_range_ = config.SKID_DETECTION_RANGE;
 
         // Start odometry thread
         PhoenixOdometryThread.getInstance().start();
@@ -137,6 +147,11 @@ public class SwerveMech extends MechBase {
                 getLoggingKey() + "Steer/PositionGains",
                 this::setSteerGains,
                 SlotConfigs.from(config.FL_MODULE_CONSTANTS.steer_motor_config.getAsFXConfig().Slot0));
+
+        MwLog.tunable(
+                getLoggingKey() + "SkidRange",
+                config.SKID_DETECTION_RANGE,
+                (newRange) -> skid_range_ = newRange);
 
         user_button_trigger_.onTrue(Commands.startEnd(
             () -> setNeutralMode(NeutralModeValue.Coast),
@@ -239,6 +254,7 @@ public class SwerveMech extends MechBase {
         MwLog.log(getLoggingKey() + "ChassisSpeeds/Setpoint", setpoint_chassis_speeds_);
         MwLog.log(getLoggingKey() + "ChassisYaw", yaw_);
         MwLog.log(getLoggingKey() + "ChassisRotation", getGyroRotation());
+        MwLog.log(getLoggingKey() + "isSkidding", isSkidding());
         MwLog.log(
                 getLoggingKey() + "CurrentRequestType", current_request_.getClass().getSimpleName());
     }
@@ -342,6 +358,42 @@ public class SwerveMech extends MechBase {
      */
     public SwerveModuleState[] getCurrentModuleStates() {
         return current_module_states_;
+    }
+
+    /**
+     * Detects wheel skid by comparing the per-module translational velocities after the
+     * shared rotational component is removed. If the spread between the fastest and
+     * slowest module exceeds the (speed-scaled) skid threshold, at least one wheel is
+     * slipping relative to the others.
+     *
+     * @return true if the drivetrain is skidding, false otherwise
+     */
+    public boolean isSkidding() {
+        SwerveModuleState[] current = current_module_states_;
+        SwerveModuleState[] rotational =
+                skid_kinematics_.toSwerveModuleStates(
+                        new ChassisSpeeds(0, 0, current_chassis_speeds_.omegaRadiansPerSecond));
+
+        double min = Double.MAX_VALUE;
+        double max = -Double.MAX_VALUE;
+        for (int i = 0; i < current.length; i++) {
+            Translation2d measured =
+                    new Translation2d(current[i].speedMetersPerSecond, current[i].angle);
+            Translation2d rot =
+                    new Translation2d(rotational[i].speedMetersPerSecond, rotational[i].angle);
+            double norm = measured.minus(rot).getNorm();
+            min = Math.min(min, norm);
+            max = Math.max(max, norm);
+        }
+
+        double range = max - min;
+        double desired_norm =
+                Math.hypot(
+                        setpoint_chassis_speeds_.vxMetersPerSecond,
+                        setpoint_chassis_speeds_.vyMetersPerSecond);
+        double real_skid_range = desired_norm < 0.1 ? skid_range_ : skid_range_ * desired_norm;
+
+        return range > real_skid_range;
     }
 
     /**
