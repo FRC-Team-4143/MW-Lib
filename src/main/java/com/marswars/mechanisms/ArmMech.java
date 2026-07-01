@@ -7,7 +7,6 @@ import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
@@ -229,10 +228,11 @@ public class ArmMech extends MechBase {
         this.gear_ratio_ = gear_ratio;
 
         // size the input arrays to motor count
-        inputs_.appliedVoltage = new double[motors_.length];
-        inputs_.currentDraw    = new double[motors_.length];
-        inputs_.motorTempC     = new double[motors_.length];
-        inputs_.busVoltage     = new double[motors_.length];
+        inputs_.appliedVoltage      = new double[motors_.length];
+        inputs_.supplyCurrentDraw   = new double[motors_.length];
+        inputs_.statorcurrentDraw   = new double[motors_.length];
+        inputs_.motorTempC          = new double[motors_.length];
+        inputs_.busVoltage          = new double[motors_.length];
 
         // Initialize alerts and debouncers for each motor
         motor_disconnected_alerts_ = new Alert[motors_.length];
@@ -328,7 +328,8 @@ public class ArmMech extends MechBase {
             inputs_.velocity = motors_[0].getVelocity().getValue().in(RadiansPerSecond);
             for (int i = 0; i < motors_.length; i++) {
                 inputs_.appliedVoltage[i] = motors_[i].getMotorVoltage().getValueAsDouble();
-                inputs_.currentDraw[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+                inputs_.supplyCurrentDraw[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
+                inputs_.statorcurrentDraw[i] = motors_[i].getStatorCurrent().getValue().in(Amps);
                 inputs_.motorTempC[i] = motors_[i].getDeviceTemp().getValue().in(Celsius);
                 inputs_.busVoltage[i] = motors_[i].getSupplyVoltage().getValueAsDouble();
 
@@ -424,7 +425,7 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.currentDraw[0], Math.abs(current_target_)), current_target_);
+                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.statorcurrentDraw[0], Math.abs(current_target_)), current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -445,7 +446,7 @@ public class ArmMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.currentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.statorcurrentDraw[0], Amps);
     }
 
     /**
@@ -496,27 +497,58 @@ public class ArmMech extends MechBase {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Seeds the arm's measured position, overwriting the leader motor's internal encoder
+     * reading with the given angle.
+     *
+     * @param position_rad the position to seed, in radians
+     */
     public void setCurrentPosition(double position_rad) {
         motors_[0].setPosition(Units.radiansToRotations(position_rad));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the arm's current measured position.
+     *
+     * @return the position in radians
+     */
     public double getCurrentPosition() {
         return inputs_.position;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the arm's current measured velocity.
+     *
+     * @return the velocity in radians per second
+     */
     public double getCurrentVelocity() {
         return inputs_.velocity;
     }
 
-    /** {@inheritDoc} */
-    public double getLeaderCurrent() {
-        return inputs_.currentDraw[0];
+    /**
+     * Returns the supply (battery-side) current draw of the leader motor.
+     *
+     * @return the leader supply current in amps
+     */
+    public double getLeaderSupplyCurrent() {
+        return inputs_.supplyCurrentDraw[0];
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the stator (motor-winding) current draw of the leader motor.
+     *
+     * @return the leader stator current in amps
+     */
+    public double getLeaderStatorCurrent() {
+        return inputs_.statorcurrentDraw[0];
+    }
+
+    /**
+     * Commands the arm to a target position using the standard position controller, clearing
+     * any feedforward.
+     *
+     * @param position_rad the target position in radians
+     */
     public void setTargetPosition(double position_rad) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.POSITION;
@@ -524,7 +556,13 @@ public class ArmMech extends MechBase {
         position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Commands the arm to a target position using the standard position controller with an
+     * arbitrary feedforward applied.
+     *
+     * @param position_rad the target position in radians
+     * @param arbitrary_feedforward the feedforward to apply to the position request
+     */
     public void setTargetPositionWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.POSITION;
@@ -532,7 +570,12 @@ public class ArmMech extends MechBase {
         position_request_.FeedForward = arbitrary_feedforward;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Commands the arm to a target position using the Motion Magic motion profile, clearing
+     * any feedforward.
+     *
+     * @param position_rad the target position in radians
+     */
     public void setTargetPositionMotionProfile(double position_rad) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
@@ -540,7 +583,13 @@ public class ArmMech extends MechBase {
         motion_magic_position_request_.FeedForward = 0.0; // Clear any feed forward
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Commands the arm to a target position using the Motion Magic motion profile with an
+     * arbitrary feedforward applied.
+     *
+     * @param position_rad the target position in radians
+     * @param arbitrary_feedforward the feedforward to apply to the motion profile request
+     */
     public void setTargetPositionMotionProfileWithFF(double position_rad, double arbitrary_feedforward) {
         position_target_ = position_rad;
         control_mode_ = ControlMode.MOTION_PROFILE_POSITION;
@@ -548,14 +597,22 @@ public class ArmMech extends MechBase {
         motion_magic_position_request_.FeedForward = arbitrary_feedforward;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Commands the arm to a target velocity using the velocity controller.
+     *
+     * @param velocity_rad_per_sec the target velocity in radians per second
+     */
     public void setTargetVelocity(double velocity_rad_per_sec) {
         control_mode_ = ControlMode.VELOCITY;
         velocity_target_ = velocity_rad_per_sec;
         velocity_request_.Velocity = Units.radiansToRotations(velocity_rad_per_sec);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Commands the arm with an open-loop duty cycle.
+     *
+     * @param duty_cycle the target duty cycle, in the range [-1, 1]
+     */
     public void setTargetDutyCycle(double duty_cycle) {
         control_mode_ = ControlMode.DUTY_CYCLE;
         duty_cycle_target_ = duty_cycle;
@@ -572,7 +629,11 @@ public class ArmMech extends MechBase {
         current_target_ = current_amps;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Applies an external load torque to the simulation model. No effect on real hardware.
+     *
+     * @param torque_nm the load torque to apply, in newton-meters
+     */
     public void applyLoadTorque(double torque_nm) {
         sim_load_torque_nm_ = torque_nm;
     }

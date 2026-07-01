@@ -11,7 +11,8 @@ public class MechInputsAutoLogged extends MechInputs implements LoggableInputs, 
     table.put("Position", position);
     table.put("Velocity", velocity);
     table.put("AppliedVoltage", appliedVoltage);
-    table.put("CurrentDraw", currentDraw);
+    table.put("SupplyCurrentDraw", supplyCurrentDraw);
+    table.put("StatorcurrentDraw", statorcurrentDraw);
     table.put("MotorTempC", motorTempC);
     table.put("BusVoltage", busVoltage);
   }
@@ -21,7 +22,8 @@ public class MechInputsAutoLogged extends MechInputs implements LoggableInputs, 
     position = table.get("Position", position);
     velocity = table.get("Velocity", velocity);
     appliedVoltage = table.get("AppliedVoltage", appliedVoltage);
-    currentDraw = table.get("CurrentDraw", currentDraw);
+    supplyCurrentDraw = table.get("SupplyCurrentDraw", supplyCurrentDraw);
+    statorcurrentDraw = table.get("StatorcurrentDraw", statorcurrentDraw);
     motorTempC = table.get("MotorTempC", motorTempC);
     busVoltage = table.get("BusVoltage", busVoltage);
   }
@@ -31,7 +33,8 @@ public class MechInputsAutoLogged extends MechInputs implements LoggableInputs, 
     copy.position = this.position;
     copy.velocity = this.velocity;
     copy.appliedVoltage = this.appliedVoltage.clone();
-    copy.currentDraw = this.currentDraw.clone();
+    copy.supplyCurrentDraw = this.supplyCurrentDraw.clone();
+    copy.statorcurrentDraw = this.statorcurrentDraw.clone();
     copy.motorTempC = this.motorTempC.clone();
     copy.busVoltage = this.busVoltage.clone();
     return copy;

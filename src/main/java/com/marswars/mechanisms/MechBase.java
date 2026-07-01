@@ -186,6 +186,14 @@ public abstract class MechBase implements SubsystemIoBase {
             List<MotorConfig> motor_configs, double sensor_to_mech_ratio) {
         return configMotors(motor_configs, sensor_to_mech_ratio, null);
     }
+
+    /**
+     * Applies the given current limits to each of the provided motors.
+     *
+     * @param currentLimits the current limit configuration to apply
+     * @param motors the motors to configure; each must be a {@link TalonFX} or {@link TalonFXS}
+     * @throws IllegalArgumentException if a motor is not a supported type for current limiting
+     */
     protected void setMotorCurrentLimit(CurrentLimitsConfigs currentLimits, CommonTalon[] motors) {
         for (int i = 0; i< motors.length; i++) {
             if (motors[i] instanceof TalonFX) {
