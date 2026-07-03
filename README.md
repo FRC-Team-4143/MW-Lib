@@ -11,7 +11,8 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 - **Geometry Utilities**: Regions, splines, and geometric calculations
 - **Logging Integration**: Built-in support for elastic logging
 - **Proxy Server**: Communication utilities for robot data
-- **Constants Loading**: JSON-based configuration management
+- **Robot Identity**: Per-robot selection via a burned "RobotName" preference (constants live in
+  each robot project's Java classes)
 
 ## Installation
 
@@ -106,10 +107,12 @@ Example usage:
 ```java
 import com.marswars.swerve_lib.SwerveMech;
 import com.marswars.mechanisms.ArmMech;
-import com.marswars.util.ConstantsLoader;
+import com.marswars.util.RobotIdentity;
 
-// Load constants from JSON
-ConstantsLoader constants = ConstantsLoader.getInstance();
+// Resolve which robot the code is running on (burned "RobotName" preference,
+// or SimBot/ROBOT_NAME env var in simulation); robot projects map this name
+// to their own Java constants variants
+String robotName = RobotIdentity.getInstance().getRobotName();
 
 // Use swerve drive
 SwerveMech swerve = new SwerveMech(config);

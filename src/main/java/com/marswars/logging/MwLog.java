@@ -1,8 +1,12 @@
 package com.marswars.logging;
 
+import com.marswars.util.RobotIdentity;
 import edu.wpi.first.units.Unit;
+import edu.wpi.first.util.datalog.DataLogReader;
+import edu.wpi.first.util.datalog.DataLogRecord;
 import edu.wpi.first.util.struct.StructSerializable;
 import edu.wpi.first.wpilibj.RobotBase;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -47,9 +51,10 @@ public final class MwLog {
         initialized_ = true;
 
         recordMetadata(buildConstants);
+        Logger.recordMetadata("RobotName", RobotIdentity.getInstance().getRobotName());
 
         if (RobotBase.isSimulation()) {
-            String replayPath = System.getenv("AKIT_LOG_PATH");
+            String replayPath = replayLogPath();
             if (replayPath != null) {
                 Logger.setReplaySource(new WPILOGReader(replayPath));
                 Logger.addDataReceiver(
@@ -69,6 +74,52 @@ public final class MwLog {
     /** True when running a log replay (AKIT_LOG_PATH env var is set). */
     public static boolean isReplay() {
         return Logger.hasReplaySource();
+    }
+
+    /**
+     * Path of the log being replayed (the AKIT_LOG_PATH env var), or null when not replaying.
+     * Safe to call before init.
+     */
+    public static String replayLogPath() {
+        return System.getenv("AKIT_LOG_PATH");
+    }
+
+    /**
+     * Reads a metadata value (recorded via Logger.recordMetadata on the original robot) out of the
+     * log being replayed. Returns null when not replaying, or when the log has no such key. Safe
+     * to call before init — reads the file directly rather than going through the Logger.
+     *
+     * @param key the metadata key, e.g. "RobotName"
+     * @return the recorded value, or null
+     */
+    public static String readReplayMetadata(String key) {
+        String path = replayLogPath();
+        if (path == null) {
+            return null;
+        }
+
+        String entry_name = "/RealMetadata/" + key;
+        try {
+            DataLogReader reader = new DataLogReader(path);
+            if (!reader.isValid()) {
+                return null;
+            }
+            int target_entry = -1;
+            for (DataLogRecord record : reader) {
+                if (record.isStart()) {
+                    DataLogRecord.StartRecordData start = record.getStartData();
+                    if (entry_name.equals(start.name)) {
+                        target_entry = start.entry;
+                    }
+                } else if (!record.isControl() && record.getEntry() == target_entry) {
+                    // Metadata is written once at log start
+                    return record.getString();
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("MwLog: failed to read replay metadata: " + e.getMessage());
+        }
+        return null;
     }
 
     /** Deterministic loop timestamp in seconds (sourced from the log during replay). */
