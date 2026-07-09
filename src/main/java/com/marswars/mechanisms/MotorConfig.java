@@ -29,7 +29,13 @@ public class MotorConfig {
         this.canbus_name = config.canbus_name;
         this.can_id = config.can_id;
         this.motor_type = config.motor_type;
-        this.config = config.config;
+        if (config.config instanceof TalonFXConfiguration) {
+            this.config = ((TalonFXConfiguration) config.config).clone();
+        } else if (config.config instanceof TalonFXSConfiguration) {
+            this.config = ((TalonFXSConfiguration) config.config).clone();
+        } else {
+            this.config = config.config;
+        }
     }
 
     public MotorConfig() {}
