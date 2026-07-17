@@ -488,7 +488,7 @@ public class ElevatorMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.statorcurrentDraw[0], Math.abs(current_target_)), current_target_);
+                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.supplyCurrentDraw[0], Math.abs(current_target_)), current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
