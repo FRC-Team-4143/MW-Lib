@@ -429,8 +429,8 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                filtered_current_ = current_filter_.calculate(inputs_.statorcurrentDraw[0]);
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(filtered_current_, Math.abs(current_target_)), current_target_);
+                filtered_current_ = Math.copySign(current_filter_.calculate(inputs_.statorcurrentDraw[0]), current_target_);
+                double duty_cycle_output = current_pid_.calculate(filtered_current_, current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
