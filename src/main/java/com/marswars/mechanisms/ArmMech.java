@@ -24,6 +24,7 @@ import com.ctre.phoenix6.hardware.TalonFXS;
 import com.ctre.phoenix6.hardware.traits.CommonTalon;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.marswars.logging.MwLog;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.filter.LinearFilter;
@@ -431,6 +432,11 @@ public class ArmMech extends MechBase {
             case CURRENT:
                 filtered_current_ = Math.copySign(current_filter_.calculate(inputs_.statorcurrentDraw[0]), current_target_);
                 double duty_cycle_output = current_pid_.calculate(filtered_current_, current_target_);
+                duty_cycle_output =
+                        current_target_ >= 0
+                                ? MathUtil.clamp(duty_cycle_output, 0, 1)
+                                : MathUtil.clamp(duty_cycle_output, -1, 0);
+
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
