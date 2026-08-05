@@ -26,6 +26,7 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.marswars.logging.MwLog;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
@@ -68,6 +69,7 @@ public class ArmMech extends MechBase {
     private final DutyCycleOut current_request_;
     protected final BaseStatusSignal[] signals_;
     private final PIDController current_pid_;
+    private final LinearFilter current_filter_;
 
     // Alerts for motor monitoring
     protected final Alert[] motor_disconnected_alerts_;
@@ -88,6 +90,7 @@ public class ArmMech extends MechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double current_target_ = 0;
+    protected double filtered_current_ = 0;
 
     // AdvantageKit inputs struct — sensor reads captured in the log for deterministic replay
     protected final MechInputsAutoLogged inputs_ = new MechInputsAutoLogged();
@@ -298,6 +301,7 @@ public class ArmMech extends MechBase {
             slot2Configs = SlotConfigs.from(fxConfig.Slot2);
         }
         current_pid_ = new PIDController(slot2Configs.kP, slot2Configs.kI, slot2Configs.kD);
+        current_filter_ = LinearFilter.singlePoleIIR(0.1, 0.02);
         
         TunablePid.create(
                 getLoggingKey() + "PositionGains",
@@ -425,7 +429,8 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.statorcurrentDraw[0], Math.abs(current_target_)), current_target_);
+                filtered_current_ = current_filter_.calculate(inputs_.statorcurrentDraw[0]);
+                double duty_cycle_output = Math.copySign(current_pid_.calculate(filtered_current_, Math.abs(current_target_)), current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -446,7 +451,8 @@ public class ArmMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.statorcurrentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", filtered_current_, Amps);
+        MwLog.log(getLoggingKey() + "control/current/raw", inputs_.statorcurrentDraw[0], Amps);
     }
 
     /**
@@ -492,6 +498,7 @@ public class ArmMech extends MechBase {
             current_pid_.setP(config.kP);
             current_pid_.setI(config.kI);
             current_pid_.setD(config.kD);
+            current_pid_.reset();
         } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");
         }
