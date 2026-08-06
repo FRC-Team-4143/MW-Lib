@@ -430,13 +430,8 @@ public class ArmMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                filtered_current_ = current_filter_.calculate(inputs_.statorcurrentDraw[0]);
-                double duty_cycle_output = current_pid_.calculate(filtered_current_, current_target_);
-                duty_cycle_output =
-                        current_target_ >= 0
-                                ? MathUtil.clamp(duty_cycle_output, 0, 1)
-                                : MathUtil.clamp(duty_cycle_output, -1, 0);
-
+                filtered_current_ = current_filter_.calculate(motors_[0].getTorqueCurrent().getValueAsDouble());
+                double duty_cycle_output = current_pid_.calculate(filtered_current_, current_target_);  
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -459,6 +454,7 @@ public class ArmMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
         MwLog.log(getLoggingKey() + "control/current/actual", filtered_current_, Amps);
         MwLog.log(getLoggingKey() + "control/current/raw", inputs_.statorcurrentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/current/torque", motors_[0].getTorqueCurrent().getValueAsDouble(), Amps);
     }
 
     /**
