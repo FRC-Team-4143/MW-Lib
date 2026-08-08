@@ -8,13 +8,11 @@ import edu.wpi.first.wpilibj.Notifier;
 import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.GitLogger;
 import com.marswars.logging.MwLog;
-import com.marswars.util.ConstantsLoader;
+import com.marswars.util.RobotIdentity;
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class SubsystemManager {
-    private static final String subsystems_key_ = "disabled_subsystems";
-
     protected ArrayList<MwSubsystemBase> subsystems;
     protected Notifier loopThread;
     protected boolean log_init = false;
@@ -29,6 +27,10 @@ public abstract class SubsystemManager {
     }
 
     public SubsystemManager(Object build_constants) {
+        this(build_constants, List.of());
+    }
+
+    public SubsystemManager(Object build_constants, List<String> disabled_subsystems) {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
@@ -37,11 +39,11 @@ public abstract class SubsystemManager {
 
         // Log robot metadata to NT (GitLogger continues using NT publishers directly)
         GitLogger.logGitData(build_constants);
-        robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
+        robot_name_pub_.set(RobotIdentity.getInstance().getRobotName());
         BatteryLogger.logBatteryData();
 
         // Handle disabling subsystems
-        disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
+        disabled_subsystems_ = disabled_subsystems;
         DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
     }
 
