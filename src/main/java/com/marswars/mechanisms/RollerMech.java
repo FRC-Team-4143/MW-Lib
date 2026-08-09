@@ -28,6 +28,7 @@ import com.marswars.logging.MwLog;
 import org.littletonrobotics.junction.Logger;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.Debouncer;
+import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.util.Units;
@@ -69,6 +70,7 @@ public class RollerMech extends MechBase {
     private final DutyCycleOut current_request_;
     protected final BaseStatusSignal[] signals_;
     private final PIDController current_pid_;
+    private final LinearFilter current_filter_;
 
     // Alerts for motor monitoring
     protected final Alert[] motor_disconnected_alerts_;
@@ -83,6 +85,7 @@ public class RollerMech extends MechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double current_target_ = 0;
+    protected double filtered_torque_current_ = 0;
 
 
     // System parameters
@@ -167,7 +170,8 @@ public class RollerMech extends MechBase {
         // size array fields in the inputs struct to match motor count
         inputs_.appliedVoltage    = new double[motors_.length];
         inputs_.supplyCurrentDraw = new double[motors_.length];
-        inputs_.statorcurrentDraw = new double[motors_.length];
+        inputs_.statorCurrentDraw = new double[motors_.length];
+        inputs_.torqueCurrentDraw = new double[motors_.length];
         inputs_.motorTempC        = new double[motors_.length];
         inputs_.busVoltage        = new double[motors_.length];
 
@@ -225,6 +229,7 @@ public class RollerMech extends MechBase {
             slot2Configs = SlotConfigs.from(fxConfig.Slot2);
         }
         current_pid_ = new PIDController(slot2Configs.kP, slot2Configs.kI, slot2Configs.kD);
+        current_filter_ = LinearFilter.singlePoleIIR(0.1, 0.02);
 
         TunablePid.create(
                 getLoggingKey() + "PositionGains",
@@ -256,7 +261,8 @@ public class RollerMech extends MechBase {
             for (int i = 0; i < motors_.length; i++) {
                 inputs_.appliedVoltage[i]    = motors_[i].getMotorVoltage().getValueAsDouble();
                 inputs_.supplyCurrentDraw[i] = motors_[i].getSupplyCurrent().getValue().in(Amps);
-                inputs_.statorcurrentDraw[i] = motors_[i].getStatorCurrent().getValue().in(Amps);
+                inputs_.statorCurrentDraw[i] = motors_[i].getStatorCurrent().getValue().in(Amps);
+                inputs_.torqueCurrentDraw[i] = motors_[i].getTorqueCurrent().getValue().in(Amps);
                 inputs_.motorTempC[i]     = motors_[i].getDeviceTemp().getValue().in(Celsius);
                 inputs_.busVoltage[i]     = motors_[i].getSupplyVoltage().getValueAsDouble();
 
@@ -333,7 +339,8 @@ public class RollerMech extends MechBase {
                 motors_[0].setControl(duty_cycle_request_);
                 break;
             case CURRENT:
-                double duty_cycle_output = Math.copySign(current_pid_.calculate(inputs_.statorcurrentDraw[0], Math.abs(current_target_)), current_target_);
+                filtered_torque_current_ = current_filter_.calculate(inputs_.torqueCurrentDraw[0]);
+                double duty_cycle_output = current_pid_.calculate(filtered_torque_current_, current_target_);
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -354,7 +361,7 @@ public class RollerMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.statorcurrentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", filtered_torque_current_, Amps);
     }
 
     /**
@@ -400,6 +407,7 @@ public class RollerMech extends MechBase {
             current_pid_.setP(config.kP);
             current_pid_.setI(config.kI);
             current_pid_.setD(config.kD);
+            current_pid_.reset();
         } else {
             throw new IllegalArgumentException("Slot must be 0, 1, or 2");
         }
@@ -447,7 +455,7 @@ public class RollerMech extends MechBase {
      * @return the leader stator current in amps
      */
     public double getLeaderStatorCurrent() {
-        return inputs_.statorcurrentDraw[0];
+        return inputs_.statorCurrentDraw[0];
     }
 
     /**

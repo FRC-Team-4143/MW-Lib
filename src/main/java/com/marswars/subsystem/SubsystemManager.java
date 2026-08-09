@@ -6,7 +6,6 @@ import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.Notifier;
 
 import com.marswars.logging.BatteryLogger;
-import com.marswars.logging.GitLogger;
 import com.marswars.logging.MwLog;
 import com.marswars.util.ConstantsLoader;
 import java.util.ArrayList;
@@ -32,11 +31,10 @@ public abstract class SubsystemManager {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
-        // Start AdvantageKit logging (idempotent; sets up receivers + Logger.start)
+        // Start AdvantageKit logging (idempotent; sets up receivers + Logger.start,
+        // and records/publishes git & build metadata)
         MwLog.init(build_constants);
 
-        // Log robot metadata to NT (GitLogger continues using NT publishers directly)
-        GitLogger.logGitData(build_constants);
         robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
         BatteryLogger.logBatteryData();
 
