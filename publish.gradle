@@ -90,6 +90,17 @@ task outputJar(type: Jar, dependsOn: classes) {
     from sourceSets.main.output
 }
 
+// Embed the published version in the jar manifest so it can be read at runtime via
+// MwLog.class.getPackage().getImplementationVersion() and logged as metadata.
+jar {
+    manifest {
+        attributes(
+                'Implementation-Title': 'MW-Lib',
+                'Implementation-Version': pubVersion
+        )
+    }
+}
+
 task outputSourcesJar(type: Jar, dependsOn: classes) {
     archiveBaseName = javaBaseName
     destinationDirectory = outputsFolder

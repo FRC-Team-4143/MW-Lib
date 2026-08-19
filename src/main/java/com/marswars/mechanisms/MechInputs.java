@@ -13,7 +13,8 @@ public class MechInputs {
     public double velocity = 0.0;
     public double[] appliedVoltage      = new double[0];
     public double[] supplyCurrentDraw   = new double[0];
-    public double[] statorcurrentDraw   = new double[0];
+    public double[] statorCurrentDraw   = new double[0];
+    public double[] torqueCurrentDraw   = new double[0];
     public double[] motorTempC          = new double[0];
     public double[] busVoltage          = new double[0];
 }

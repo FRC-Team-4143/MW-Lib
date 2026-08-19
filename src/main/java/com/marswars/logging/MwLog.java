@@ -1,7 +1,11 @@
 package com.marswars.logging;
 
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.units.Unit;
 import edu.wpi.first.util.struct.StructSerializable;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.RobotBase;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +41,26 @@ public final class MwLog {
     // time()/timeEnd() registry
     private static final Map<String, Double> timing_starts_ = new HashMap<>();
 
+    // Live NT metadata publishers (visible on dashboards, distinct from Logger.recordMetadata
+    // which bakes the same info into the log file for replay/AdvantageScope's metadata pane)
+    private static final StringPublisher project_name_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/PROJECT_NAME").publish();
+    private static final StringPublisher git_sha_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_SHA").publish();
+    private static final StringPublisher git_date_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_DATE").publish();
+    private static final StringPublisher git_branch_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/GIT_BRANCH").publish();
+    private static final StringPublisher build_date_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/BUILD_DATE").publish();
+    private static final StringPublisher dirty_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/DIRTY").publish();
+    private static final StringPublisher mwlib_version_pub_ =
+            NetworkTableInstance.getDefault().getStringTopic("/Metadata/MWLIB_VERSION").publish();
+
+    private static final Alert dirty_alert_ =
+            new Alert("Dirty git directory, this can lead to unreproducible results", AlertType.kInfo);
+
     // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------
@@ -47,6 +71,7 @@ public final class MwLog {
         initialized_ = true;
 
         recordMetadata(buildConstants);
+        recordMwLibVersion();
 
         if (RobotBase.isSimulation()) {
             String replayPath = System.getenv("AKIT_LOG_PATH");
@@ -152,18 +177,61 @@ public final class MwLog {
     // Private helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Records the version of MW-Lib itself, read from the consuming jar's manifest
+     * (set at publish time — see publish.gradle). Null when MW-Lib isn't running from a
+     * published jar (e.g. local dev builds), in which case "dev" is recorded instead.
+     */
+    private static void recordMwLibVersion() {
+        String version = MwLog.class.getPackage().getImplementationVersion();
+        if (version == null) {
+            version = "dev";
+        }
+        Logger.recordMetadata("MwLibVersion", version);
+        mwlib_version_pub_.set(version);
+    }
+
     private static void recordMetadata(Object buildConstants) {
         try {
             Class<?> clazz =
                     (buildConstants instanceof Class<?>)
                             ? (Class<?>) buildConstants
                             : buildConstants.getClass();
-            Logger.recordMetadata("ProjectName", (String) clazz.getField("MAVEN_NAME").get(null));
-            Logger.recordMetadata("GitSHA",      (String) clazz.getField("GIT_SHA").get(null));
-            Logger.recordMetadata("GitDate",     (String) clazz.getField("GIT_DATE").get(null));
-            Logger.recordMetadata("GitBranch",   (String) clazz.getField("GIT_BRANCH").get(null));
-            Logger.recordMetadata("BuildDate",   (String) clazz.getField("BUILD_DATE").get(null));
-            Logger.recordMetadata("Dirty",       String.valueOf(clazz.getField("DIRTY").get(null)));
+
+            String projectName = (String) clazz.getField("MAVEN_NAME").get(null);
+            String gitSha      = (String) clazz.getField("GIT_SHA").get(null);
+            String gitDate     = (String) clazz.getField("GIT_DATE").get(null);
+            String gitBranch   = (String) clazz.getField("GIT_BRANCH").get(null);
+            String buildDate   = (String) clazz.getField("BUILD_DATE").get(null);
+            int dirtyFlag      = (int) clazz.getField("DIRTY").get(null);
+
+            // Bake metadata into the log file itself (replay/AdvantageScope's metadata pane)
+            Logger.recordMetadata("ProjectName", projectName);
+            Logger.recordMetadata("GitSHA",      gitSha);
+            Logger.recordMetadata("GitDate",     gitDate);
+            Logger.recordMetadata("GitBranch",   gitBranch);
+            Logger.recordMetadata("BuildDate",   buildDate);
+            Logger.recordMetadata("Dirty",       String.valueOf(dirtyFlag));
+
+            // Publish the same info live to NetworkTables (visible on dashboards while running)
+            project_name_pub_.set(projectName);
+            git_sha_pub_.set(gitSha.length() > 7 ? gitSha.substring(0, 7) : gitSha);
+            git_date_pub_.set(gitDate);
+            git_branch_pub_.set(gitBranch);
+            build_date_pub_.set(buildDate);
+            switch (dirtyFlag) {
+                case 0:
+                    dirty_pub_.set("All changes committed");
+                    dirty_alert_.set(false);
+                    break;
+                case 1:
+                    dirty_pub_.set("Uncommitted changes");
+                    dirty_alert_.set(true);
+                    break;
+                default:
+                    dirty_pub_.set("Unknown");
+                    break;
+            }
         } catch (Exception e) {
             System.err.println("MwLog: failed to record metadata: " + e.getMessage());
         }
