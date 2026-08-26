@@ -343,7 +343,7 @@ public class FlywheelMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", filtered_torque_current_, Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.torqueCurrentDraw[0], Amps);
     }
 
     /**
