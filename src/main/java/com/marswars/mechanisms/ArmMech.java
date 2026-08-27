@@ -90,6 +90,7 @@ public class ArmMech extends MechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double current_target_ = 0;
+    protected double current_target_FF_ = 0;
     protected double filtered_torque_current_ = 0;
 
     // AdvantageKit inputs struct — sensor reads captured in the log for deterministic replay
@@ -432,7 +433,7 @@ public class ArmMech extends MechBase {
                 break;
             case CURRENT:
                 filtered_torque_current_ = current_filter_.calculate(inputs_.torqueCurrentDraw[0]);
-                double duty_cycle_output = current_pid_.calculate(filtered_torque_current_, current_target_);  
+                double duty_cycle_output = current_pid_.calculate(filtered_torque_current_, current_target_ + current_target_FF_);  
                 current_request_.Output = duty_cycle_output;
                 motors_[0].setControl(current_request_);
                 break;
@@ -453,7 +454,7 @@ public class ArmMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", filtered_torque_current_, Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.torqueCurrentDraw[0], Amps);
     }
 
     /**
@@ -635,6 +636,18 @@ public class ArmMech extends MechBase {
     public void setTargetCurrent(double current_amps) {
         control_mode_ = ControlMode.CURRENT;
         current_target_ = current_amps;
+    }
+
+    /**
+     * Sets the target current with a feedforward component.
+     *
+     * @param current_amps the target current in amps
+     * @param feedforward the feedforward component in amps to add to the target current
+     */
+    public void setTargetCurrentWithFF(double current_amps, double feedforward) {
+        control_mode_ = ControlMode.CURRENT;
+        current_target_ = current_amps;
+        current_target_FF_ = feedforward;
     }
 
     /**

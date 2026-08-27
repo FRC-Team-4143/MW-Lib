@@ -85,6 +85,7 @@ public class RollerMech extends MechBase {
     protected double velocity_target_ = 0;
     protected double duty_cycle_target_ = 0;
     protected double current_target_ = 0;
+    protected double current_target_FF_ = 0;
     protected double filtered_torque_current_ = 0;
 
 
@@ -361,7 +362,7 @@ public class RollerMech extends MechBase {
         MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
         MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
         MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", filtered_torque_current_, Amps);
+        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.torqueCurrentDraw[0], Amps);
     }
 
     /**
@@ -546,6 +547,18 @@ public class RollerMech extends MechBase {
     public void setTargetCurrent(double current_amps) {
         control_mode_ = ControlMode.CURRENT;
         current_target_ = current_amps; // For logging purposes, since current control doesn't use duty cycle
+    }
+
+    /**
+     * Sets the target current with a feedforward component.
+     *
+     * @param current_amps the target current in amps
+     * @param feedforward the feedforward component in amps to add to the target current
+     */
+    public void setTargetCurrentWithFF(double current_amps, double feedforward) {
+        control_mode_ = ControlMode.CURRENT;
+        current_target_ = current_amps;
+        current_target_FF_ = feedforward;
     }
 
     /**
