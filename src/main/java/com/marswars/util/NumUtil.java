@@ -33,4 +33,37 @@ public abstract class NumUtil {
     public static Transform2d flatten(Transform3d tf) {
         return new Transform2d(tf.getX(), tf.getY(), tf.getRotation().toRotation2d());
     }
+
+    // TODO(human): implement packBits and unpackBits.
+    //
+    // These convert between a boolean[] (e.g. "which of these 12 reef branches are occupied") and
+    // a plain int (the only bitfield-shaped type NetworkTables can carry on the wire). They're used
+    // by DashboardBridge consumers to interpret the raw ints that come out of a DashboardChannel.
+    //
+    // packBits: for each index i where bits[i] is true, set bit i of the result.
+    //   e.g. {true, false, true} -> bit 0 set, bit 2 set -> 0b101 -> 5
+    //
+    // unpackBits: the inverse -- for each of the first `count` bits of `packed`, produce a boolean.
+    //   e.g. unpackBits(5, 3) -> {true, false, true}
+    //
+    // Hint: `1 << i` produces a value with only bit i set; `|=` to set a bit, `&` plus `!= 0` to
+    // test one.
+
+    public static int packBits(boolean[] bits) {
+        int packed = 0;
+        for (int i = 0; i < bits.length; i++) {
+            if (bits[i]) {
+                packed |= 1 << i;
+            }
+        }
+        return packed;
+    }
+
+    public static boolean[] unpackBits(int packed, int count) {
+        boolean[] bits = new boolean[count];
+        for (int i = 0; i < count; i++) {
+            bits[i] = (packed & (1 << i)) != 0;
+        }
+        return bits;
+    }
 }

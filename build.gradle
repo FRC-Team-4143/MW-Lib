@@ -83,6 +83,7 @@ dependencies {
     implementation "edu.wpi.first.cscore:cscore-java:$wpilibVersion"
     implementation "edu.wpi.first.cameraserver:cameraserver-java:$wpilibVersion"
     implementation "edu.wpi.first.ntcore:ntcore-java:$wpilibVersion"
+    implementation "edu.wpi.first.wpinet:wpinet-java:$wpilibVersion"
     implementation "edu.wpi.first.wpilibj:wpilibj-java:$wpilibVersion"
     implementation "edu.wpi.first.wpiutil:wpiutil-java:$wpilibVersion"
     implementation "edu.wpi.first.wpimath:wpimath-java:$wpilibVersion"
@@ -124,10 +125,35 @@ dependencies {
     testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'
 }
 
+// Native libraries (hal/wpiutil/wpimath/wpinet/ntcore) for tests that touch real WPILib native
+// code (e.g. NetworkTableInstance.create() in dashboard plumbing tests). MW-Lib doesn't apply the
+// full GradleRIO plugin, so unlike a robot project we don't get JNI natives for free via
+// wpi.java.deps.wpilibJniRelease(...) -- pull the linuxx86-64 native zips directly and extract them
+// so RuntimeLoader/System.loadLibrary can find them via java.library.path.
+configurations {
+    nativeLibs
+}
+
+dependencies {
+    nativeLibs "edu.wpi.first.hal:hal-cpp:$wpilibVersion:linuxx86-64@zip"
+    nativeLibs "edu.wpi.first.wpiutil:wpiutil-cpp:$wpilibVersion:linuxx86-64@zip"
+    nativeLibs "edu.wpi.first.wpimath:wpimath-cpp:$wpilibVersion:linuxx86-64@zip"
+    nativeLibs "edu.wpi.first.wpinet:wpinet-cpp:$wpilibVersion:linuxx86-64@zip"
+    nativeLibs "edu.wpi.first.ntcore:ntcore-cpp:$wpilibVersion:linuxx86-64@zip"
+}
+
+task extractNativeLibs(type: Copy) {
+    from configurations.nativeLibs.collect { zipTree(it) }
+    into "$buildDir/nativeLibs"
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // Set up java tests
 test {
+    dependsOn extractNativeLibs
     useJUnitPlatform()
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    systemProperty 'java.library.path', "$buildDir/nativeLibs/linux/x86-64/shared"
     testLogging {
         events "failed"
         exceptionFormat = "full"
