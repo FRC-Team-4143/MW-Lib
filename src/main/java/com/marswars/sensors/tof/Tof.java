@@ -69,7 +69,6 @@ public abstract class Tof implements SubsystemIoBase{
 
     @Override
     public void logData() {
-        MwLog.log(getLoggingKey() + "Range", inputs_.range);
     }
 
     /**

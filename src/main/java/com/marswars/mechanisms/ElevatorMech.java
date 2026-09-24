@@ -510,14 +510,10 @@ public class ElevatorMech extends MechBase {
     public void logData() {
         // commands
         MwLog.log(getLoggingKey() + "control/mode", control_mode_.toString());
-        MwLog.log(getLoggingKey() + "control/position/target", position_target_, Meters);
-        MwLog.log(getLoggingKey() + "control/position/actual", inputs_.position, Meters);
-        MwLog.log(getLoggingKey() + "control/velocity/target", velocity_target_, MetersPerSecond);
-        MwLog.log(getLoggingKey() + "control/velocity/actual", inputs_.velocity, MetersPerSecond);
-        MwLog.log(getLoggingKey() + "control/duty_cycle/target", duty_cycle_target_, Percent);
-        MwLog.log(getLoggingKey() + "control/duty_cycle/actual", inputs_.appliedVoltage[0] / 12.0, Percent);
-        MwLog.log(getLoggingKey() + "control/current/target", current_target_, Amps);
-        MwLog.log(getLoggingKey() + "control/current/actual", inputs_.torqueCurrentDraw[0], Amps);
+        MwLog.log(getLoggingKey() + "control/position_target", position_target_, Meters);
+        MwLog.log(getLoggingKey() + "control/velocity_target", velocity_target_, MetersPerSecond);
+        MwLog.log(getLoggingKey() + "control/duty_cycle_target", duty_cycle_target_, Percent);
+        MwLog.log(getLoggingKey() + "control/current_target", current_target_, Amps);
     }
 
     /**

@@ -192,6 +192,7 @@ public class MotorConfig {
                     loader.getDoubleValue(
                             ConstantsLoader.combinePath(
                                     base_steps, "supply_limit", "trigger_time"));
+            fxConfig.CurrentLimits.SupplyCurrentLowerLimit = loader.getDoubleValue(ConstantsLoader.combinePath(base_steps, "supply_limit", "current_lower_limit"));
         }
 
         // Load a stator current limit if configured

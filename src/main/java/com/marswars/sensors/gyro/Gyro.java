@@ -88,11 +88,6 @@ public abstract class Gyro implements SubsystemIoBase {
 
     @Override
     public void logData() {
-        MwLog.log(getLoggingKey() + "Connected", inputs_.connectedDebounced);
-        MwLog.log(getLoggingKey() + "YawPositionDeg", inputs_.yawPosition.getDegrees());
-        MwLog.log(getLoggingKey() + "PitchPositionDeg", inputs_.pitchPosition.getDegrees());
-        MwLog.log(getLoggingKey() + "RollPositionDeg", inputs_.rollPosition.getDegrees());
-        MwLog.log(getLoggingKey() + "YawVelocityRadPerSec", inputs_.yawVelocityRadPerSec);
     }
 
     @Override
