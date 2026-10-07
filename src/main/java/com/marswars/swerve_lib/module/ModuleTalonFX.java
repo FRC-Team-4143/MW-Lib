@@ -76,16 +76,15 @@ public class ModuleTalonFX extends Module {
     protected final StatusSignal<Angle> drive_position_sig_;
     protected final StatusSignal<AngularVelocity> drive_velocity_sig_;
     protected final StatusSignal<Voltage> drive_applied_volts_sig_;
-    protected final StatusSignal<Current> drive_current_sig_;
+    protected final StatusSignal<Current> drive_stator_current_sig_;
+    protected final StatusSignal<Current> drive_supply_current_sig_;
 
     // Inputs from steer motor
     protected final StatusSignal<Angle> steer_absolute_position_sig_;
     protected final StatusSignal<AngularVelocity> steer_velocity_sig_;
     protected final StatusSignal<Voltage> steer_applied_volts_sig_;
-    protected final StatusSignal<Current> steer_current_sig_;
-
-    // Analog encoder input (if used)
-    protected double encoder_value_abs_;
+    protected final StatusSignal<Current> steer_stator_current_sig_;
+    protected final StatusSignal<Current> steer_supply_current_sig_;
     
     // Simulation objects (only used when IS_SIM is true)
     private DCMotorSim drive_sim_;
@@ -178,13 +177,15 @@ public class ModuleTalonFX extends Module {
         drive_position_sig_ = drive_talonfx_.getPosition();
         drive_velocity_sig_ = drive_talonfx_.getVelocity();
         drive_applied_volts_sig_ = drive_talonfx_.getMotorVoltage();
-        drive_current_sig_ = drive_talonfx_.getStatorCurrent();
+        drive_stator_current_sig_ = drive_talonfx_.getStatorCurrent();
+        drive_supply_current_sig_ = drive_talonfx_.getSupplyCurrent();
 
         // Create steer status signals
         steer_absolute_position_sig_ = steer_talonfx_.getPosition();
         steer_velocity_sig_ = steer_talonfx_.getVelocity();
         steer_applied_volts_sig_ = steer_talonfx_.getMotorVoltage();
-        steer_current_sig_ = steer_talonfx_.getStatorCurrent();
+        steer_stator_current_sig_ = steer_talonfx_.getStatorCurrent();
+        steer_supply_current_sig_ = steer_talonfx_.getSupplyCurrent();
 
         // Configure periodic frames
         BaseStatusSignal.setUpdateFrequencyForAll(
@@ -195,10 +196,12 @@ public class ModuleTalonFX extends Module {
                 50.0,
                 drive_velocity_sig_,
                 drive_applied_volts_sig_,
-                drive_current_sig_,
+                drive_stator_current_sig_,
+                drive_supply_current_sig_,
                 steer_velocity_sig_,
                 steer_applied_volts_sig_,
-                steer_current_sig_);
+                steer_stator_current_sig_,
+                steer_supply_current_sig_);
         ParentDevice.optimizeBusUtilizationForAll(drive_talonfx_, steer_talonfx_);
 
         PhoenixOdometryThread.getInstance()
@@ -278,13 +281,13 @@ public class ModuleTalonFX extends Module {
         inputs_.drivePositionRad = drive_sim_.getAngularPositionRad();
         inputs_.driveVelocityRadPerSec = drive_sim_.getAngularVelocityRadPerSec();
         inputs_.driveAppliedVolts = sim_drive_applied_volts_;
-        inputs_.driveCurrentAmps = Math.abs(drive_sim_.getCurrentDrawAmps());
+        inputs_.driveStatorCurrentAmps = Math.abs(drive_sim_.getCurrentDrawAmps());
 
         // Update steer inputs from simulation
         inputs_.steerAbsolutePosition = new Rotation2d(steer_sim_.getAngularPositionRad());
         inputs_.steerVelocityRadPerSec = steer_sim_.getAngularVelocityRadPerSec();
         inputs_.steerAppliedVolts = sim_steer_applied_volts_;
-        inputs_.steerCurrentAmps = Math.abs(steer_sim_.getCurrentDrawAmps());
+        inputs_.steerStatorCurrentAmps = Math.abs(steer_sim_.getCurrentDrawAmps());
         
         // Simulation is always "connected"
         drive_disconnected_alert_.set(false);
@@ -308,10 +311,11 @@ public class ModuleTalonFX extends Module {
                         drive_position_sig_,
                         drive_velocity_sig_,
                         drive_applied_volts_sig_,
-                        drive_current_sig_);
+                        drive_stator_current_sig_,
+                        drive_supply_current_sig_);
         var steerStatus =
                 BaseStatusSignal.refreshAll(
-                        steer_velocity_sig_, steer_applied_volts_sig_, steer_current_sig_);
+                        steer_velocity_sig_, steer_applied_volts_sig_, steer_stator_current_sig_, steer_supply_current_sig_);
         var steerEncoderStatus = BaseStatusSignal.refreshAll(steer_absolute_position_sig_);
 
         // Update drive inputs
@@ -319,7 +323,8 @@ public class ModuleTalonFX extends Module {
         inputs_.driveVelocityRadPerSec =
                 Units.rotationsToRadians(drive_velocity_sig_.getValueAsDouble());
         inputs_.driveAppliedVolts = drive_applied_volts_sig_.getValueAsDouble();
-        inputs_.driveCurrentAmps = drive_current_sig_.getValueAsDouble();
+        inputs_.driveStatorCurrentAmps = drive_stator_current_sig_.getValueAsDouble();
+        inputs_.driveSupplyCurrentAmps = drive_supply_current_sig_.getValueAsDouble();
 
         // Update steer inputs
         inputs_.steerAbsolutePosition =
@@ -327,7 +332,8 @@ public class ModuleTalonFX extends Module {
         inputs_.steerVelocityRadPerSec =
                 Units.rotationsToRadians(steer_velocity_sig_.getValueAsDouble());
         inputs_.steerAppliedVolts = steer_applied_volts_sig_.getValueAsDouble();
-        inputs_.steerCurrentAmps = steer_current_sig_.getValueAsDouble();
+        inputs_.steerStatorCurrentAmps = steer_stator_current_sig_.getValueAsDouble();
+        inputs_.steerSupplyCurrentAmps = steer_supply_current_sig_.getValueAsDouble();
 
         // Update alerts
         drive_disconnected_alert_.set(!drive_conn_deb_.calculate(driveStatus.isOK()));
@@ -335,7 +341,7 @@ public class ModuleTalonFX extends Module {
 
         // Update encoder value if using analog encoder
         if (encoder != null) {
-            encoder_value_abs_ = encoder.get();
+            inputs_.encoderAbsolutePosition = encoder.get();
         }
     }
 
@@ -484,15 +490,6 @@ public class ModuleTalonFX extends Module {
     /** {@inheritDoc} */
     @Override
     public void logData() {
-        MwLog.log(getLoggingKey() + "Drive/PositionRad", inputs_.drivePositionRad, Radians);
-        MwLog.log(getLoggingKey() + "Drive/VelocityRadPerSec", inputs_.driveVelocityRadPerSec, RadiansPerSecond);
-        MwLog.log(getLoggingKey() + "Drive/AppliedVolts", inputs_.driveAppliedVolts, Volts);
-        MwLog.log(getLoggingKey() + "Drive/CurrentAmps", inputs_.driveCurrentAmps, Amps);
-        MwLog.log(getLoggingKey() + "Steer/AbsolutePosition", inputs_.steerAbsolutePosition.getRadians(), Radians);
-        MwLog.log(getLoggingKey() + "Steer/VelocityRadPerSec", inputs_.steerVelocityRadPerSec, RadiansPerSecond);
-        MwLog.log(getLoggingKey() + "Steer/AppliedVolts", inputs_.steerAppliedVolts, Volts);
-        MwLog.log(getLoggingKey() + "Steer/CurrentAmps", inputs_.steerCurrentAmps, Amps);
         MwLog.log(getLoggingKey() + "NeutralMode", neutral_mode_);
-        MwLog.log(getLoggingKey() + "Encoder/AbsoluteValue", encoder_value_abs_, Rotation);
     }
 }
