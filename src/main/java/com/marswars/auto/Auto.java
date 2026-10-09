@@ -1,6 +1,5 @@
 package com.marswars.auto;
 
-import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
@@ -47,13 +46,13 @@ public class Auto extends SequentialCommandGroup {
    * @param is_red_alliance true if the robot is on the red alliance, false for
    *                        blue (used for flipping trajectories)
    */
-  @SuppressWarnings("unchecked")
   public void cacheTrajetories(boolean is_red_alliance) {
     synchronized (trajectories_) {
       for (var entry : trajectories_.entrySet()) {
         String name = entry.getKey();
-        // request the choreo trajectory to be loaded
-        Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
+        // request the choreo trajectory to be loaded; the .traj file decides whether its samples
+        // are swerve or differential, so keep the sample type open
+        Trajectory<?> traj = choreo.Choreo.loadTrajectory(name).get();
 
         // load the trajectory with event markers into our typed ChoreoTrajectory class
         // and store it
@@ -94,7 +93,7 @@ public class Auto extends SequentialCommandGroup {
     if (trajectories_.isEmpty() || trajectories_.values().iterator().next() == null) {
       return Pose2d.kZero;
     }
-    return trajectories_.values().iterator().next().getTrajectory().getPoses()[0];
+    return trajectories_.values().iterator().next().getPoses()[0];
   }
 
   /**
@@ -106,7 +105,7 @@ public class Auto extends SequentialCommandGroup {
     synchronized (trajectories_) {
       return trajectories_.values().stream()
           .filter(t -> t != null)
-          .flatMap(t -> Arrays.stream(t.getTrajectory().getPoses()))
+          .flatMap(t -> Arrays.stream(t.getPoses()))
           .toArray(Pose2d[]::new);
     }
   }
