@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import choreo.trajectory.DifferentialSample;
 import choreo.trajectory.EventMarker;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
@@ -14,9 +15,9 @@ public class ChoreoTrajectory {
     private final Map<String, Double> event_timestamp_map_;
     private final Map<String, Pose2d> event_pose_map_;
     
-    private Trajectory<SwerveSample> trajectory_;
+    private Trajectory<?> trajectory_;
 
-    public ChoreoTrajectory(Trajectory<SwerveSample> trajectory, boolean is_red_alliance) {
+    public ChoreoTrajectory(Trajectory<?> trajectory, boolean is_red_alliance) {
                 // flip the trajectory for red alliance if needed
         if(is_red_alliance) {
           trajectory_ = trajectory.flipped();
@@ -42,8 +43,32 @@ public class ChoreoTrajectory {
         
     }
 
+    /** @throws IllegalStateException if this is a differential trajectory */
+    @SuppressWarnings("unchecked")
     public Trajectory<SwerveSample> getTrajectory() {
-        return trajectory_;
+        requireSamplesOfType(SwerveSample.class);
+        return (Trajectory<SwerveSample>) trajectory_;
+    }
+
+    /** @throws IllegalStateException if this is a swerve trajectory */
+    @SuppressWarnings("unchecked")
+    public Trajectory<DifferentialSample> getDifferentialTrajectory() {
+        requireSamplesOfType(DifferentialSample.class);
+        return (Trajectory<DifferentialSample>) trajectory_;
+    }
+
+    /** Poses of every sample (already alliance-flipped), for either sample type. */
+    public Pose2d[] getPoses() {
+        return trajectory_.getPoses();
+    }
+
+    private void requireSamplesOfType(Class<?> type) {
+        var samples = trajectory_.samples();
+        if (!samples.isEmpty() && !type.isInstance(samples.get(0))) {
+            throw new IllegalStateException("Trajectory " + trajectory_.name() + " has "
+                    + samples.get(0).getClass().getSimpleName() + " samples, not " + type.getSimpleName()
+                    + "; use the matching getter");
+        }
     }
 
     public Map<String, Double> getEventTimestampMap() {
