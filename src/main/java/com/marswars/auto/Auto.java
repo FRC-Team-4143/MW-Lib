@@ -1,6 +1,5 @@
 package com.marswars.auto;
 
-import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
@@ -9,6 +8,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -47,19 +47,29 @@ public class Auto extends SequentialCommandGroup {
    * @param is_red_alliance true if the robot is on the red alliance, false for
    *                        blue (used for flipping trajectories)
    */
-  @SuppressWarnings("unchecked")
   public void cacheTrajetories(boolean is_red_alliance) {
+    cacheTrajetories(is_red_alliance, name -> loadFromChoreo(name));
+  }
+
+  /**
+   * Loads a .traj of either sample type. The type argument is only a witness for Choreo's generic
+   * signature (erased at runtime); Choreo picks Swerve or Differential samples from the file.
+   */
+  private static Trajectory<?> loadFromChoreo(String name) {
+    return choreo.Choreo.<choreo.trajectory.SwerveSample>loadTrajectory(name).get();
+  }
+
+  /**
+   * Loads registered trajectories with the given loader. Package-private so tests can supply
+   * in-memory trajectories instead of reading deploy files.
+   */
+  void cacheTrajetories(boolean is_red_alliance, Function<String, Trajectory<?>> loader) {
     synchronized (trajectories_) {
       for (var entry : trajectories_.entrySet()) {
-        String name = entry.getKey();
-        // request the choreo trajectory to be loaded
-        Trajectory<SwerveSample> traj = (Trajectory<SwerveSample>) choreo.Choreo.loadTrajectory(name).get();
-
-        // load the trajectory with event markers into our typed ChoreoTrajectory class
-        // and store it
-        ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
-        entry.setValue(choreoTraj);
-
+        // Choreo parses the .traj by its sampleType (Swerve or Differential), so keep the
+        // sample type open here and let ChoreoTrajectory record what it actually got.
+        Trajectory<?> traj = loader.apply(entry.getKey());
+        entry.setValue(ChoreoTrajectory.ofUnknown(traj, is_red_alliance));
       }
     }
   }
@@ -94,7 +104,8 @@ public class Auto extends SequentialCommandGroup {
     if (trajectories_.isEmpty() || trajectories_.values().iterator().next() == null) {
       return Pose2d.kZero;
     }
-    return trajectories_.values().iterator().next().getTrajectory().getPoses()[0];
+    Pose2d[] poses = trajectories_.values().iterator().next().getPoses();
+    return poses.length == 0 ? Pose2d.kZero : poses[0];
   }
 
   /**
@@ -106,7 +117,7 @@ public class Auto extends SequentialCommandGroup {
     synchronized (trajectories_) {
       return trajectories_.values().stream()
           .filter(t -> t != null)
-          .flatMap(t -> Arrays.stream(t.getTrajectory().getPoses()))
+          .flatMap(t -> Arrays.stream(t.getPoses()))
           .toArray(Pose2d[]::new);
     }
   }
