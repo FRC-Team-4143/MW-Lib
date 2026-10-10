@@ -32,7 +32,7 @@ public abstract class MwSubsystem<
     }
 
     protected void handleStateTransition(StateType wanted) {
-        system_state_ = wanted_state_;
+        system_state_ = wanted;
     }
 
     /** Computes updated outputs for the actuators */

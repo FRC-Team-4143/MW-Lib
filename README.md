@@ -103,6 +103,7 @@ The library is organized into several packages:
 - `com.marswars.geometry` - Geometric utilities
 - `com.marswars.logging` - Logging utilities
 - `com.marswars.util` - General utilities
+- `com.marswars.subsystem` - Subsystem state machines and the robot super state machine (see [State machines](#state-machines))
 - `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](#behavior-tree-autos))
 
 Example usage:
@@ -131,6 +132,80 @@ public class SwerveSubsystem extends MwSwerveSubsystem<SwerveConstants> {
 // Use arm mechanism
 ArmMech arm = new ArmMech(config);
 ```
+
+## State machines
+
+Every MW-Lib subsystem is a state machine (`MwSubsystem`). The robot as a whole is one more state
+machine on top of them: the **super state machine**. A robot's `RobotContainer` extends
+`MwSuperStateMachine<RobotStates>`, which coordinates the subsystems. Each loop:
+
+1. **`RobotContainer` (super state machine).** It moves to the wanted robot state through
+   `handleStateTransition`. Then `updateLogic` requests a state from each subsystem with
+   `setWantedState(...)`.
+2. **Every registered subsystem.** It reads inputs, moves to its own wanted state, runs its logic
+   and writes outputs.
+
+The subsystems see the super state's requests in the same loop.
+
+Buttons and autos call `setWantedState(...)` on the robot, the same way the robot calls it on
+subsystems. There are no per-subsystem command files. Logic that involves more than one subsystem
+lives in one place, the super state machine, and teleop and autos share it. A scoring sequence is
+written once, as a robot state, and both teleop and autos use it.
+
+```java
+public class RobotContainer extends MwSuperStateMachine<RobotStates> {
+    public RobotContainer() {
+        super(RobotStates.DRIVE, BuildConstants.class);
+        registerSubsystem(DrivetrainSubsystem.getInstance());
+        registerSubsystem(ShooterSubsystem.getInstance());
+        reset(); // leave as the last line
+    }
+
+    // A sequence: wanting SCORE walks through the step states AIM and SPIN_UP first.
+    @Override
+    protected void handleStateTransition(RobotStates wanted) {
+        if (wanted != RobotStates.SCORE) {
+            system_state_ = wanted;
+            return;
+        }
+        switch (system_state_) {
+            case AIM -> { if (drive.isAimed()) system_state_ = RobotStates.SPIN_UP; }
+            case SPIN_UP -> { if (shooter.isReady()) system_state_ = RobotStates.SCORE; }
+            case SCORE -> {}
+            default -> {
+                if (!shooter.hasPiece()) failWantedState(); // autos see FAILURE
+                else system_state_ = RobotStates.AIM;
+            }
+        }
+    }
+
+    @Override
+    protected void updateLogic(double timestamp) {
+        switch (getSystemState()) {
+            case DRIVE -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.IDLE); }
+            case AIM -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.IDLE); }
+            case SPIN_UP -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.SPIN_UP); }
+            case SCORE -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.SHOOT); }
+        }
+    }
+}
+
+// OI.configureBindings()
+driver.rightBumper().whileTrue(Commands.startEnd(
+        () -> robot.setWantedState(RobotStates.SCORE),
+        () -> robot.setWantedState(RobotStates.DRIVE)));
+```
+
+| API | What it does |
+|---|---|
+| `setWantedState(s)` / `getWantedState()` / `getSystemState()` | Same as `MwSubsystem` |
+| `handleStateTransition(wanted)` | Override it for guards, enter/exit actions and step states. The default goes straight to `wanted` |
+| `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
+| `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |
+| `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
+
+MW-Lib subsystems are not WPILib `Subsystem`s, so button commands have no requirements. Logged
+keys are `Robot/WantedState` and `Robot/State`.
 
 ## Behavior-tree autos
 
@@ -195,7 +270,8 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ## Library Components
 
 ### Subsystems
-- `MwSubsystem` - Base subsystem class with logging integration
+- `MwSubsystem` - Base subsystem class (a state machine) with logging integration
+- `MwSuperStateMachine` - The robot's super state machine; `RobotContainer` extends it (see [State machines](#state-machines))
 - `SubsystemManager` - Centralized subsystem management
 
 ### Mechanisms

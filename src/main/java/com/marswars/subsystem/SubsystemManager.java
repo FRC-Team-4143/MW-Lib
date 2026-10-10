@@ -15,6 +15,7 @@ public abstract class SubsystemManager {
     protected ArrayList<MwSubsystemBase> subsystems;
     protected Notifier loopThread;
     protected boolean log_init = false;
+    private final boolean start_logging_;
 
     private static StringPublisher robot_name_pub_ =
             NetworkTableInstance.getDefault().getStringTopic("/Metadata/ROBOT_NAME").publish();
@@ -30,15 +31,29 @@ public abstract class SubsystemManager {
     }
 
     public SubsystemManager(Object build_constants, List<String> disabled_subsystems) {
+        this(build_constants, disabled_subsystems, true);
+    }
+
+    /**
+     * @param start_logging false only in unit tests: AdvantageKit exits the JVM if it is started
+     *     outside a LoggedRobot, and battery logging needs the PWF native library
+     */
+    SubsystemManager(
+            Object build_constants, List<String> disabled_subsystems, boolean start_logging) {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
         // Start AdvantageKit logging (idempotent; sets up receivers + Logger.start,
         // and records/publishes git & build metadata)
-        MwLog.init(build_constants);
+        start_logging_ = start_logging;
+        if (start_logging) {
+            MwLog.init(build_constants);
+        }
 
         robot_name_pub_.set(RobotIdentity.getInstance().getRobotName());
-        BatteryLogger.logBatteryData();
+        if (start_logging) {
+            BatteryLogger.logBatteryData();
+        }
 
         // Handle disabling subsystems
         disabled_subsystems_ = disabled_subsystems;
@@ -58,6 +73,10 @@ public abstract class SubsystemManager {
     public void doControlLoop() {
         // Poll tunables and fire onChange consumers before subsystem logic runs
         MwLog.periodic();
+
+        // Let a coordinator (see MwSuperStateMachine) request subsystem states first, so its
+        // requests take effect in this same loop
+        beforeSubsystems(MwLog.timestampSeconds());
 
         // For each subsystem run its update loop
         for (MwSubsystemBase subsystem : subsystems) {
@@ -89,8 +108,18 @@ public abstract class SubsystemManager {
             }
         }
         // Log battery data every loop
-        BatteryLogger.logBatteryData();
+        if (start_logging_) {
+            BatteryLogger.logBatteryData();
+        }
     }
+
+    /**
+     * Runs once per loop after tunables are polled and before any subsystem updates. Does nothing by
+     * default; {@link MwSuperStateMachine} uses it to run the robot-level state machine.
+     *
+     * @param timestamp the loop timestamp in seconds
+     */
+    protected void beforeSubsystems(double timestamp) {}
 
     /**
      * If subsystems all need to be reset before a robot mode change, call this function to cleanly
