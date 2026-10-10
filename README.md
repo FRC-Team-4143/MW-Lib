@@ -116,7 +116,8 @@ import com.marswars.util.RobotIdentity;
 String robotName = RobotIdentity.getInstance().getRobotName();
 
 // Swerve drive: extend MwSwerveSubsystem with your constants (extending MwSwerveConstants),
-// a field-pose supplier and the driver joystick inputs
+// a field-pose supplier and the driver joystick inputs. The constants' getDriveConfig() is
+// built with SwerveDriveConfig.builder() (module type, wheel radius, gains, CAN IDs, positions).
 public class SwerveSubsystem extends MwSwerveSubsystem<SwerveConstants> {
     public SwerveSubsystem() {
         super(SwerveConstants.create(), localization::getFieldPose,

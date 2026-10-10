@@ -4,14 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.marswars.auto.ChoreoTrajectory;
-import com.marswars.mechanisms.MotorConfig;
 import com.marswars.swerve_lib.module.ModuleType;
-import com.marswars.swerve_lib.module.SwerveModuleConfig;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.simulation.SimHooks;
 import java.util.List;
 import java.util.Optional;
@@ -29,35 +27,15 @@ class MwSwerveSubsystemTest {
 
   private static class TestSwerveConstants extends MwSwerveConstants {
     private final SwerveDriveConfig config =
-        new SwerveDriveConfig(
-            module(1, 2, 0, 0.3, 0.3),
-            module(3, 4, 1, 0.3, -0.3),
-            module(5, 6, 2, -0.3, 0.3),
-            module(7, 8, 3, -0.3, -0.3),
-            0,
-            "rio");
-
-    private static SwerveModuleConfig module(
-        int drive_id, int steer_id, int encoder_id, double x, double y) {
-      SwerveModuleConfig module = new SwerveModuleConfig();
-      module.module_type = ModuleType.getModuleType("MK4I-L2");
-      module.encoder_type = SwerveModuleConfig.EncoderType.ANALOG_ENCODER;
-      module.encoder_id = encoder_id;
-      module.wheel_radius_m = 0.05;
-      module.speed_at_12_volts = 5.0;
-      module.location_x = x;
-      module.location_y = y;
-      module.drive_motor_config = motor(drive_id);
-      module.steer_motor_config = motor(steer_id);
-      return module;
-    }
-
-    private static MotorConfig motor(int can_id) {
-      MotorConfig motor = new MotorConfig();
-      motor.can_id = can_id;
-      motor.apply(new TalonFXConfiguration());
-      return motor;
-    }
+        SwerveDriveConfig.builder()
+            .moduleType(ModuleType.getModuleType("MK4I-L2"))
+            .wheelRadius(0.05)
+            .speedAt12V(5.0)
+            .frontLeft(1, 2, 0, new Translation2d(0.3, 0.3))
+            .frontRight(3, 4, 1, new Translation2d(0.3, -0.3))
+            .backLeft(5, 6, 2, new Translation2d(-0.3, 0.3))
+            .backRight(7, 8, 3, new Translation2d(-0.3, -0.3))
+            .build();
 
     @Override
     public SwerveDriveConfig getDriveConfig() {
