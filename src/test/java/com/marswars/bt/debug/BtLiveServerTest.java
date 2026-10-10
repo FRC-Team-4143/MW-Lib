@@ -35,7 +35,7 @@ class BtLiveServerTest {
                     + "<BehaviorTree ID=\"MainTree\"><Sequence name=\"root\">"
                     + "<SetBlackboard value=\"3\" output_key=\"count\"/>"
                     + "<SubTree ID=\"Child\" x=\"{count}\"/>"
-                    + "<Wait seconds=\"1\"/></Sequence></BehaviorTree>"
+                    + "<Sleep msec=\"1000\"/></Sequence></BehaviorTree>"
                     + "<BehaviorTree ID=\"Child\"><SetBlackboard value=\"hi\" output_key=\"local\"/>"
                     + "</BehaviorTree></root>";
 

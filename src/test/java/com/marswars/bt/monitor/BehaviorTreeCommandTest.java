@@ -60,7 +60,7 @@ class BehaviorTreeCommandTest {
 
     @Test
     void runsToCompletionAndRebuildsEachRun() {
-        BehaviorTreeCommand cmd = command("<Sequence><Wait seconds=\"0.5\"/><AlwaysSuccess/></Sequence>");
+        BehaviorTreeCommand cmd = command("<Sequence><Sleep msec=\"500\"/><AlwaysSuccess/></Sequence>");
         cmd.initialize();
         BehaviorTree first = cmd.getTree();
         cmd.execute();

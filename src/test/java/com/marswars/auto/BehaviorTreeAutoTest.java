@@ -118,6 +118,32 @@ class BehaviorTreeAutoTest {
     }
 
     @Test
+    void treeParametersComeFromStoreEachRun(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("Params.xml");
+        Files.writeString(
+                file,
+                "<root BTCPP_format=\"4\" main_tree_to_execute=\"Params\">"
+                        + "<BehaviorTree ID=\"Params\"><Delay delay_msec=\"{wait_msec}\">"
+                        + "<AlwaysSuccess/></Delay></BehaviorTree>"
+                        + "<TreeNodesModel><SubTree ID=\"Params\">"
+                        + "<input_port name=\"wait_msec\" type=\"int\" default=\"3000\"/>"
+                        + "</SubTree></TreeNodesModel></root>");
+        com.marswars.bt.core.ParameterStore.InMemory store =
+                new com.marswars.bt.core.ParameterStore.InMemory();
+        BehaviorTreeAuto auto = new BehaviorTreeAuto(factory, file, store);
+
+        assertEquals("Autos/Params/wait_msec", auto.parameterKey("wait_msec"));
+        assertEquals(java.util.Map.of("Autos/Params/wait_msec", 3000), store.snapshot(),
+                "registered at load so it can be tuned while disabled");
+        assertEquals(3000, auto.buildTree().getBlackboard().get("wait_msec"));
+
+        store.set("Autos/Params/wait_msec", 0);
+        BehaviorTree tree = auto.buildTree();
+        assertEquals(0, tree.getBlackboard().get("wait_msec"));
+        assertEquals(NodeStatus.SUCCESS, tree.tickOnce(), "Delay 0 runs its child at once");
+    }
+
+    @Test
     void trajectoryResolverRequiresAuto() {
         BehaviorTree tree = factory.createTreeFromText(doc("<AlwaysSuccess/>", ""));
         assertThrows(

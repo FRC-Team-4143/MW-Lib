@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class BuiltinActionsTest extends BtTestBase {
 
     @Test
-    void sleepAndWaitUseTreeClock() {
+    void sleepUsesTreeClock() {
         SleepNode sleep = new SleepNode("s", cfg(Map.of("msec", "300")));
         assertEquals(R, sleep.executeTick());
         clock.advance(0.29);
@@ -20,22 +20,19 @@ class BuiltinActionsTest extends BtTestBase {
         clock.advance(0.02);
         assertEquals(S, sleep.executeTick());
 
-        WaitNode wait = new WaitNode("w", cfg(Map.of("seconds", "0")));
-        assertEquals(S, wait.executeTick(), "zero wait succeeds immediately");
+        SleepNode zero = new SleepNode("z", cfg(Map.of("msec", "0")));
+        assertEquals(S, zero.executeTick(), "zero sleep succeeds immediately");
     }
 
     @Test
-    void tunableWaitReadsRegistryAtStart() {
-        TunableRegistry.InMemory registry = new TunableRegistry.InMemory();
-        TunableWaitNode tw =
-                new TunableWaitNode(
-                        "tw", cfg(Map.of("key", "Auto/Wait", "default_seconds", "1")), registry);
-        registry.set("Auto/Wait", 2.0);
-        assertEquals(R, tw.executeTick());
+    void sleepReadsDurationFromBlackboard() {
+        bb.set("wait_msec", 2000);
+        SleepNode sleep = new SleepNode("s", cfg(Map.of("msec", "{wait_msec}")));
+        assertEquals(R, sleep.executeTick());
         clock.advance(1.5);
-        assertEquals(R, tw.executeTick());
+        assertEquals(R, sleep.executeTick());
         clock.advance(0.6);
-        assertEquals(S, tw.executeTick());
+        assertEquals(S, sleep.executeTick());
     }
 
     @Test

@@ -23,6 +23,24 @@ public record TreeSpec(
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
     }
 
+    /**
+     * The {@code <SubTree ID=treeId>} model declared in this file's {@code <TreeNodesModel>}: the
+     * ports of that tree (its parameters), if any.
+     */
+    public java.util.Optional<NodeModel> treeModel(String treeId) {
+        for (NodeModel m : models) {
+            if (m.kind() == NodeKind.SUBTREE && m.id().equals(treeId)) {
+                return java.util.Optional.of(m);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** Ports of the main tree (see {@link #treeModel}); empty when none are declared. */
+    public List<PortInfo> mainTreeParameters() {
+        return treeModel(mainTreeId).map(NodeModel::ports).orElse(List.of());
+    }
+
     public NodeSpec mainTree() {
         NodeSpec root = trees.get(mainTreeId);
         if (root == null) {

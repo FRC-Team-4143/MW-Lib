@@ -184,7 +184,7 @@ class BehaviorTreeFactoryTest {
                         .begin("Sequence", "name", "seq")
                         .node("SetMode", "state", "INTAKE")
                         .begin("Parallel", "success_count", "1")
-                        .node("Wait", "seconds", "1")
+                        .node("Sleep", "msec", "1000")
                         .subTree("Sub", "x", "{y}")
                         .end()
                         .end()
@@ -196,7 +196,7 @@ class BehaviorTreeFactoryTest {
                         "<root BTCPP_format=\"4\" main_tree_to_execute=\"Main\">"
                                 + "<BehaviorTree ID=\"Main\"><Sequence name=\"seq\">"
                                 + "<SetMode state=\"INTAKE\"/><Parallel success_count=\"1\">"
-                                + "<Wait seconds=\"1\"/><SubTree ID=\"Sub\" x=\"{y}\"/></Parallel>"
+                                + "<Sleep msec=\"1000\"/><SubTree ID=\"Sub\" x=\"{y}\"/></Parallel>"
                                 + "</Sequence></BehaviorTree>"
                                 + "<BehaviorTree ID=\"Sub\"><AlwaysSuccess/></BehaviorTree></root>");
         assertEquals(

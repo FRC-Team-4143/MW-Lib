@@ -20,7 +20,7 @@ import java.util.Map;
  *             .node("FollowTrajectory", "trajectory", "SynergyP1")
  *             .node("WaitForChoreoEvent", "event", "Intake Out")
  *         .end()
- *         .node("Wait", "seconds", "2")
+ *         .node("Sleep", "msec", "2000")
  *     .end()
  *     .build();
  * BehaviorTree tree = factory.createTree(spec);

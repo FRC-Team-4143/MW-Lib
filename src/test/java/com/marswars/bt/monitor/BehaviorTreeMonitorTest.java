@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class BehaviorTreeMonitorTest {
     static final String XML =
             "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\"><Sequence name=\"seq\">"
-                    + "<Wait seconds=\"1\"/><AlwaysSuccess/></Sequence></BehaviorTree></root>";
+                    + "<Sleep msec=\"1000\"/><AlwaysSuccess/></Sequence></BehaviorTree></root>";
 
     final FakeClock clock = new FakeClock();
     NetworkTableInstance nt;

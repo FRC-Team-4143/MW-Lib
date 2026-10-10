@@ -6,12 +6,14 @@ import com.marswars.bt.core.Blackboard;
 import com.marswars.bt.core.BtException;
 import com.marswars.bt.core.NodeModel;
 import com.marswars.bt.core.NodeSpec;
+import com.marswars.bt.core.ParameterStore;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.PortValues;
 import com.marswars.bt.core.TreeSpec;
 import com.marswars.bt.monitor.BehaviorTreeCommand;
 import com.marswars.bt.monitor.BehaviorTreeMonitor;
+import com.marswars.bt.monitor.NetworkParameterStore;
 import com.marswars.bt.xml.BtXmlParser;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
@@ -50,6 +52,21 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  * ChoreoTrajectory traj = trajectories.apply(node.getString("trajectory"));
  * }</pre>
  *
+ * <p>Tunable values (wait times, etc.) are <b>tree parameters</b>: ports declared for the main tree
+ * in {@code <TreeNodesModel>}, the standard BT.CPP/Groot2 way to give a tree ports:
+ *
+ * <pre>{@code
+ * <SubTree ID="CitrusSynergy">
+ *   <input_port name="middle_wait_msec" type="int" default="3000">Wait for partners</input_port>
+ * </SubTree>
+ * ...
+ * <Delay delay_msec="{middle_wait_msec}"> ... </Delay>
+ * }</pre>
+ *
+ * Each one is published as a dashboard entry {@code /Tuning/Autos/<auto>/<port>} as soon as the
+ * auto loads, and its current value is written into the root blackboard at the start of every
+ * run. No special node types are involved.
+ *
  * <p>The XML is re-read whenever the auto is (re)selected or the alliance changes ({@link
  * #cacheTrajetories}), so copying a new file to the robot and re-selecting is enough to pick up
  * edits. The text is processed as an AdvantageKit input, so log replay rebuilds the same tree. A
@@ -65,7 +82,11 @@ public class BehaviorTreeAuto extends Auto {
     /** Where load messages go; replaceable so unit tests don't start a DataLog file. */
     static Consumer<String> message_log_ = DataLogManager::log;
 
+    /** Shared dashboard-backed store; created lazily so unit tests never touch NetworkTables. */
+    private static ParameterStore default_parameters_ = null;
+
     private final BehaviorTreeFactory factory_;
+    private final ParameterStore parameters_;
     private final Supplier<String> xml_source_;
     private final Path base_dir_;
     private final BehaviorTreeMonitor monitor_;
@@ -78,7 +99,17 @@ public class BehaviorTreeAuto extends Auto {
 
     /** Auto named after the file stem ({@code CitrusSynergyBt.xml} gives {@code CitrusSynergyBt}). */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile) {
-        this(factory, stem(xmlFile), () -> readFile(xmlFile), xmlFile.toAbsolutePath().getParent());
+        this(factory, xmlFile, defaultParameters());
+    }
+
+    /** Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store. */
+    public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile, ParameterStore parameters) {
+        this(
+                factory,
+                stem(xmlFile),
+                () -> readFile(xmlFile),
+                xmlFile.toAbsolutePath().getParent(),
+                parameters);
     }
 
     /**
@@ -88,6 +119,19 @@ public class BehaviorTreeAuto extends Auto {
      */
     public BehaviorTreeAuto(
             BehaviorTreeFactory factory, String name, Supplier<String> xmlSource, Path baseDir) {
+        this(factory, name, xmlSource, baseDir, defaultParameters());
+    }
+
+    /**
+     * @param parameters where tree parameters live between runs (dashboard by default)
+     */
+    public BehaviorTreeAuto(
+            BehaviorTreeFactory factory,
+            String name,
+            Supplier<String> xmlSource,
+            Path baseDir,
+            ParameterStore parameters) {
+        parameters_ = Objects.requireNonNull(parameters, "parameters");
         factory_ = Objects.requireNonNull(factory, "factory");
         xml_source_ = Objects.requireNonNull(xmlSource, "xmlSource");
         base_dir_ = baseDir;
@@ -99,11 +143,28 @@ public class BehaviorTreeAuto extends Auto {
 
     /** One auto per {@code *.xml} in {@code dir}, sorted by file name (empty if the dir is missing). */
     public static List<BehaviorTreeAuto> loadAll(BehaviorTreeFactory factory, Path dir) {
+        return loadAll(factory, dir, defaultParameters());
+    }
+
+    public static List<BehaviorTreeAuto> loadAll(
+            BehaviorTreeFactory factory, Path dir, ParameterStore parameters) {
         List<BehaviorTreeAuto> autos = new ArrayList<>();
         for (Path file : listXml(dir)) {
-            autos.add(new BehaviorTreeAuto(factory, file));
+            autos.add(new BehaviorTreeAuto(factory, file, parameters));
         }
         return autos;
+    }
+
+    private static synchronized ParameterStore defaultParameters() {
+        if (default_parameters_ == null) {
+            default_parameters_ = new NetworkParameterStore();
+        }
+        return default_parameters_;
+    }
+
+    /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
+    public String parameterKey(String port) {
+        return "Autos/" + getName() + "/" + port;
     }
 
     /** Sorted {@code *.xml} files directly in {@code dir}. */
@@ -168,6 +229,12 @@ public class BehaviorTreeAuto extends Auto {
 
         spec_ = spec;
         xml_ = xml;
+        // Publish tree parameters now so they can be tuned while disabled, before the run.
+        for (PortInfo port : spec.mainTreeParameters()) {
+            if (port.defaultValue() != null) {
+                parameters_.value(parameterKey(port.name()), port);
+            }
+        }
         trajectories_.clear();
         for (String name : discoverTrajectoryNames(spec, factory_)) {
             loadTrajectory(name);
@@ -196,6 +263,11 @@ public class BehaviorTreeAuto extends Auto {
         Function<String, ChoreoTrajectory> resolver = name -> getTrajectory(name).get();
         root.set(TRAJECTORIES_KEY, resolver);
         root.set(AUTO_NAME_KEY, getName());
+        for (PortInfo port : spec_.mainTreeParameters()) {
+            if (port.defaultValue() != null) {
+                root.set(port.name(), parameters_.value(parameterKey(port.name()), port));
+            }
+        }
         return factory_.createTree(spec_, root, xml_);
     }
 

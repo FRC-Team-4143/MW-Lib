@@ -9,10 +9,7 @@ import com.marswars.bt.action.AlwaysSuccessNode;
 import com.marswars.bt.action.RunCommandNode;
 import com.marswars.bt.action.SetBlackboardNode;
 import com.marswars.bt.action.SleepNode;
-import com.marswars.bt.action.TunableRegistry;
-import com.marswars.bt.action.TunableWaitNode;
 import com.marswars.bt.action.UnsetBlackboardNode;
-import com.marswars.bt.action.WaitNode;
 import com.marswars.bt.control.FallbackNode;
 import com.marswars.bt.control.IfThenElseNode;
 import com.marswars.bt.control.ParallelAllNode;
@@ -58,8 +55,8 @@ import java.util.function.Predicate;
  * Registry of node types and builder of {@link BehaviorTree}s from BT.CPP v4 XML or {@link
  * TreeSpec}s, mirroring BT.CPP {@code BehaviorTreeFactory}.
  *
- * <p>All BT.CPP v4 built-ins without scripting are registered by default, plus MW-Lib's {@code
- * Wait}, {@code TunableWait}. Robot code registers its own actions/conditions, e.g.
+ * <p>All BT.CPP v4 built-ins without scripting are registered by default. Robot code registers its
+ * own actions/conditions, e.g.
  *
  * <pre>{@code
  * BehaviorTreeFactory factory = new BehaviorTreeFactory();
@@ -113,8 +110,8 @@ public final class BehaviorTreeFactory {
 
     private final Map<String, Registration> registry_ = new LinkedHashMap<>();
     private final Map<String, NodeSpec> trees_ = new LinkedHashMap<>();
+    private final Map<String, NodeModel> tree_models_ = new LinkedHashMap<>();
     private DoubleSupplier clock_;
-    private TunableRegistry tunables_ = TunableRegistry.MWLOG;
 
     /** Factory on the replay-safe robot clock ({@link MwLog#timestampSeconds()}). */
     public BehaviorTreeFactory() {
@@ -133,11 +130,6 @@ public final class BehaviorTreeFactory {
 
     public void setClock(DoubleSupplier clock) {
         clock_ = Objects.requireNonNull(clock, "clock");
-    }
-
-    /** Source of {@code TunableWait} values; defaults to {@link TunableRegistry#MWLOG}. */
-    public void setTunableRegistry(TunableRegistry registry) {
-        tunables_ = Objects.requireNonNull(registry, "registry");
     }
 
     // ------------------------------------------------------------------ registration
@@ -330,6 +322,11 @@ public final class BehaviorTreeFactory {
     /** Remembers every tree of {@code spec}; later definitions replace earlier ones. */
     public void registerTrees(TreeSpec spec) {
         trees_.putAll(spec.trees());
+        for (NodeModel m : spec.models()) {
+            if (m.kind() == NodeKind.SUBTREE) {
+                tree_models_.put(m.id(), m);
+            }
+        }
     }
 
     public Set<String> registeredTreeIds() {
@@ -373,6 +370,10 @@ public final class BehaviorTreeFactory {
         }
         NodeSpec root = spec.mainTree();
         BuildContext ctx = new BuildContext(spec);
+        // Tree parameters: main-tree ports declared in <TreeNodesModel> seed the root blackboard
+        // with their defaults unless the caller already provided a value.
+        ctx.treeModel(spec.mainTreeId())
+                .ifPresent(m -> applyPortDefaults(m, rootBlackboard, java.util.Set.of()));
         Deque<String> stack = new ArrayDeque<>();
         stack.push(spec.mainTreeId());
         TreeNode root_node = build(root, ctx, rootBlackboard, "", stack);
@@ -397,6 +398,11 @@ public final class BehaviorTreeFactory {
         NodeSpec lookupTree(String id) {
             NodeSpec n = spec.trees().get(id);
             return n != null ? n : trees_.get(id);
+        }
+
+        Optional<NodeModel> treeModel(String id) {
+            Optional<NodeModel> m = spec.treeModel(id);
+            return m.isPresent() ? m : Optional.ofNullable(tree_models_.get(id));
         }
     }
 
@@ -488,6 +494,11 @@ public final class BehaviorTreeFactory {
             }
         }
 
+        // BT.CPP 4.6: ports of the subtree's model that the <SubTree> element does not set take
+        // their default value.
+        ctx.treeModel(sid)
+                .ifPresent(m -> applyPortDefaults(m, child_bb, spec.attributes().keySet()));
+
         NodeModel model = registry_.get(NodeSpec.SUBTREE).model();
         NodeConfig cfg =
                 new NodeConfig(bb, spec.attributes(), Map.of(), clock_, path, model);
@@ -498,6 +509,17 @@ public final class BehaviorTreeFactory {
         node.setChild(build(target, ctx, child_bb, path + "/", stack));
         stack.pop();
         return node;
+    }
+
+    /** Sets each defaulted port of {@code model} not in {@code given} and not already present. */
+    private static void applyPortDefaults(NodeModel model, Blackboard bb, java.util.Set<String> given) {
+        for (PortInfo port : model.ports()) {
+            if (port.defaultValue() != null
+                    && !given.contains(port.name())
+                    && !bb.contains(port.name())) {
+                bb.setLocal(port.name(), ParameterStore.typed(port, port.defaultValue()));
+            }
+        }
     }
 
     private void checkArity(NodeSpec spec, NodeModel model, String path) {
@@ -717,15 +739,5 @@ public final class BehaviorTreeFactory {
                 List.of(PortInfo.input(UnsetBlackboardNode.KEY, PortType.STRING,
                         "Key of the entry to remove")),
                 UnsetBlackboardNode::new);
-        builtin("Wait", ACTION, "Wait a number of seconds (MW-Lib)",
-                List.of(PortInfo.input(WaitNode.SECONDS, PortType.DOUBLE, "Seconds to wait")),
-                WaitNode::new);
-        builtin("TunableWait", ACTION, "Wait a live-tunable number of seconds (MW-Lib)",
-                List.of(
-                        PortInfo.input(TunableWaitNode.KEY, PortType.STRING,
-                                "Tunable key under /Tuning/"),
-                        PortInfo.input(TunableWaitNode.DEFAULT_SECONDS, PortType.DOUBLE, "1",
-                                "Initial wait in seconds")),
-                (name, cfg) -> new TunableWaitNode(name, cfg, tunables_));
     }
 }
