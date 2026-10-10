@@ -25,6 +25,11 @@ import java.util.Optional;
  * Creates a simulated vision system with cameras and AprilTag field layout,
  * and generates vision target data that can be integrated with the proxy server.
  * 
+ * <p>Tag solutions mimic a real coprocessor: when a camera sees two or more tags in a picture the
+ * solution is the camera's multi-tag PnP pose and its detected ids are the tags used in that solve;
+ * when only one tag is visible the pose comes from that single tag and the detected ids hold only
+ * that tag. At most one solution is produced per camera per picture.
+ * 
  * <p>The vision system label is hard-coded to "proxy-vision-sim" for NetworkTables.
  * The field layout must be specified at construction time and cannot be changed.
  * 
@@ -73,6 +78,9 @@ public class MwVisionSim {
         public final PhotonCameraSim cameraSim;
         public final Transform3d robotToCamera;
         
+        /** Timestamp of the last picture a tag solution was emitted for (FPGA seconds). */
+        private double last_emitted_timestamp_ = Double.NEGATIVE_INFINITY;
+        
         /** 
          * Creates a new CameraSimulation with the specified parameters.
          * 
@@ -97,6 +105,23 @@ public class MwVisionSim {
         public CameraSimulation(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera, double max_sight_range) {
             this.camera = new PhotonCamera(camera_name);
             this.cameraSim = new PhotonCameraSim(camera, properties);
+            this.robotToCamera = robot_to_camera;
+            this.cameraSim.setMaxSightRange(max_sight_range);
+        }
+
+        /** 
+         * Creates a new CameraSimulation whose multi-tag solve uses the given field layout.
+         * (The constructors without a layout solve against PhotonLib's default field.)
+         * 
+         * @param camera_name the name of the camera
+         * @param properties the camera properties (resolution, FOV, noise, etc.)
+         * @param robot_to_camera transform from robot center to camera
+         * @param max_sight_range maximum sight range of the camera in meters
+         * @param field_layout the AprilTag field layout used for the multi-tag solve
+         */
+        public CameraSimulation(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera, double max_sight_range, AprilTagFieldLayout field_layout) {
+            this.camera = new PhotonCamera(camera_name);
+            this.cameraSim = new PhotonCameraSim(camera, properties, field_layout);
             this.robotToCamera = robot_to_camera;
             this.cameraSim.setMaxSightRange(max_sight_range);
         }
@@ -209,7 +234,10 @@ public class MwVisionSim {
      * @return the created CameraSimulation object
      */
     public CameraSimulation addCamera(String camera_name, SimCameraProperties properties, Transform3d robot_to_camera, double max_sight_range) {
-        CameraSimulation cam_sim = new CameraSimulation(camera_name, properties, robot_to_camera, max_sight_range);
+        // Multi-tag solves must use this simulation's field, not PhotonLib's default field
+        CameraSimulation cam_sim = field_layout_ != null
+            ? new CameraSimulation(camera_name, properties, robot_to_camera, max_sight_range, field_layout_)
+            : new CameraSimulation(camera_name, properties, robot_to_camera, max_sight_range);
         cameras_.add(cam_sim);
         vision_sim_.addCamera(cam_sim.cameraSim, robot_to_camera);
         
@@ -297,8 +325,20 @@ public class MwVisionSim {
      * This method processes the latest results from all simulated cameras and generates
      * tag solution data compatible with the proxy server format.
      * 
-     * @param robot_pose the current robot pose (used for timestamp synchronization)
-     * @return list of TagSolutionData from all cameras with valid targets
+     * <p>Each solution behaves like one from a real coprocessor:
+     * <ul>
+     * <li>If the camera sees two or more tags, the pose is the camera's multi-tag PnP solve
+     *     (accurate to a few cm) and the detected ids are the tags used in that solve.</li>
+     * <li>If only one tag is visible, the pose is estimated from that tag alone (noisy, can be
+     *     meters off) and the detected ids hold just that tag, so a "two or more tags" filter
+     *     rejects it.</li>
+     * <li>At most one solution is returned per camera per new picture: if a camera's latest
+     *     result has not advanced since the last call, that camera is skipped. The timestamp is
+     *     the picture's timestamp on the FPGA clock.</li>
+     * </ul>
+     * 
+     * @param robot_pose the robot pose, used only as the fallback pose if a single-tag estimate is unavailable
+     * @return list of TagSolutionData from all cameras with a new picture containing valid targets
      */
     public List<TagSolutionPacket.TagSolutionData> getTagSolutions(Pose2d robot_pose) {
         if (!RobotBase.isSimulation()) {
@@ -310,52 +350,42 @@ public class MwVisionSim {
         for (CameraSimulation cam_sim : cameras_) {
             var result = cam_sim.camera.getLatestResult();
             
+            // Skip pictures already emitted (the robot loop runs faster than the camera frame rate)
+            if (result.getTimestampSeconds() <= cam_sim.last_emitted_timestamp_) {
+                continue;
+            }
+            cam_sim.last_emitted_timestamp_ = result.getTimestampSeconds();
+            
             // Skip if no targets detected
             if (!result.hasTargets()) {
                 continue;
             }
             
-            // Get the best target (or could iterate through all targets)
-            var best_target = result.getBestTarget();
-            
-            // Collect all detected AprilTag IDs
+            // Tag ids used in the solution, and the robot pose estimated from them
             ArrayList<Integer> detected_ids = new ArrayList<>();
-            for (var target : result.getTargets()) {
-                if (target.getFiducialId() >= 0) {
-                    detected_ids.add(target.getFiducialId());
-                }
-            }
-            
-            // Skip if no valid fiducial IDs
-            if (detected_ids.isEmpty()) {
-                continue;
-            }
-            
-            // Try to get the pose estimate from the camera
             Pose2d estimated_pose = robot_pose; // Default to current robot pose
             
-            // If we have a transform from the target, we could estimate pose
-            // For now, we'll use the robot's current pose as the "estimated" pose
-            // In a real scenario, you'd use the camera's pose estimation
-            if (best_target.getBestCameraToTarget() != null) {
-                // Get the AprilTag pose from the field layout
-                try {
-                    Optional<Pose3d> tag_pose_opt = field_layout_.getTagPose(best_target.getFiducialId());
-                    if (tag_pose_opt.isPresent()) {
-                        // Calculate robot pose from tag detection
-                        Pose3d tag_pose_3d = tag_pose_opt.get();
-                        Transform3d camera_to_target = best_target.getBestCameraToTarget();
-                        Transform3d robot_to_camera = cam_sim.robotToCamera;
-                        
-                        // Robot pose = Tag pose - (Robot to Camera + Camera to Target)
-                        Pose3d camera_pose = tag_pose_3d.transformBy(camera_to_target.inverse());
-                        Pose3d estimated_robot_pose = camera_pose.transformBy(robot_to_camera.inverse());
-                        
-                        estimated_pose = estimated_robot_pose.toPose2d();
-                    }
-                } catch (Exception e) {
-                    // If pose estimation fails, use current robot pose
-                    System.err.println("Failed to estimate pose from tag: " + e.getMessage());
+            var multi_tag = result.getMultiTagResult();
+            if (multi_tag.isPresent()) {
+                // Two or more tags: use the camera's multi-tag PnP solve (field to camera)
+                for (short id : multi_tag.get().fiducialIDsUsed) {
+                    detected_ids.add((int) id);
+                }
+                Pose3d camera_pose = new Pose3d().transformBy(multi_tag.get().estimatedPose.best);
+                estimated_pose = camera_pose.transformBy(cam_sim.robotToCamera.inverse()).toPose2d();
+            } else {
+                // Single tag: estimate the robot pose from the best target only
+                var best_target = result.getBestTarget();
+                if (best_target.getFiducialId() < 0) {
+                    continue;
+                }
+                detected_ids.add(best_target.getFiducialId());
+                
+                // Robot pose = Tag pose - (Robot to Camera + Camera to Target)
+                Optional<Pose3d> tag_pose_opt = field_layout_.getTagPose(best_target.getFiducialId());
+                if (tag_pose_opt.isPresent()) {
+                    Pose3d camera_pose = tag_pose_opt.get().transformBy(best_target.getBestCameraToTarget().inverse());
+                    estimated_pose = camera_pose.transformBy(cam_sim.robotToCamera.inverse()).toPose2d();
                 }
             }
             

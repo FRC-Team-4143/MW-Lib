@@ -132,6 +132,7 @@ dependencies {
 // so RuntimeLoader/System.loadLibrary can find them via java.library.path.
 configurations {
     nativeLibs
+    visionSimNativeLibs
 }
 
 dependencies {
@@ -140,10 +141,18 @@ dependencies {
     nativeLibs "edu.wpi.first.wpimath:wpimath-cpp:$wpilibVersion:linuxx86-64@zip"
     nativeLibs "edu.wpi.first.wpinet:wpinet-cpp:$wpilibVersion:linuxx86-64@zip"
     nativeLibs "edu.wpi.first.ntcore:ntcore-cpp:$wpilibVersion:linuxx86-64@zip"
+    // PhotonLib vision simulation (MwVisionSimTest): cscore, OpenCV, AprilTag and photon JNI.
+    // Kept separate and resolved leniently so an offline build without them still passes;
+    // MwVisionSimTest then skips itself.
+    visionSimNativeLibs "edu.wpi.first.cscore:cscore-cpp:$wpilibVersion:linuxx86-64@zip"
+    visionSimNativeLibs "edu.wpi.first.apriltag:apriltag-cpp:$wpilibVersion:linuxx86-64@zip"
+    visionSimNativeLibs "edu.wpi.first.thirdparty.frc2025.opencv:opencv-cpp:4.10.0-3:linuxx86-64@zip"
+    visionSimNativeLibs "org.photonvision:photontargeting-cpp:v2026.2.2:linuxx86-64@zip"
 }
 
 task extractNativeLibs(type: Copy) {
     from configurations.nativeLibs.collect { zipTree(it) }
+    from configurations.visionSimNativeLibs.incoming.artifactView { lenient = true }.files.collect { zipTree(it) }
     into "$buildDir/nativeLibs"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
