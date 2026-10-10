@@ -19,8 +19,8 @@ import java.util.function.Supplier;
  * loop, so wanted states requested by nodes are applied in the same robot loop. The clock is the
  * factory's (replay-safe by default).
  *
- * <p>Each new tree is logged through a {@link BehaviorTreeMonitor} and attached to the active
- * {@link BtLiveServer}, if any.
+ * <p>Each new tree is logged through a {@link BehaviorTreeMonitor}, attached to the active {@link
+ * BtLiveServer} (if any), and recorded by the active {@link BehaviorTreeFileLogger} (if any).
  */
 public class BehaviorTreeCommand extends Command {
     /** Where error text goes besides the monitor and live server; replaceable for tests. */
@@ -29,6 +29,7 @@ public class BehaviorTreeCommand extends Command {
     private final Supplier<BehaviorTree> supplier_;
     private final BehaviorTreeMonitor monitor_;
     private BehaviorTree tree_ = null;
+    private BehaviorTreeFileLogger.Run file_log_ = null;
     private NodeStatus last_status_ = NodeStatus.IDLE;
 
     public BehaviorTreeCommand(String name, Supplier<BehaviorTree> supplier) {
@@ -65,6 +66,8 @@ public class BehaviorTreeCommand extends Command {
         monitor_.publishTree(tree_);
         monitor_.publishActive(getName());
         BtLiveServer.active().ifPresent(server -> server.attach(tree_));
+        file_log_ =
+                BehaviorTreeFileLogger.active().map(l -> l.start(getName(), tree_)).orElse(null);
     }
 
     @Override
@@ -94,7 +97,12 @@ public class BehaviorTreeCommand extends Command {
         }
         tree_.haltTree();
         monitor_.publishStatus(tree_);
-        monitor_.publishResult(interrupted ? "INTERRUPTED" : last_status_.name());
+        String result = interrupted ? "INTERRUPTED" : last_status_.name();
+        monitor_.publishResult(result);
+        if (file_log_ != null) {
+            file_log_.finish(result);
+            file_log_ = null;
+        }
         monitor_.publishActive("");
     }
 

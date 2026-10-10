@@ -165,6 +165,9 @@ task extractNativeLibs(type: Copy) {
 test {
     dependsOn extractNativeLibs
     useJUnitPlatform()
+    // MwLibNodesTest: `./gradlew test -PupdateNodeSpec` rewrites src/main/resources/.../mwlib_nodes.xml
+    systemProperty 'mwlib.projectDir', projectDir.absolutePath
+    systemProperty 'mwlib.updateNodeSpec', project.hasProperty('updateNodeSpec') ? 'true' : 'false'
     // Sim tests write ctre_sim/, logs/ and preferences.json to the working directory; keep them
     // out of the repo root.
     workingDir = file("$buildDir/test-workdir")

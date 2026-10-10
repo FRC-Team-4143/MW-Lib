@@ -50,10 +50,33 @@ public final class BtXmlWriter {
      * BT.CPP {@code writeTreeNodesModelXML} that editors load as a palette.
      */
     public static String writeModels(Collection<NodeModel> models) {
+        return writeModels(java.util.Map.of("", models));
+    }
+
+    /**
+     * Node-spec document with models grouped into sections, each introduced by an XML comment with
+     * its title (empty title: no comment). Used to append robot nodes after MW-Lib's.
+     */
+    public static String writeModels(java.util.Map<String, ? extends Collection<NodeModel>> sections) {
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         sb.append("<root BTCPP_format=\"4\">\n");
-        writeModels(sb, models, 1);
+        indent(sb, 1);
+        sb.append("<TreeNodesModel>\n");
+        boolean first = true;
+        for (var section : sections.entrySet()) {
+            if (!section.getKey().isEmpty()) {
+                if (!first) {
+                    sb.append('\n');
+                }
+                indent(sb, 2);
+                sb.append("<!-- ").append(section.getKey().replace("--", "- -")).append(" -->\n");
+            }
+            first = false;
+            writeModelList(sb, section.getValue(), 2);
+        }
+        indent(sb, 1);
+        sb.append("</TreeNodesModel>\n");
         sb.append("</root>\n");
         return sb.toString();
     }
@@ -85,6 +108,13 @@ public final class BtXmlWriter {
     private static void writeModels(StringBuilder sb, Collection<NodeModel> models, int depth) {
         indent(sb, depth);
         sb.append("<TreeNodesModel>\n");
+        writeModelList(sb, models, depth + 1);
+        indent(sb, depth);
+        sb.append("</TreeNodesModel>\n");
+    }
+
+    private static void writeModelList(StringBuilder sb, Collection<NodeModel> models, int depth0) {
+        int depth = depth0 - 1;
         for (NodeModel model : models) {
             indent(sb, depth + 1);
             sb.append('<').append(model.kind().xmlTag());
@@ -123,8 +153,6 @@ public final class BtXmlWriter {
             indent(sb, depth + 1);
             sb.append("</").append(model.kind().xmlTag()).append(">\n");
         }
-        indent(sb, depth);
-        sb.append("</TreeNodesModel>\n");
     }
 
     private static void indent(StringBuilder sb, int depth) {

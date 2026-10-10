@@ -13,6 +13,7 @@ import com.marswars.bt.action.UnsetBlackboardNode;
 import com.marswars.bt.control.FallbackNode;
 import com.marswars.bt.control.IfThenElseNode;
 import com.marswars.bt.control.ParallelAllNode;
+import com.marswars.bt.control.ParallelDeadlineNode;
 import com.marswars.bt.control.ParallelNode;
 import com.marswars.bt.control.ReactiveFallbackNode;
 import com.marswars.bt.control.ReactiveSequenceNode;
@@ -153,7 +154,7 @@ public final class BehaviorTreeFactory {
             String description,
             List<PortInfo> ports,
             NodeBuilder builder) {
-        registerNodeType(new NodeModel(id, kind, ports, description, false), builder);
+        registerNodeType(new NodeModel(id, kind, ports, description, NodeOrigin.ROBOT), builder);
     }
 
     /** Synchronous action from a function returning SUCCESS or FAILURE. */
@@ -239,15 +240,34 @@ public final class BehaviorTreeFactory {
         return models;
     }
 
-    /** BT.CPP {@code writeTreeNodesModelXML}: the palette document editors and Groot2 load. */
+    /**
+     * BT.CPP {@code writeTreeNodesModelXML}: the node-spec palette editors and Groot2 load. Without
+     * built-ins it lists MW-Lib's shared nodes first and the robot's nodes appended after them,
+     * each group under a comment.
+     */
     public String writeTreeNodesModelXml(boolean includeBuiltins) {
-        List<NodeModel> models = new ArrayList<>();
+        return includeBuiltins
+                ? writeTreeNodesModelXml(java.util.EnumSet.allOf(NodeOrigin.class))
+                : writeTreeNodesModelXml(java.util.EnumSet.complementOf(java.util.EnumSet.of(NodeOrigin.BTCPP)));
+    }
+
+    /** Node-spec document with the models of the given origins, grouped by origin. */
+    public String writeTreeNodesModelXml(Set<NodeOrigin> origins) {
+        Map<NodeOrigin, List<NodeModel>> groups = new java.util.EnumMap<>(NodeOrigin.class);
         for (NodeModel m : getNodeModels()) {
-            if ((includeBuiltins || !m.builtin()) && m.kind() != NodeKind.SUBTREE) {
-                models.add(m);
+            if (origins.contains(m.origin()) && m.kind() != NodeKind.SUBTREE) {
+                groups.computeIfAbsent(m.origin(), o -> new ArrayList<>()).add(m);
             }
         }
-        return BtXmlWriter.writeModels(models);
+        Map<String, List<NodeModel>> sections = new LinkedHashMap<>();
+        groups.forEach((origin, models) -> sections.put(origin.title(), models));
+        return BtXmlWriter.writeModels(sections);
+    }
+
+    /** Registers an MW-Lib shared node (written to node-spec files under the MW-Lib section). */
+    public void registerLibraryNode(
+            String id, NodeKind kind, String description, List<PortInfo> ports, NodeBuilder builder) {
+        registerNodeType(new NodeModel(id, kind, ports, description, NodeOrigin.MWLIB), builder);
     }
 
     /** Non-builtin models referenced by {@code spec} (what to embed when saving that file). */
@@ -278,6 +298,7 @@ public final class BehaviorTreeFactory {
             o.addProperty("id", m.id());
             o.addProperty("category", m.kind().xmlTag());
             o.addProperty("builtin", m.builtin());
+            o.addProperty("origin", m.origin().name().toLowerCase());
             o.addProperty("description", m.description());
             JsonArray ports = new JsonArray();
             for (PortInfo p : m.ports()) {
@@ -650,7 +671,7 @@ public final class BehaviorTreeFactory {
     // ------------------------------------------------------------------ built-ins
 
     private void builtin(String id, NodeKind kind, String desc, List<PortInfo> ports, NodeBuilder b) {
-        registerNodeType(new NodeModel(id, kind, ports, desc, true), b);
+        registerNodeType(new NodeModel(id, kind, ports, desc, NodeOrigin.BTCPP), b);
     }
 
     private void registerBuiltins() {
@@ -687,6 +708,10 @@ public final class BehaviorTreeFactory {
                 List.of(PortInfo.input(ParallelAllNode.MAX_FAILURES, PortType.INT, "1",
                         "Failures that make the node fail")),
                 ParallelAllNode::new);
+        registerLibraryNode("ParallelDeadline", CONTROL,
+                "Run all children until the first one finishes, then halt the rest and return its"
+                        + " result",
+                List.of(), ParallelDeadlineNode::new);
         builtin("IfThenElse", CONTROL, "if child0 then child1 else child2", List.of(),
                 IfThenElseNode::new);
         builtin("WhileDoElse", CONTROL,

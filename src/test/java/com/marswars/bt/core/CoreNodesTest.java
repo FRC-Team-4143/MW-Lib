@@ -60,7 +60,7 @@ class CoreNodesTest extends BtTestBase {
                                 PortInfo.input("count", PortType.INT, ""),
                                 PortInfo.output("out", PortType.INT, "")),
                         "",
-                        false);
+                        NodeOrigin.ROBOT);
         bb.set("n", 7);
         NodeConfig c =
                 cfg().withModel(model)

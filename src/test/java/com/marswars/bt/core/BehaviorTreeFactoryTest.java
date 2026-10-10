@@ -159,7 +159,12 @@ class BehaviorTreeFactoryTest {
         // the node-spec document is itself parseable as a (tree-less) BT.CPP file fragment
         String withTree = xml.replace("<root BTCPP_format=\"4\">",
                 "<root BTCPP_format=\"4\"><BehaviorTree ID=\"X\"><AlwaysSuccess/></BehaviorTree>");
-        assertEquals(3, BtXmlParser.parse(withTree).models().size());
+        assertEquals(4, BtXmlParser.parse(withTree).models().size(), "ParallelDeadline + 3 robot");
+        int lib = xml.indexOf("<!-- MW-Lib shared nodes (com.marswars.bt) -->");
+        int robot = xml.indexOf("<!-- Robot nodes -->");
+        assertTrue(lib > 0 && robot > lib, "robot nodes are appended after MW-Lib's");
+        assertTrue(xml.indexOf("ID=\"ParallelDeadline\"") < robot);
+        assertTrue(xml.indexOf("ID=\"RecordInput\"") > robot);
     }
 
     @Test

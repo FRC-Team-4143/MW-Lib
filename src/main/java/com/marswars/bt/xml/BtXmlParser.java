@@ -2,6 +2,7 @@ package com.marswars.bt.xml;
 
 import com.marswars.bt.core.NodeKind;
 import com.marswars.bt.core.NodeModel;
+import com.marswars.bt.core.NodeOrigin;
 import com.marswars.bt.core.NodeSpec;
 import com.marswars.bt.core.PortDirection;
 import com.marswars.bt.core.PortInfo;
@@ -470,7 +471,7 @@ public final class BtXmlParser {
             }
             if (NodeKind.fromXmlTag(tag).isPresent()) {
                 models_.add(
-                        new NodeModel(model_.id, model_.kind, model_.ports, model_.description, false));
+                        new NodeModel(model_.id, model_.kind, model_.ports, model_.description, NodeOrigin.FILE));
                 model_ = null;
             }
         }

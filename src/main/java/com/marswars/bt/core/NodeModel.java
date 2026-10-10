@@ -12,16 +12,22 @@ import java.util.Optional;
  * @param kind node category
  * @param ports declared ports in declaration order
  * @param description human-readable description
- * @param builtin true for nodes MW-Lib registers by default (not embedded in saved XML)
+ * @param origin where the node type comes from (BT.CPP, MW-Lib, robot, or an XML file)
  */
 public record NodeModel(
-        String id, NodeKind kind, List<PortInfo> ports, String description, boolean builtin) {
+        String id, NodeKind kind, List<PortInfo> ports, String description, NodeOrigin origin) {
 
     public NodeModel {
         Objects.requireNonNull(id, "node id");
         Objects.requireNonNull(kind, "node kind");
         ports = ports == null ? List.of() : List.copyOf(ports);
         description = description == null ? "" : description;
+        origin = origin == null ? NodeOrigin.ROBOT : origin;
+    }
+
+    /** True for BehaviorTree.CPP built-ins, which node-spec files leave out. */
+    public boolean builtin() {
+        return origin == NodeOrigin.BTCPP;
     }
 
     public Optional<PortInfo> port(String name) {
