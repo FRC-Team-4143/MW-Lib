@@ -116,13 +116,9 @@ public final class BtXmlWriter {
             }
             if (!model.description().isEmpty()) {
                 indent(sb, depth + 2);
-                sb.append("<MetadataFields>\n");
-                indent(sb, depth + 3);
-                sb.append("<Metadata");
-                attr(sb, "description", model.description());
-                sb.append("/>\n");
-                indent(sb, depth + 2);
-                sb.append("</MetadataFields>\n");
+                sb.append("<description>")
+                        .append(escape(model.description()))
+                        .append("</description>\n");
             }
             indent(sb, depth + 1);
             sb.append("</").append(model.kind().xmlTag()).append(">\n");

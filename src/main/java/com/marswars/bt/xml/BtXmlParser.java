@@ -186,6 +186,7 @@ public final class BtXmlParser {
         private String port_type_ = null;
         private String port_default_ = null;
         private StringBuilder port_text_ = null;
+        private StringBuilder description_text_ = null;
         private int depth_in_unknown_ = 0;
 
         Handler(Path baseDir, Set<Path> visited) {
@@ -229,6 +230,8 @@ public final class BtXmlParser {
         public void characters(char[] ch, int start, int length) {
             if (port_text_ != null) {
                 port_text_.append(ch, start, length);
+            } else if (description_text_ != null) {
+                description_text_.append(ch, start, length);
             }
         }
 
@@ -390,6 +393,9 @@ public final class BtXmlParser {
                     port_default_ = attrs.getValue("default");
                     port_text_ = new StringBuilder();
                 }
+                case "description" -> description_text_ = new StringBuilder();
+                // Free-form metadata (<MetaFields><owner>hri</owner></MetaFields>) is skipped.
+                // BT.CPP 4.6's <MetadataFields><Metadata description=.../> is still read.
                 case "MetadataFields" -> {}
                 case "Metadata" -> {
                     String description = attrs.getValue("description");
@@ -443,6 +449,11 @@ public final class BtXmlParser {
                 section_ = Section.ROOT; // </TreeNodesModel>
                 return;
             }
+            if (description_text_ != null && "description".equals(tag)) {
+                model_.description = description_text_.toString().trim();
+                description_text_ = null;
+                return;
+            }
             if (port_text_ != null && tag.endsWith("_port")) {
                 model_.ports.add(
                         new PortInfo(
@@ -452,7 +463,8 @@ public final class BtXmlParser {
                                 port_default_,
                                 port_text_.toString().trim(),
                                 List.of(),
-                                null));
+                                null,
+                                port_type_));
                 port_text_ = null;
                 return;
             }
@@ -494,7 +506,7 @@ public final class BtXmlParser {
             case "std::string", "string", "BT::StringView" -> PortType.STRING;
             case "trajectory" -> PortType.TRAJECTORY;
             case "" -> PortType.ANY;
-            default -> PortType.ENUM; // custom C++/Java types (enums) show up by name
+            default -> PortType.ANY; // custom C++/Java types keep their name via PortInfo.typeName
         };
     }
 }

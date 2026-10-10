@@ -15,6 +15,8 @@ import java.util.Objects;
  * @param description human-readable description (goes into {@code <TreeNodesModel>})
  * @param choices allowed values for ENUM ports (empty otherwise)
  * @param enumClass Java enum backing an ENUM port, or {@code null}
+ * @param typeName explicit {@code type} string for {@code <TreeNodesModel>} (e.g. a C++ type read
+ *     from a file), or {@code null} to derive it from {@code type}/{@code enumClass}
  */
 public record PortInfo(
         String name,
@@ -23,7 +25,20 @@ public record PortInfo(
         String defaultValue,
         String description,
         List<String> choices,
-        Class<?> enumClass) {
+        Class<?> enumClass,
+        String typeName) {
+
+    /** Port without an explicit type name. */
+    public PortInfo(
+            String name,
+            PortDirection direction,
+            PortType type,
+            String defaultValue,
+            String description,
+            List<String> choices,
+            Class<?> enumClass) {
+        this(name, direction, type, defaultValue, description, choices, enumClass, null);
+    }
 
     public PortInfo {
         Objects.requireNonNull(name, "port name");
@@ -71,7 +86,14 @@ public record PortInfo(
     public static PortInfo choiceInput(
             String name, List<String> choices, String defaultValue, String description) {
         return new PortInfo(
-                name, PortDirection.INPUT, PortType.ENUM, defaultValue, description, choices, null);
+                name,
+                PortDirection.INPUT,
+                PortType.ENUM,
+                defaultValue,
+                description,
+                choices,
+                null,
+                PortType.STRING.xmlType());
     }
 
     /** Input port naming a Choreo trajectory; the auto pre-loads every literal value it finds. */
@@ -87,6 +109,9 @@ public record PortInfo(
 
     /** Type string for {@code <TreeNodesModel>}: enum ports use the enum's simple name. */
     public String xmlType() {
+        if (typeName != null) {
+            return typeName;
+        }
         if (type == PortType.ENUM && enumClass != null) {
             return enumClass.getSimpleName();
         }
