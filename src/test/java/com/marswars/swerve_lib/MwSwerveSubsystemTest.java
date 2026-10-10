@@ -14,6 +14,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.simulation.SimHooks;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,19 +66,16 @@ class MwSwerveSubsystemTest {
   }
 
   private static class TestSwerveSubsystem extends MwSwerveSubsystem<TestSwerveConstants> {
-    boolean force_crawl = false;
-
     TestSwerveSubsystem() {
-      super(new TestSwerveConstants(), () -> pose, SwerveDriverInputs.none());
-    }
-
-    @Override
-    protected SwerveStates remapWantedState(SwerveStates wanted) {
-      return force_crawl ? crawlVariantOf(wanted) : wanted;
+      super(
+          new TestSwerveConstants(),
+          () -> pose,
+          new SwerveDriverInputs(() -> 0.0, () -> 0.0, () -> 0.0, () -> pov));
     }
   }
 
   private static Pose2d pose = Pose2d.kZero;
+  private static Optional<Rotation2d> pov = Optional.empty();
   private static TestSwerveSubsystem swerve;
 
   @BeforeAll
@@ -95,7 +93,7 @@ class MwSwerveSubsystemTest {
   @BeforeEach
   void resetToIdle() {
     pose = Pose2d.kZero;
-    swerve.force_crawl = false;
+    pov = Optional.empty();
     tick(SwerveStates.IDLE);
   }
 
@@ -130,12 +128,12 @@ class MwSwerveSubsystemTest {
   }
 
   @Test
-  void remapHookOverridesWantedState() {
-    swerve.force_crawl = true;
+  void holdingPovForcesCrawl() {
+    pov = Optional.of(Rotation2d.kCCW_Pi_2);
     tick(SwerveStates.FIELD_CENTRIC_ROTATION_LOCK);
     assertEquals(SwerveStates.CRAWL_FIELD_CENTRIC_ROTATION_LOCK, swerve.getSystemState());
 
-    swerve.force_crawl = false;
+    pov = Optional.empty();
     tick(SwerveStates.FIELD_CENTRIC_ROTATION_LOCK);
     assertEquals(SwerveStates.FIELD_CENTRIC_ROTATION_LOCK, swerve.getSystemState());
   }

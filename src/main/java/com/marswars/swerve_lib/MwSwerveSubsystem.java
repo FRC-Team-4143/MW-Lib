@@ -45,8 +45,8 @@ import java.util.function.Supplier;
  *
  * <p>Robots extend this with their own {@code SwerveSubsystem} (keeping the class name so the
  * logging keys stay {@code Subsystem/Swerve/...}), supply the robot pose and driver inputs, and
- * own the singleton. Driver-preference policies (e.g. "POV forces crawl") go in {@link
- * #remapWantedState(SwerveStates)}.
+ * own the singleton. Holding the driver POV forces the matching crawl state; override {@link
+ * #remapWantedState(SwerveStates)} to change that policy.
  *
  * @param <C> the robot's swerve constants type
  */
@@ -220,14 +220,17 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     }
 
     /**
-     * Hook to rewrite the wanted state before the transition is handled, every loop. Use it for
-     * driver-preference policies such as forcing a crawl state while the POV is pressed (see
-     * {@link #crawlVariantOf(SwerveStates)}). The default returns {@code wanted} unchanged.
+     * Rewrites the wanted state before the transition is handled, every loop. By default, holding
+     * the driver POV forces the matching crawl state (see {@link #crawlVariantOf(SwerveStates)});
+     * otherwise {@code wanted} is returned unchanged. Override to change that policy.
      *
      * @param wanted the state requested through {@link #setWantedState}
      * @return the state to actually transition to
      */
     protected SwerveStates remapWantedState(SwerveStates wanted) {
+        if (driver_inputs_.pov().get().isPresent()) {
+            return crawlVariantOf(wanted);
+        }
         return wanted;
     }
 
