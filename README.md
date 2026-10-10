@@ -11,6 +11,8 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 - **Geometry Utilities**: Regions, splines, and geometric calculations
 - **Logging Integration**: Built-in support for elastic logging
 - **Proxy Server**: Communication utilities for robot data
+- **Behavior-Tree Autos**: Autos written as BehaviorTree.CPP v4 XML, with shared nodes, tunable
+  parameters, run logs and a live WebSocket view (`com.marswars.bt`)
 - **Robot Identity**: Per-robot selection via a burned "RobotName" preference (constants live in
   each robot project's Java classes)
 
@@ -101,6 +103,7 @@ The library is organized into several packages:
 - `com.marswars.geometry` - Geometric utilities
 - `com.marswars.logging` - Logging utilities
 - `com.marswars.util` - General utilities
+- `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](#behavior-tree-autos))
 
 Example usage:
 
@@ -129,6 +132,51 @@ public class SwerveSubsystem extends MwSwerveSubsystem<SwerveConstants> {
 ArmMech arm = new ArmMech(config);
 ```
 
+## Behavior-tree autos
+
+`com.marswars.bt` runs autos written as [BehaviorTree.CPP v4](https://www.behaviortree.dev/) XML
+files, which open in Groot2 and the BT editor. Each `deploy/autos/<Name>.xml` file in a robot
+project becomes an auto in the chooser. mainbot's `src/main/deploy/autos/README.md` is the guide
+to writing them.
+
+**Setting it up in a robot project:**
+
+```java
+BehaviorTreeFactory factory = new BehaviorTreeFactory();      // BT.CPP built-ins + MW-Lib nodes
+SwerveNodes.register(factory, SwerveSubsystem::getInstance);  // MW-Lib swerve nodes
+factory.registerSetState("SetIntakeState", "Request an intake state",
+        IntakeStates.class, s -> IntakeSubsystem.getInstance().setWantedState(s));  // robot nodes
+
+AutoManager.getInstance().registerAutos(BehaviorTreeAuto.loadAll(
+        factory, Filesystem.getDeployDirectory().toPath().resolve("autos")));
+BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for the BT editor
+BehaviorTreeFileLogger.enableDefault();                  // one .btlog.xml per auto run
+```
+
+**What's included:**
+
+| Piece | What it is |
+|---|---|
+| `bt.core`, `bt.control`, `bt.decorator`, `bt.action` | The engine, with BT.CPP v4 node semantics and all BT.CPP built-ins except scripting |
+| `bt.xml` | BT.CPP v4 XML parser and writer: both node forms, `SubTree` port passing, `<include>`, `<TreeNodesModel>` |
+| `ParallelDeadline` | MW-Lib control node: runs children together until the first one finishes, then halts the rest |
+| `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
+| `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
+| Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
+| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog.xml` per run with every status transition |
+| `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
+
+**Node palette.** MW-Lib's shared nodes ship as `com/marswars/bt/mwlib_nodes.xml`. A robot's
+palette is that file with the robot's own nodes appended, from
+`factory.writeTreeNodesModelXml(false)`. Regenerate MW-Lib's copy after changing a shared node:
+
+```
+./gradlew test -PupdateNodeSpec
+```
+
+Generic nodes any robot could use belong in MW-Lib, registered with `registerLibraryNode`. Robot
+projects register only their own.
+
 ## Dependencies
 
 This library depends on:
@@ -136,6 +184,9 @@ This library depends on:
 - Phoenix 6 (CTRE)
 - Jackson (JSON processing)
 - Various vendor libraries (Maplesim, Playing With Fusion, etc.)
+- Java-WebSocket 1.6.0, for the behavior-tree live server. MW-Lib's published package doesn't list
+  its dependencies, so robot projects must add
+  `implementation 'org.java-websocket:Java-WebSocket:1.6.0'` themselves.
 
 ## License
 

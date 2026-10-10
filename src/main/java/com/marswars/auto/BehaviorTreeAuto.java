@@ -97,7 +97,7 @@ public class BehaviorTreeAuto extends Auto {
     private String xml_ = null;
     private String error_ = "";
 
-    /** Auto named after the file stem ({@code CitrusSynergyBt.xml} gives {@code CitrusSynergyBt}). */
+    /** Auto named after the file stem ({@code CitrusSynergy.xml} gives {@code CitrusSynergy}). */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile) {
         this(factory, xmlFile, defaultParameters());
     }
