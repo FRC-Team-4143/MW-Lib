@@ -3,70 +3,68 @@ package com.marswars.bt.monitor;
 import com.marswars.bt.core.BehaviorTree;
 import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.TreeNode;
-import com.marswars.bt.decorator.SubTreeNode;
-import com.marswars.bt.xml.BtXmlWriter;
+import com.marswars.bt.xml.BtcppTreeXml;
 import com.marswars.logging.MwLog;
 import edu.wpi.first.wpilibj.RobotBase;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.ZonedDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Writes one XML file per behavior-tree run ({@code <name>_<date>_<time>.btlog.xml}) with every
- * node status transition, so a run can be replayed step by step in an editor. Transitions are
- * buffered in memory while the tree runs and written on a background thread when it ends, so no
- * file I/O happens in the robot loop.
+ * Records each behavior-tree run to a {@code .btlog} file in BehaviorTree.CPP's {@code
+ * FileLogger2} format, which Groot2 and the BT editor replay.
  *
- * <p>Timestamps {@code t} are the tree clock ({@code MwLog.timestampSeconds()} by default), the
- * same time base as the AdvantageKit WPILOG, so a file lines up with the match log. Unlike the
- * logged {@code BehaviorTree/<name>/Status} string, which shows each node's state at the end of a
- * tick, this file keeps every transition, including ones that start and finish inside one tick.
+ * <p>File layout, all integers little-endian:
  *
- * <p>Format ({@code format="mwlib-btlog" version="1"}):
+ * <ol>
+ *   <li>{@code "BTCPP4-FileLogger2"}, then one protocol byte {@code 1}
+ *   <li>int32 length, then the tree XML as written by BT.CPP's {@code WriteTreeToXML} with
+ *       metadata ({@code _uid}, {@code _fullpath}; see {@link BtcppTreeXml})
+ *   <li>uint64 start time, in microseconds since the Unix epoch (wall clock)
+ *   <li>one 9-byte record per status transition: 6-byte microseconds since the start, uint16
+ *       node uid, uint8 status (0 IDLE, 1 RUNNING, 2 SUCCESS, 3 FAILURE, 4 SKIPPED)
+ * </ol>
  *
- * <pre>{@code
- * <BehaviorTreeLog format="mwlib-btlog" version="1" name="CitrusSynergy" tree_id="CitrusSynergy"
- *                  started="2026-10-10T13:16:31.2-05:00" t_start="34.5500" t_end="99.7700"
- *                  result="INTERRUPTED">
- *   <Parameters>
- *     <Parameter name="middle_wait_msec" type="int" value="3000"/>
- *   </Parameters>
- *   <Nodes>   <!-- depth-first pre-order, same fields as the btlive "tree" message -->
- *     <Node uid="1" parent="" type="Sequence" name="CitrusSynergy" category="Control" path="..."/>
- *   </Nodes>
- *   <Transitions>
- *     <T t="34.5500" uid="1" prev="IDLE" status="RUNNING"/>
- *   </Transitions>
- *   <TreeXml><![CDATA[ ...the XML the tree was built from... ]]></TreeXml>
- * </BehaviorTreeLog>
- * }</pre>
+ * <p>Record times come from the tree clock ({@code MwLog.timestampSeconds()} by default), so they
+ * line up with the AdvantageKit log and replay identically. Every transition is kept, including
+ * ones that start and finish inside a single tick, which the logged {@code Status} string can't
+ * show. The robot thread only queues records. A background thread writes the header when a run
+ * starts, appends records every {@value #FLUSH_PERIOD_MS} ms, and closes the file when the run
+ * ends, so a run cut short by a power loss still leaves a readable log.
  */
 public final class BehaviorTreeFileLogger {
-    public static final String FORMAT = "mwlib-btlog";
-    public static final int VERSION = 1;
-    public static final String EXTENSION = ".btlog.xml";
+    public static final String EXTENSION = ".btlog";
+    public static final String MAGIC = "BTCPP4-FileLogger2";
+    public static final byte PROTOCOL = 1;
+    public static final long FLUSH_PERIOD_MS = 50;
 
     private static final AtomicReference<BehaviorTreeFileLogger> ACTIVE = new AtomicReference<>();
     private static final DateTimeFormatter FILE_TIME =
-            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
+            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").withZone(ZoneId.systemDefault());
 
     private final Path dir_;
     private final String suffix_;
-    private final ExecutorService writer_ =
-            Executors.newSingleThreadExecutor(
+    private final Set<Run> open_runs_ = new CopyOnWriteArraySet<>();
+    private final ScheduledExecutorService writer_ =
+            Executors.newSingleThreadScheduledExecutor(
                     r -> {
                         Thread t = new Thread(r, "bt-file-logger");
                         t.setDaemon(true);
@@ -105,6 +103,8 @@ public final class BehaviorTreeFileLogger {
     public BehaviorTreeFileLogger(Path dir, String fileSuffix) {
         dir_ = Objects.requireNonNull(dir, "dir");
         suffix_ = fileSuffix == null ? "" : fileSuffix;
+        writer_.scheduleAtFixedRate(
+                this::flushAll, FLUSH_PERIOD_MS, FLUSH_PERIOD_MS, TimeUnit.MILLISECONDS);
     }
 
     public Path directory() {
@@ -113,156 +113,159 @@ public final class BehaviorTreeFileLogger {
 
     /** Starts recording {@code tree}; call {@link Run#finish} when it stops. */
     public Run start(String name, BehaviorTree tree) {
-        return new Run(name, tree);
+        Run run = new Run(name, tree);
+        open_runs_.add(run);
+        return run;
     }
 
-    /** Completes when the most recent file has been written (with its path). */
+    /** Completes with the path of the most recently finished file once it is closed. */
     public CompletableFuture<Path> lastWrite() {
         return last_write_;
     }
 
-    /** One recorded run. */
-    public final class Run {
-        private record Transition(double t, int uid, NodeStatus prev, NodeStatus status) {}
+    private void flushAll() {
+        for (Run run : open_runs_) {
+            try {
+                run.drain();
+            } catch (RuntimeException e) {
+                // keep the writer thread alive for the other runs
+            }
+        }
+    }
 
-        private final String name_;
+    /** One recorded run (one file). */
+    public final class Run {
+        private record Transition(double t, int uid, NodeStatus status) {}
+
         private final BehaviorTree tree_;
-        private final ZonedDateTime started_ = ZonedDateTime.now();
+        private final Path file_;
         private final double t_start_;
-        private final List<Transition> transitions_ = new ArrayList<>();
         private final TreeNode.StatusListener listener_;
-        private final Map<String, Object> parameters_;
+        private final ConcurrentLinkedQueue<Transition> queue_ = new ConcurrentLinkedQueue<>();
+        private final CompletableFuture<Void> opened_;
+        private OutputStream out_ = null; // writer thread only
+        private IOException error_ = null; // writer thread only
         private boolean finished_ = false;
 
         private Run(String name, BehaviorTree tree) {
-            name_ = Objects.requireNonNull(name, "name");
             tree_ = Objects.requireNonNull(tree, "tree");
+            Instant start = Instant.now();
+            file_ =
+                    dir_.resolve(
+                            sanitize(Objects.requireNonNull(name, "name"))
+                                    + "_"
+                                    + FILE_TIME.format(start)
+                                    + suffix_
+                                    + EXTENSION);
             t_start_ = tree.getClock().getAsDouble();
-            parameters_ = tree.getBlackboard().localEntries();
-            listener_ = (node, prev, next, t) -> record(node, prev, next, t);
+            byte[] header = header(BtcppTreeXml.write(tree), start);
+            listener_ = (node, prev, next, t) -> queue_.add(new Transition(t, node.getUid(), next));
             tree.addStatusListener(listener_);
+            opened_ = CompletableFuture.runAsync(() -> open(header), writer_);
         }
 
-        private synchronized void record(TreeNode node, NodeStatus prev, NodeStatus next, double t) {
-            transitions_.add(new Transition(t, node.getUid(), prev, next));
+        public Path file() {
+            return file_;
         }
 
-        /** Stops recording and writes the file in the background. */
+        private void open(byte[] header) {
+            try {
+                Files.createDirectories(dir_);
+                out_ = new BufferedOutputStream(Files.newOutputStream(file_));
+                out_.write(header);
+                out_.flush();
+            } catch (IOException e) {
+                error_ = e;
+            }
+        }
+
+        /** Writes queued transitions (writer thread). */
+        private void drain() {
+            if (out_ == null) {
+                return;
+            }
+            ByteBuffer rec = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN);
+            Transition t;
+            boolean wrote = false;
+            try {
+                while ((t = queue_.poll()) != null) {
+                    long usec = Math.max(0L, Math.round((t.t() - t_start_) * 1e6));
+                    rec.clear();
+                    for (int i = 0; i < 6; i++) {
+                        rec.put((byte) (usec >>> (8 * i)));
+                    }
+                    rec.putShort((short) t.uid());
+                    rec.put(statusCode(t.status()));
+                    out_.write(rec.array(), 0, 9);
+                    wrote = true;
+                }
+                if (wrote) {
+                    out_.flush();
+                }
+            } catch (IOException e) {
+                error_ = e;
+            }
+        }
+
+        /**
+         * Stops recording, writes the remaining transitions and closes the file in the background.
+         * The result is not part of the BT.CPP format; it is logged as {@code
+         * BehaviorTree/<name>/Result} instead.
+         */
         public synchronized CompletableFuture<Path> finish(String result) {
             if (finished_) {
                 return last_write_;
             }
             finished_ = true;
             tree_.removeStatusListener(listener_);
-            double t_end = tree_.getClock().getAsDouble();
-            String xml = render(result, t_end);
-            Path file =
-                    dir_.resolve(
-                            sanitize(name_) + "_" + started_.format(FILE_TIME) + suffix_ + EXTENSION);
-            CompletableFuture<Path> write =
-                    CompletableFuture.supplyAsync(
-                            () -> {
+            CompletableFuture<Path> done =
+                    opened_.thenApplyAsync(
+                            v -> {
+                                drain();
+                                open_runs_.remove(this);
                                 try {
-                                    Files.createDirectories(dir_);
-                                    Files.writeString(file, xml, StandardCharsets.UTF_8);
-                                    return file;
+                                    if (out_ != null) {
+                                        out_.close();
+                                    }
                                 } catch (IOException e) {
-                                    throw new IllegalStateException(
-                                            "cannot write behavior tree log " + file, e);
+                                    error_ = e;
                                 }
+                                if (error_ != null) {
+                                    throw new IllegalStateException(
+                                            "cannot write behavior tree log " + file_, error_);
+                                }
+                                return file_;
                             },
                             writer_);
-            last_write_ = write;
-            return write;
-        }
-
-        private String render(String result, double tEnd) {
-            StringBuilder sb = new StringBuilder(4096 + transitions_.size() * 64);
-            sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-            sb.append("<BehaviorTreeLog");
-            attr(sb, "format", FORMAT);
-            attr(sb, "version", Integer.toString(VERSION));
-            attr(sb, "name", name_);
-            attr(sb, "tree_id", tree_.getMainTreeId());
-            attr(sb, "started", started_.toOffsetDateTime().toString());
-            attr(sb, "t_start", time(t_start_));
-            attr(sb, "t_end", time(tEnd));
-            attr(sb, "result", result == null ? "" : result);
-            sb.append(">\n");
-
-            sb.append("  <Parameters>\n");
-            for (Map.Entry<String, Object> e : parameters_.entrySet()) {
-                Object v = e.getValue();
-                if (v instanceof Number || v instanceof Boolean || v instanceof String
-                        || v instanceof Enum<?>) {
-                    sb.append("    <Parameter");
-                    attr(sb, "name", e.getKey());
-                    attr(sb, "type", typeName(v));
-                    attr(sb, "value", v instanceof Enum<?> en ? en.name() : v.toString());
-                    sb.append("/>\n");
-                }
-            }
-            sb.append("  </Parameters>\n");
-
-            sb.append("  <Nodes>\n");
-            for (TreeNode node : tree_.getNodes()) {
-                sb.append("    <Node");
-                attr(sb, "uid", Integer.toString(node.getUid()));
-                attr(sb, "parent",
-                        tree_.getParent(node).map(p -> Integer.toString(p.getUid())).orElse(""));
-                attr(sb, "type", node.getRegistrationId());
-                attr(sb, "name", node.getName());
-                attr(sb, "category", node.kind().xmlTag());
-                attr(sb, "path", node.getPath());
-                if (node instanceof SubTreeNode st) {
-                    attr(sb, "subtree", st.subtreeId());
-                }
-                sb.append("/>\n");
-            }
-            sb.append("  </Nodes>\n");
-
-            sb.append("  <Transitions>\n");
-            for (Transition tr : transitions_) {
-                sb.append("    <T");
-                attr(sb, "t", time(tr.t()));
-                attr(sb, "uid", Integer.toString(tr.uid()));
-                attr(sb, "prev", tr.prev().name());
-                attr(sb, "status", tr.status().name());
-                sb.append("/>\n");
-            }
-            sb.append("  </Transitions>\n");
-
-            tree_.getXml().ifPresent(
-                    xml -> sb.append("  <TreeXml><![CDATA[")
-                            .append(xml.replace("]]>", "]]]]><![CDATA[>"))
-                            .append("]]></TreeXml>\n"));
-            sb.append("</BehaviorTreeLog>\n");
-            return sb.toString();
+            last_write_ = done;
+            return done;
         }
     }
 
-    private static String time(double t) {
-        return String.format(Locale.ROOT, "%.4f", t);
+    /** BT.CPP {@code NodeStatus} numbering. */
+    public static byte statusCode(NodeStatus status) {
+        return switch (status) {
+            case IDLE -> 0;
+            case RUNNING -> 1;
+            case SUCCESS -> 2;
+            case FAILURE -> 3;
+            case SKIPPED -> 4;
+        };
     }
 
-    private static String typeName(Object v) {
-        if (v instanceof Integer || v instanceof Long) {
-            return "int";
-        }
-        if (v instanceof Number) {
-            return "double";
-        }
-        if (v instanceof Boolean) {
-            return "bool";
-        }
-        if (v instanceof Enum<?> en) {
-            return en.getDeclaringClass().getSimpleName();
-        }
-        return "std::string";
-    }
-
-    private static void attr(StringBuilder sb, String key, String value) {
-        sb.append(' ').append(key).append("=\"").append(BtXmlWriter.escape(value)).append('"');
+    /** Magic, protocol, XML length + XML, start time in epoch microseconds. */
+    static byte[] header(String xml, Instant start) {
+        byte[] magic = MAGIC.getBytes(StandardCharsets.US_ASCII);
+        byte[] xml_bytes = xml.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer b =
+                ByteBuffer.allocate(magic.length + 1 + 4 + xml_bytes.length + 8)
+                        .order(ByteOrder.LITTLE_ENDIAN);
+        b.put(magic);
+        b.put(PROTOCOL);
+        b.putInt(xml_bytes.length);
+        b.put(xml_bytes);
+        b.putLong(start.getEpochSecond() * 1_000_000L + start.getNano() / 1_000L);
+        return b.array();
     }
 
     private static String sanitize(String name) {

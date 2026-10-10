@@ -150,7 +150,7 @@ factory.registerSetState("SetIntakeState", "Request an intake state",
 AutoManager.getInstance().registerAutos(BehaviorTreeAuto.loadAll(
         factory, Filesystem.getDeployDirectory().toPath().resolve("autos")));
 BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for the BT editor
-BehaviorTreeFileLogger.enableDefault();                  // one .btlog.xml per auto run
+BehaviorTreeFileLogger.enableDefault();                  // one .btlog (Groot2 format) per run
 ```
 
 **What's included:**
@@ -163,7 +163,7 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog.xml per a
 | `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
 | `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
-| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog.xml` per run with every status transition |
+| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Groot2 or the BT editor |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
 
 **Node palette.** MW-Lib's shared nodes ship as `com/marswars/bt/mwlib_nodes.xml`. A robot's
