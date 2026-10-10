@@ -26,20 +26,17 @@ import org.junit.jupiter.api.Test;
 class MwSwerveSubsystemTest {
 
   private static class TestSwerveConstants extends MwSwerveConstants {
-    private final SwerveDriveConfig config =
-        SwerveDriveConfig.builder()
-            .moduleType(ModuleType.getModuleType("MK4I-L2"))
-            .wheelRadius(0.05)
-            .speedAt12V(5.0)
-            .frontLeft(1, 2, 0, new Translation2d(0.3, 0.3))
-            .frontRight(3, 4, 1, new Translation2d(0.3, -0.3))
-            .backLeft(5, 6, 2, new Translation2d(-0.3, 0.3))
-            .backRight(7, 8, 3, new Translation2d(-0.3, -0.3))
-            .build();
-
-    @Override
-    public SwerveDriveConfig getDriveConfig() {
-      return config;
+    TestSwerveConstants() {
+      super(
+          SwerveDriveConfig.builder()
+              .moduleType(ModuleType.getModuleType("MK4I-L2"))
+              .wheelRadius(0.05)
+              .speedAt12V(5.0)
+              .frontLeft(1, 2, 0, new Translation2d(0.3, 0.3))
+              .frontRight(3, 4, 1, new Translation2d(0.3, -0.3))
+              .backLeft(5, 6, 2, new Translation2d(-0.3, 0.3))
+              .backRight(7, 8, 3, new Translation2d(-0.3, -0.3))
+              .build());
     }
   }
 

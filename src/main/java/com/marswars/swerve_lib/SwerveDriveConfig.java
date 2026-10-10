@@ -195,6 +195,18 @@ public class SwerveDriveConfig {
             return this;
         }
 
+        /** Drive position gains (slot 0), keeping the current velocity gains. */
+        public Builder driveSlot0(Slot0Configs slot0) {
+            this.drive_slot0 = slot0;
+            return this;
+        }
+
+        /** Drive velocity gains (slot 1), keeping the current position gains. */
+        public Builder driveSlot1(Slot1Configs slot1) {
+            this.drive_slot1 = slot1;
+            return this;
+        }
+
         /** Drive supply and stator current limits in amps (default 40 / 40). */
         public Builder driveCurrentLimits(double supply_amps, double stator_amps) {
             this.drive_supply_limit = supply_amps;
@@ -211,6 +223,18 @@ public class SwerveDriveConfig {
         /** Steer gains (slot 0 is used for position control). Shared by all modules. */
         public Builder steerGains(Slot0Configs slot0, Slot1Configs slot1) {
             this.steer_slot0 = slot0;
+            this.steer_slot1 = slot1;
+            return this;
+        }
+
+        /** Steer slot 0 gains (position control), keeping slot 1. */
+        public Builder steerSlot0(Slot0Configs slot0) {
+            this.steer_slot0 = slot0;
+            return this;
+        }
+
+        /** Steer slot 1 gains, keeping slot 0. */
+        public Builder steerSlot1(Slot1Configs slot1) {
             this.steer_slot1 = slot1;
             return this;
         }
