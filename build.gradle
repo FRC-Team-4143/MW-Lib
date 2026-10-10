@@ -140,6 +140,15 @@ dependencies {
     nativeLibs "edu.wpi.first.wpimath:wpimath-cpp:$wpilibVersion:linuxx86-64@zip"
     nativeLibs "edu.wpi.first.wpinet:wpinet-cpp:$wpilibVersion:linuxx86-64@zip"
     nativeLibs "edu.wpi.first.ntcore:ntcore-cpp:$wpilibVersion:linuxx86-64@zip"
+
+    // Phoenix 6 simulation natives for tests that construct real CTRE devices in sim (e.g.
+    // MwSwerveSubsystemTest). libCTRE_PhoenixTools_Sim.so is DT_NEEDED-linked against every
+    // device sim library, so the full set is required -- a partial set crashes the test JVM.
+    ['tools-sim', 'api-cpp-sim', 'simTalonSRX', 'simVictorSPX', 'simPigeonIMU', 'simProTalonFX',
+     'simProTalonFXS', 'simProCANcoder', 'simProPigeon2', 'simProCANrange', 'simProCANdi',
+     'simProCANdle'].each { lib ->
+        nativeLibs "com.ctre.phoenix6.sim:$lib:26.1.1:linuxx86-64@zip"
+    }
 }
 
 task extractNativeLibs(type: Copy) {
@@ -152,6 +161,10 @@ task extractNativeLibs(type: Copy) {
 test {
     dependsOn extractNativeLibs
     useJUnitPlatform()
+    // Sim tests write ctre_sim/, logs/ and preferences.json to the working directory; keep them
+    // out of the repo root.
+    workingDir = file("$buildDir/test-workdir")
+    doFirst { workingDir.mkdirs() }
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
     systemProperty 'java.library.path', "$buildDir/nativeLibs/linux/x86-64/shared"
     testLogging {
