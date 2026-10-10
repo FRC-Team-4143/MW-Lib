@@ -6,55 +6,45 @@ import com.marswars.swerve_lib.module.ModuleType;
 import edu.wpi.first.math.geometry.Translation2d;
 import org.junit.jupiter.api.Test;
 
+/** The robot-constants pattern: base fields, variants reassign them in their constructors. */
 class MwSwerveConstantsTest {
 
-  private static SwerveDriveConfig drive() {
-    return SwerveDriveConfig.builder()
-        .moduleType(ModuleType.getModuleType("MK4I-L2"))
-        .wheelRadius(0.05)
-        .speedAt12V(5.0)
-        .frontLeft(1, 2, 0, new Translation2d(0.3, 0.3))
-        .frontRight(3, 4, 1, new Translation2d(0.3, -0.3))
-        .backLeft(5, 6, 2, new Translation2d(-0.3, 0.3))
-        .backRight(7, 8, 3, new Translation2d(-0.3, -0.3))
-        .build();
-  }
+  private static class BaseConstants extends MwSwerveConstants {
+    public double WHEEL_RADIUS_METERS = 0.05;
 
-  private static class DefaultConstants extends MwSwerveConstants {
-    DefaultConstants(SwerveDriveConfig drive) {
-      super(drive);
+    @Override
+    public SwerveDriveConfig getDriveConfig() {
+      return SwerveDriveConfig.builder()
+          .moduleType(ModuleType.getModuleType("MK4I-L2"))
+          .wheelRadius(WHEEL_RADIUS_METERS)
+          .speedAt12V(5.0)
+          .frontLeft(1, 2, 0, new Translation2d(0.3, 0.3))
+          .frontRight(3, 4, 1, new Translation2d(0.3, -0.3))
+          .backLeft(5, 6, 2, new Translation2d(-0.3, 0.3))
+          .backRight(7, 8, 3, new Translation2d(-0.3, -0.3))
+          .build();
     }
   }
 
-  private static class TunedConstants extends MwSwerveConstants {
-    TunedConstants(SwerveDriveConfig drive) {
-      super(
-          drive,
-          new Tuning().maxTranslationRate(4.2).choreoThetaGains(9, 0.5, 0.25).choreoLookAhead(0.75));
+  private static class VariantConstants extends BaseConstants {
+    VariantConstants() {
+      WHEEL_RADIUS_METERS = 0.06;
+      MAX_TRANSLATION_RATE = 4.2;
     }
   }
 
   @Test
-  void defaultsApplyWithoutTuning() {
-    SwerveDriveConfig drive = drive();
-    var constants = new DefaultConstants(drive);
-    assertSame(drive, constants.DRIVE_CONFIG);
+  void baseUsesLibraryDefaults() {
+    var constants = new BaseConstants();
     assertEquals(5.0, constants.MAX_TRANSLATION_RATE, 1e-9);
-    assertEquals(10.0, constants.HEADING_CONTROLLER_KP, 1e-9);
-    assertEquals(12.0, constants.CHOREO_THETA_CONTROLLER_KP, 1e-9);
-    assertEquals(1.0, constants.CHOREO_LOOK_AHEAD, 1e-9);
+    assertEquals(0.05, constants.getDriveConfig().FL_MODULE_CONSTANTS.wheel_radius_m, 1e-9);
   }
 
   @Test
-  void tuningOverridesOnlyWhatIsSet() {
-    var constants = new TunedConstants(drive());
+  void variantConstructorValuesReachTunablesAndDriveConfig() {
+    var constants = new VariantConstants();
     assertEquals(4.2, constants.MAX_TRANSLATION_RATE, 1e-9);
-    assertEquals(9.0, constants.CHOREO_THETA_CONTROLLER_KP, 1e-9);
-    assertEquals(0.5, constants.CHOREO_THETA_CONTROLLER_KI, 1e-9);
-    assertEquals(0.25, constants.CHOREO_THETA_CONTROLLER_KD, 1e-9);
-    assertEquals(0.75, constants.CHOREO_LOOK_AHEAD, 1e-9);
-    // untouched values keep their defaults
-    assertEquals(40.0, constants.MAX_TRANSLATION_ACCEL, 1e-9);
-    assertEquals(7.0, constants.CHOREO_TRANSLATION_CONTROLLER_KP, 1e-9);
+    assertEquals(0.06, constants.getDriveConfig().BR_MODULE_CONSTANTS.wheel_radius_m, 1e-9);
+    assertEquals(40.0, constants.MAX_TRANSLATION_ACCEL, 1e-9); // untouched default
   }
 }

@@ -129,7 +129,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
         pose_supplier_ = pose_supplier;
         driver_inputs_ = driver_inputs;
 
-        swerve_mech_ = new SwerveMech(getSubsystemKey(), CONSTANTS.DRIVE_CONFIG);
+        swerve_mech_ = new SwerveMech(getSubsystemKey(), CONSTANTS.getDriveConfig());
 
         heading_controller_ =
                 new PhoenixPIDController(
