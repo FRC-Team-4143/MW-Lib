@@ -105,7 +105,8 @@ The library is organized into several packages:
 Example usage:
 
 ```java
-import com.marswars.swerve_lib.SwerveMech;
+import com.marswars.swerve_lib.MwSwerveSubsystem;
+import com.marswars.swerve_lib.SwerveDriverInputs;
 import com.marswars.mechanisms.ArmMech;
 import com.marswars.util.RobotIdentity;
 
@@ -114,8 +115,14 @@ import com.marswars.util.RobotIdentity;
 // to their own Java constants variants
 String robotName = RobotIdentity.getInstance().getRobotName();
 
-// Use swerve drive
-SwerveMech swerve = new SwerveMech(config);
+// Swerve drive: extend MwSwerveSubsystem with your constants (extending MwSwerveConstants),
+// a field-pose supplier and the driver joystick inputs
+public class SwerveSubsystem extends MwSwerveSubsystem<SwerveConstants> {
+    public SwerveSubsystem() {
+        super(SwerveConstants.create(), localization::getFieldPose,
+                new SwerveDriverInputs(oi::leftX, oi::leftY, oi::rightX, oi::pov));
+    }
+}
 
 // Use arm mechanism
 ArmMech arm = new ArmMech(config);
