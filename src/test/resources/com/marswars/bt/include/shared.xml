@@ -1,0 +1,8 @@
+<root BTCPP_format="4">
+  <BehaviorTree ID="Shared">
+    <Sequence>
+      <SetBlackboard value="{speed}" output_key="local_copy"/>
+      <SetBlackboard value="from_shared" output_key="speed"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

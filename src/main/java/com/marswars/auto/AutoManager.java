@@ -2,8 +2,6 @@ package com.marswars.auto;
 
 import java.util.Optional;
 
-import javax.xml.crypto.Data;
-
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -36,6 +34,7 @@ public class AutoManager {
   private final Field2d auto_display = new Field2d();
   private boolean pending_auto_update_ = true;
   private Optional<Alliance> current_alliance_ = Optional.empty();
+  private final java.util.Set<String> registered_names_ = new java.util.HashSet<>();
 
   private AutoManager() {
     // Create the auto chooser
@@ -44,6 +43,7 @@ public class AutoManager {
     Auto doNothing = new Auto();
     doNothing.addCommands(Commands.waitSeconds(30));
     auto_chooser_.setDefaultOption("Do_Nothing", doNothing);
+    registered_names_.add("Do_Nothing");
 
     // Bind a callback on selected change to display auto.
     // Use a flag instead of calling directly to avoid ConcurrentModificationException
@@ -65,8 +65,27 @@ public class AutoManager {
    */
   public void registerAutos(Auto... autos) {
     for (Auto auto : autos) {
-      auto_chooser_.addOption(auto.getClass().getSimpleName(), (Auto) auto);
+      // Key by command name: Auto() names itself after its class, while XML-defined autos
+      // (BehaviorTreeAuto) share one class and are named after their file.
+      String name = auto.getName();
+      if (!registered_names_.add(name)) {
+        throw new IllegalArgumentException("Duplicate auto name: " + name);
+      }
+      auto_chooser_.addOption(name, auto);
     }
+  }
+
+  /** Register a list of autos (e.g. from {@link BehaviorTreeAuto#loadAll}). */
+  public void registerAutos(java.util.List<? extends Auto> autos) {
+    registerAutos(autos.toArray(new Auto[0]));
+  }
+
+  /**
+   * Re-run the selected-auto update on the next {@link #periodic()} call: XML autos re-read their
+   * file and every auto re-loads its trajectories. Use after copying new files to the robot.
+   */
+  public void requestReload() {
+    pending_auto_update_ = true;
   }
 
   /**
@@ -75,7 +94,7 @@ public class AutoManager {
    * ConcurrentModificationException.
    */
   public void periodic() {
-    if(current_alliance_ != DriverStation.getAlliance()) {
+    if (!current_alliance_.equals(DriverStation.getAlliance())) {
       current_alliance_ = DriverStation.getAlliance();
       pending_auto_update_ = true;
       DataLogManager.log("Alliance changed, Triggering auto update");
@@ -94,7 +113,7 @@ public class AutoManager {
    */
   public Auto getSelectedAuto() {
     Auto auto = auto_chooser_.getSelected();
-    DataLogManager.log("Selected auto routine: " + auto.getClass().getSimpleName());
+    DataLogManager.log("Selected auto routine: " + auto.getName());
     return auto;
   }
 

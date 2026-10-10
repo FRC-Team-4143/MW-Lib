@@ -119,6 +119,10 @@ dependencies {
     // PhotonVision for simulation only
     implementation "org.photonvision:photonlib-java:v2026.2.2"
     implementation "org.photonvision:photontargeting-java:v2026.2.2"
+
+    // btlive behavior-tree debug server (com.marswars.bt.debug). Pure Java WebSocket server.
+    // MW-Lib's published POM lists no dependencies, so robot projects must add this line too.
+    implementation "org.java-websocket:Java-WebSocket:1.6.0"
     
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exercises BT.CPP v4 syntax: both node forms, SubTree remapping, include, Groot2 metadata. -->
+<root BTCPP_format="4" main_tree_to_execute="MainTree" project_name="test">
+  <include path="include/shared.xml"/>
+
+  <BehaviorTree ID="MainTree" _description="top level">
+    <Sequence name="root" _uid="1" _fullpath="root">
+      <SetBlackboard value="7" output_key="speed"/>
+      <Action ID="RecordInput" value="{speed}"/>
+      <SubTree ID="Inner" target="{speed}" label="literal" _autoremap="false"/>
+      <SubTree ID="Shared" _autoremap="true"/>
+      <SequenceStar>
+        <AlwaysSuccess/>
+      </SequenceStar>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="Inner">
+    <Sequence>
+      <RecordInput value="{target}"/>
+      <RecordInput value="{label}"/>
+      <SetBlackboard value="99" output_key="target"/>
+    </Sequence>
+  </BehaviorTree>
+
+  <TreeNodesModel>
+    <Action ID="RecordInput">
+      <input_port name="value" type="std::string">Value to record</input_port>
+    </Action>
+  </TreeNodesModel>
+</root>
