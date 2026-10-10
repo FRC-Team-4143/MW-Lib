@@ -196,6 +196,14 @@ driver.rightBumper().whileTrue(Commands.startEnd(
         () -> robot.setWantedState(RobotStates.DRIVE)));
 ```
 
+```xml
+<!-- auto: the same sequence. The node waits for SUCCESS or FAILURE, and the tree adds auto-only fail handling -->
+<Fallback>
+  <Timeout msec="3000"><SetWantedState state="SCORE"/></Timeout>
+  <FollowTrajectory trajectory="ToBackupSpot"/>
+</Fallback>
+```
+
 | API | What it does |
 |---|---|
 | `setWantedState(s)` / `getWantedState()` / `getSystemState()` | Same as `MwSubsystem` |
@@ -203,6 +211,7 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 | `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
 | `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |
 | `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
+| `bt.RobotStateNodes` | Behavior-tree nodes `SetWantedState` (requests the state and waits on `getStateResult()`) and `IsSystemState` |
 
 MW-Lib subsystems are not WPILib `Subsystem`s, so button commands have no requirements. Logged
 keys are `Robot/WantedState` and `Robot/State`.
@@ -219,8 +228,7 @@ to writing them.
 ```java
 BehaviorTreeFactory factory = new BehaviorTreeFactory();      // BT.CPP built-ins + MW-Lib nodes
 SwerveNodes.register(factory, SwerveSubsystem::getInstance);  // MW-Lib swerve nodes
-factory.registerSetState("SetIntakeState", "Request an intake state",
-        IntakeStates.class, s -> IntakeSubsystem.getInstance().setWantedState(s));  // robot nodes
+RobotStateNodes.register(factory, RobotContainer::getInstance, RobotStates.class); // SetWantedState
 
 AutoManager.getInstance().registerAutos(BehaviorTreeAuto.loadAll(
         factory, Filesystem.getDeployDirectory().toPath().resolve("autos")));
@@ -235,6 +243,7 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog (Groot2 f
 | `bt.core`, `bt.control`, `bt.decorator`, `bt.action` | The engine, with BT.CPP v4 node semantics and all BT.CPP built-ins except scripting |
 | `bt.xml` | BT.CPP v4 XML parser and writer: both node forms, `SubTree` port passing, `<include>`, `<TreeNodesModel>` |
 | `ParallelDeadline` | MW-Lib control node: runs children together until the first one finishes, then halts the rest |
+| `bt.RobotStateNodes` | `SetWantedState` and `IsSystemState` for the robot's super state machine. Autos use the same robot states and sequences as teleop |
 | `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
 | `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |

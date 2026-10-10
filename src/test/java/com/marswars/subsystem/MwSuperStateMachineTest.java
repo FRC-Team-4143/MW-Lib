@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.marswars.bt.RobotStateNodes;
+import com.marswars.bt.core.BehaviorTree;
+import com.marswars.bt.core.BehaviorTreeFactory;
+import com.marswars.bt.core.NodeStatus;
 import com.marswars.subsystem.MwSuperStateMachine.StateResult;
 import edu.wpi.first.hal.HAL;
 import java.util.ArrayList;
@@ -206,4 +210,53 @@ class MwSuperStateMachineTest {
         assertEquals(ShooterStates.IDLE, robot.shooter.getSystemState());
     }
 
+    @Test
+    void behaviorTreeNodesRequestAndCheckRobotStates() {
+        BehaviorTreeFactory factory = new BehaviorTreeFactory(() -> 0.0);
+        RobotStateNodes.register(factory, () -> robot, RobotStates.class);
+        BehaviorTree tree =
+                factory.createTreeFromText(
+                        "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\"><Sequence>"
+                                + "<SetWantedState state=\"SHOOT\"/>"
+                                + "<IsSystemState state=\"SHOOT\"/>"
+                                + "</Sequence></BehaviorTree></root>");
+
+        assertEquals(NodeStatus.RUNNING, tree.tickOnce()); // requested, not there yet
+        assertEquals(RobotStates.SHOOT, robot.getWantedState());
+
+        robot.doControlLoop();
+        assertEquals(NodeStatus.SUCCESS, tree.tickOnce());
+    }
+
+    @Test
+    void behaviorTreeNodeFailsWhenTheStateFails() {
+        SequenceContainer seq = new SequenceContainer();
+        seq.piece_missing = true;
+        BehaviorTreeFactory factory = new BehaviorTreeFactory(() -> 0.0);
+        RobotStateNodes.register(factory, () -> seq, RobotStates.class);
+        BehaviorTree tree =
+                factory.createTreeFromText(
+                        "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">"
+                                + "<SetWantedState state=\"SCORE\"/>"
+                                + "</BehaviorTree></root>");
+
+        assertEquals(NodeStatus.RUNNING, tree.tickOnce());
+        seq.doControlLoop();
+        assertEquals(NodeStatus.FAILURE, tree.tickOnce());
+    }
+
+    @Test
+    void behaviorTreeNodeFailsWhenAnotherStateIsWanted() {
+        BehaviorTreeFactory factory = new BehaviorTreeFactory(() -> 0.0);
+        RobotStateNodes.register(factory, () -> robot, RobotStates.class);
+        BehaviorTree tree =
+                factory.createTreeFromText(
+                        "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">"
+                                + "<SetWantedState state=\"SHOOT\"/>"
+                                + "</BehaviorTree></root>");
+
+        assertEquals(NodeStatus.RUNNING, tree.tickOnce());
+        robot.setWantedState(RobotStates.DRIVE);
+        assertEquals(NodeStatus.FAILURE, tree.tickOnce());
+    }
 }
