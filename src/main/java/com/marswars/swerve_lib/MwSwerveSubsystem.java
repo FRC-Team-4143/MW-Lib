@@ -8,12 +8,12 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
+import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
 import com.marswars.auto.ChoreoEventTracker;
 import com.marswars.auto.ChoreoTrajectory;
 import com.marswars.logging.MwLog;
 import com.marswars.subsystem.MwSubsystem;
 import com.marswars.subsystem.SubsystemIoBase;
-import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
 import com.marswars.swerve_lib.ChassisRequest.XPositiveReference;
 import com.marswars.swerve_lib.module.Module.DriveControlMode;
 import com.marswars.swerve_lib.module.Module.SteerControlMode;
@@ -57,8 +57,8 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     private final Supplier<Pose2d> pose_supplier_;
     private final SwerveDriverInputs driver_inputs_;
 
-    // State Specific Members
-    Trajectory<SwerveSample> desired_choreo_traj_;
+    // Choreo path following
+    private Trajectory<SwerveSample> desired_choreo_traj_;
     private final Timer choreo_timer_ = new Timer();
     private Optional<SwerveSample> choreo_sample_to_apply_;
     private final ChoreoEventTracker choreo_event_tracker_;
@@ -78,6 +78,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                     CONSTANTS.CHOREO_THETA_CONTROLLER_KI,
                     CONSTANTS.CHOREO_THETA_CONTROLLER_KD);
 
+    // Tractor beam
     private Pose2d desired_tractor_beam_pose_ = new Pose2d();
     private double max_lin_vel_for_tractor_beam_;
     private double max_ang_vel_for_tractor_beam_;
@@ -86,31 +87,33 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                     CONSTANTS.TRACTOR_BEAM_CONTROLLER_KP,
                     CONSTANTS.TRACTOR_BEAM_CONTROLLER_KI,
                     CONSTANTS.TRACTOR_BEAM_CONTROLLER_KD);
+    // Rotation lock and commanded speeds
     private Rotation2d desired_rotation_lock_rot_ = new Rotation2d();
     private Translation2d desired_rotation_lock_cor_ = new Translation2d();
     private double desired_rotation_lock_feedforward_ = 0.0;
-    private ChassisSpeeds desired_chassis_speeds_ = new ChassisSpeeds(0, 0, 0);
+    private ChassisSpeeds desired_chassis_speeds_ = new ChassisSpeeds();
 
-    // Telop Smoothness controllers and scalars
+    // Teleop smoothing and scaling
     private double tele_op_velocity_scalar_ = 1.0;
     private double tele_op_velocity_rl_scalar_ = 1.0;
-    private DynamicSlewRateLimiter x_tele_op_velocity_slew_limiter_ =
-            new DynamicSlewRateLimiter(CONSTANTS.MAX_TRANSLATION_ACCEL * 1.0);
-    private DynamicSlewRateLimiter y_tele_op_velocity_slew_limiter_ =
-            new DynamicSlewRateLimiter(CONSTANTS.MAX_TRANSLATION_ACCEL * 1.0);
+    private final DynamicSlewRateLimiter x_tele_op_velocity_slew_limiter_ =
+            new DynamicSlewRateLimiter(CONSTANTS.MAX_TRANSLATION_ACCEL);
+    private final DynamicSlewRateLimiter y_tele_op_velocity_slew_limiter_ =
+            new DynamicSlewRateLimiter(CONSTANTS.MAX_TRANSLATION_ACCEL);
 
-    // IO Members
-    private SwerveMech swerve_mech_;
+    // IO
+    private final SwerveMech swerve_mech_;
     private Rotation2d operator_forward_direction_ = OperatorPerspective.BLUE_ALLIANCE.heading;
 
-    private ChassisRequest.FieldCentric field_centric_request_;
-    private ChassisRequest.RobotCentric robot_centric_request_;
-    private ChassisRequest.FieldCentricFacingAngle choreo_rotation_lock_request_;
-    private ChassisRequest.FieldCentricFacingAngle field_centric_rotation_lock_request_;
-    private ChassisRequest.RobotCentricFacingAngle robot_centric_rotation_lock_request_;
-    private ChassisRequest.ApplyFieldSpeeds field_speeds_request_;
-    private ChassisRequest.ApplyChassisSpeeds chassis_speeds_request_;
-    private ChassisRequest.SwerveDriveBrake brake_request_;
+    // Chassis requests
+    private final ChassisRequest.FieldCentric field_centric_request_;
+    private final ChassisRequest.RobotCentric robot_centric_request_;
+    private final ChassisRequest.FieldCentricFacingAngle choreo_rotation_lock_request_;
+    private final ChassisRequest.FieldCentricFacingAngle field_centric_rotation_lock_request_;
+    private final ChassisRequest.RobotCentricFacingAngle robot_centric_rotation_lock_request_;
+    private final ChassisRequest.ApplyFieldSpeeds field_speeds_request_;
+    private final ChassisRequest.ApplyChassisSpeeds chassis_speeds_request_;
+    private final ChassisRequest.SwerveDriveBrake brake_request_;
 
     // Shared by every rotation-lock request so tuning and isAtDesiredRotation see one controller
     private final PhoenixPIDController heading_controller_;
@@ -137,11 +140,11 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                         CONSTANTS.HEADING_CONTROLLER_KI,
                         CONSTANTS.HEADING_CONTROLLER_KD);
 
-        // Initialize event tracker with pose supplier
         choreo_event_tracker_ =
                 new ChoreoEventTracker(getSubsystemKey() + "Choreo/Events/", pose_supplier_);
         choreo_theta_controller_.enableContinuousInput(-Math.PI, Math.PI);
-        // Initialize drive mode requests
+
+        // Drive mode requests
         field_centric_request_ =
                 new ChassisRequest.FieldCentric()
                         .withDriveRequestType(DriveControlMode.OPEN_LOOP)
@@ -200,7 +203,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                 field_centric_rotation_lock_request_.HeadingController);
         MwLog.tunable(
                 getSubsystemKey() + "VelocityScalar",
-                tele_op_velocity_rl_scalar_,
+                tele_op_velocity_scalar_,
                 this::setTeleOpVelocityScalar);
         MwLog.tunable(
                 getSubsystemKey() + "VelocityRLScalar",
@@ -208,13 +211,12 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                 this::setTeleOpVelocityRateLimitScalar);
     }
 
-    // reset
     @Override
     public void reset() {
         system_state_ = SwerveStates.IDLE;
     }
 
-    // getIos
+    @Override
     public List<SubsystemIoBase> getIos() {
         return Arrays.asList(swerve_mech_);
     }
@@ -259,73 +261,32 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     protected void handleStateTransition(SwerveStates wanted_state) {
         wanted_state = remapWantedState(wanted_state);
 
-        // Stop event tracker if leaving choreo states
-        if ((system_state_ == SwerveStates.CHOREO_PATH
-                        || system_state_ == SwerveStates.CHOREO_PATH_ROTATION_LOCK)
-                && wanted_state != SwerveStates.CHOREO_PATH
-                && wanted_state != SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
+        boolean in_choreo = isChoreoState(system_state_);
+        boolean to_choreo = isChoreoState(wanted_state);
+
+        if (in_choreo && !to_choreo) {
+            // Leaving Choreo following
             choreo_timer_.stop();
             choreo_event_tracker_.stop();
+        } else if (!in_choreo && to_choreo) {
+            // Entering Choreo following; switching between the two Choreo states keeps the timer
+            choreo_x_controller_.reset();
+            choreo_y_controller_.reset();
+            choreo_theta_controller_.reset();
+            choreo_timer_.restart();
+            choreo_event_tracker_.start();
+        }
+        if (wanted_state == SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
+            choreo_sample_to_apply_ = desired_choreo_traj_.sampleAt(choreo_timer_.get(), false);
         }
 
-        system_state_ =
-                switch (wanted_state) {
-                    case ROBOT_CENTRIC -> SwerveStates.ROBOT_CENTRIC;
-                    case FIELD_CENTRIC -> SwerveStates.FIELD_CENTRIC;
-                    case CHOREO_PATH -> {
-                        // If we are not already in a choreo path state, restart the timer
-                        // The additional check is needed to prevent resetting the timer when
-                        // switching between the two choreo states
-                        if (system_state_ != SwerveStates.CHOREO_PATH
-                                && system_state_ != SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
-                            choreo_x_controller_.reset();
-                            choreo_y_controller_.reset();
-                            choreo_theta_controller_.reset();
-                            choreo_timer_.restart();
-                            choreo_event_tracker_.start();
-                            yield SwerveStates.CHOREO_PATH;
-                        } else {
-                            yield SwerveStates.CHOREO_PATH;
-                        }
-                    }
-                    case TRACTOR_BEAM -> SwerveStates.TRACTOR_BEAM;
-                    case CHASSIS_SPEEDS -> SwerveStates.CHASSIS_SPEEDS;
-                    case CRAWL_ROBOT_CENTRIC -> SwerveStates.CRAWL_ROBOT_CENTRIC;
-                    case CRAWL_FIELD_CENTRIC -> SwerveStates.CRAWL_FIELD_CENTRIC;
-                    case ROBOT_CENTRIC_ROTATION_LOCK -> SwerveStates.ROBOT_CENTRIC_ROTATION_LOCK;
-                    case FIELD_CENTRIC_ROTATION_LOCK -> SwerveStates.FIELD_CENTRIC_ROTATION_LOCK;
-                    case CHOREO_PATH_ROTATION_LOCK -> {
-                        // If we are not already in a choreo path state, restart the timer
-                        // The additional check is needed to prevent resetting the timer when
-                        // switching between the two choreo states
-                        if (system_state_ != SwerveStates.CHOREO_PATH_ROTATION_LOCK
-                                && system_state_ != SwerveStates.CHOREO_PATH) {
-                            choreo_x_controller_.reset();
-                            choreo_y_controller_.reset();
-                            choreo_theta_controller_.reset();
-                            choreo_timer_.restart();
-                            choreo_event_tracker_.start();
-                            choreo_sample_to_apply_ =
-                                    desired_choreo_traj_.sampleAt(choreo_timer_.get(), false);
-                            yield SwerveStates.CHOREO_PATH_ROTATION_LOCK;
-                        } else {
-                            choreo_sample_to_apply_ =
-                                    desired_choreo_traj_.sampleAt(choreo_timer_.get(), false);
-                            yield SwerveStates.CHOREO_PATH_ROTATION_LOCK;
-                        }
-                    }
-                    case CRAWL_ROBOT_CENTRIC_ROTATION_LOCK ->
-                            SwerveStates.CRAWL_ROBOT_CENTRIC_ROTATION_LOCK;
-                    case CRAWL_FIELD_CENTRIC_ROTATION_LOCK ->
-                            SwerveStates.CRAWL_FIELD_CENTRIC_ROTATION_LOCK;
-                    case CHASSIS_SPEEDS_ROTATION_LOCK -> SwerveStates.CHASSIS_SPEEDS_ROTATION_LOCK;
-                    case TUNING -> SwerveStates.TUNING;
-                    case BRAKE -> SwerveStates.BRAKE;
-                    default -> SwerveStates.IDLE;
-                };
+        system_state_ = wanted_state;
     }
 
-    // updateLogic
+    private static boolean isChoreoState(SwerveStates state) {
+        return state == SwerveStates.CHOREO_PATH || state == SwerveStates.CHOREO_PATH_ROTATION_LOCK;
+    }
+
     @Override
     public void updateLogic(double timestamp) {
         ChassisSpeeds controller_inputs = calculateSpeedsBasedOnJoystickInputs();
@@ -365,11 +326,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                                 .withCenterOfRotation(desired_rotation_lock_cor_)
                                 .withHeadingFeedforward(desired_rotation_lock_feedforward_));
                 desired_chassis_speeds_ = controller_inputs;
-                MwLog.log(
-                        getSubsystemKey() + "RotationLock/Rotation",
-                        desired_rotation_lock_rot_.getRadians(),
-                        Radians);
-                MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+                logRotationLock();
                 break;
             case FIELD_CENTRIC_ROTATION_LOCK:
                 swerve_mech_.setChassisRequest(
@@ -378,12 +335,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                                 .withSpeeds(controller_inputs)
                                 .withCenterOfRotation(desired_rotation_lock_cor_)
                                 .withHeadingFeedforward(desired_rotation_lock_feedforward_));
-                desired_chassis_speeds_ = controller_inputs;
-                MwLog.log(
-                        getSubsystemKey() + "RotationLock/Rotation",
-                        desired_rotation_lock_rot_.getRadians(),
-                        Radians);
-                MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+                logRotationLock();
                 desired_chassis_speeds_ = removeOperatorPerspective(controller_inputs);
                 break;
             case CHOREO_PATH_ROTATION_LOCK:
@@ -403,11 +355,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                                 .withCenterOfRotation(desired_rotation_lock_cor_)
                                 .withHeadingFeedforward(desired_rotation_lock_feedforward_));
                 MwLog.log(getSubsystemKey() + "RotationLock/ChassisSpeed", desired_chassis_speeds_);
-                MwLog.log(
-                        getSubsystemKey() + "RotationLock/Rotation",
-                        desired_rotation_lock_rot_.getRadians(),
-                        Radians);
-                MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+                logRotationLock();
                 break;
             case TUNING:
                 swerve_mech_.setChassisRequest(
@@ -425,15 +373,21 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                 break;
         }
         // Set state static request parameters
-        swerve_mech_.setChassisRequestParameters(
-                getFieldPose(), operator_forward_direction_);
+        swerve_mech_.setChassisRequestParameters(getFieldPose(), operator_forward_direction_);
         MwLog.log(getSubsystemKey() + "DesiredChassisSpeeds", desired_chassis_speeds_);
     }
 
-    // =============================================================================
-    // PUBLIC HELPER METHODS
+    private void logRotationLock() {
+        MwLog.log(
+                getSubsystemKey() + "RotationLock/Rotation",
+                desired_rotation_lock_rot_.getRadians(),
+                Radians);
+        MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+    }
 
-    // =============================================================================
+    // ------------------------------------------------
+    // State Handlers
+    // ------------------------------------------------
 
     /**
      * Handles the TRACTOR_BEAM state by calculating the necessary chassis speeds to move towards
@@ -441,9 +395,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      */
     private void tractorBeamState() {
         Translation2d translation_to_desired_point =
-                desired_tractor_beam_pose_
-                        .getTranslation()
-                        .minus(getFieldPose().getTranslation());
+                desired_tractor_beam_pose_.getTranslation().minus(getFieldPose().getTranslation());
         double linear_distance = translation_to_desired_point.getNorm();
         double friction_constant = 0.0;
         if (linear_distance >= Units.inchesToMeters(0.5)) {
@@ -502,7 +454,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                     getSubsystemKey() + "Choreo/TotalTime",
                     desired_choreo_traj_.getTotalTime(),
                     Seconds);
-            // if distance threshold is exceded stop the timer so you do not get so far ahead
+            // Pause the timer while the robot lags the sample by more than the look-ahead distance
             if (sample.getPose().getTranslation().getDistance(pose.getTranslation())
                     > CONSTANTS.CHOREO_LOOK_AHEAD) {
                 choreo_timer_.stop();
@@ -596,11 +548,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                             .withSpeeds(desired_chassis_speeds_)
                             .withCenterOfRotation(desired_rotation_lock_cor_)
                             .withHeadingFeedforward(desired_rotation_lock_feedforward_));
-            MwLog.log(
-                    getSubsystemKey() + "RotationLock/Rotation",
-                    desired_rotation_lock_rot_.getRadians(),
-                    Radians);
-            MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+            logRotationLock();
         } else {
             swerve_mech_.setChassisRequest(
                     robot_centric_request_.withSpeeds(desired_chassis_speeds_));
@@ -621,11 +569,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
                             .withSpeeds(desired_chassis_speeds_)
                             .withCenterOfRotation(desired_rotation_lock_cor_)
                             .withHeadingFeedforward(desired_rotation_lock_feedforward_));
-            MwLog.log(
-                    getSubsystemKey() + "RotationLock/Rotation",
-                    desired_rotation_lock_rot_.getRadians(),
-                    Radians);
-            MwLog.log(getSubsystemKey() + "RotationLock/COR", desired_rotation_lock_cor_);
+            logRotationLock();
         } else {
             swerve_mech_.setChassisRequest(
                     field_centric_request_.withSpeeds(desired_chassis_speeds_));
@@ -676,7 +620,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     /**
      * Updates the internal target for the robot to reach in TRACTOR_BEAM
      *
-     * @param target_pose target pose for the robot to reach
+     * @param pose target pose for the robot to reach
      */
     public void setDesiredTractorBeamPose(Pose2d pose) {
         desired_tractor_beam_pose_ = pose;
@@ -723,18 +667,17 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     }
 
     /**
-     * Updates the internal target for the robot to follow in CHASSIS_SPEED_ROTATION_LOCK
+     * Updates the robot-relative speeds driven in CHASSIS_SPEEDS, CHASSIS_SPEEDS_ROTATION_LOCK and
+     * TUNING.
      *
      * @param speeds desired chassis speeds
-     * @param rotation desired rotation to lock to
      */
     public void setDesiredChassisSpeed(ChassisSpeeds speeds) {
         desired_chassis_speeds_ = speeds;
     }
 
     /**
-     * Updates the internal target for the robot to face turing around a desired center point in
-     * FIELD_CENTRIC_ROTATION_LOCK or CHOREO_PATH_ROTATION_LOCK
+     * Updates the heading to hold in the rotation-lock states, turning around the robot center.
      *
      * @param rotation desired rotation to lock to
      */
@@ -743,8 +686,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     }
 
     /**
-     * Updates the internal target for the robot to face turing around a desired center point in
-     * FIELD_CENTRIC_ROTATION_LOCK or CHOREO_PATH_ROTATION_LOCK
+     * Updates the heading to hold in the rotation-lock states, turning around a center point.
      *
      * @param rotation desired rotation to lock to
      * @param center_point desired center point to rotate around
@@ -756,8 +698,8 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     }
 
     /**
-     * Updates the internal target for the robot to face with feedforward, turning around a desired
-     * center point in FIELD_CENTRIC_ROTATION_LOCK or CHOREO_PATH_ROTATION_LOCK
+     * Updates the heading to hold in the rotation-lock states, with a rotational feedforward,
+     * turning around a center point.
      *
      * @param rotation desired rotation to lock to
      * @param center_point desired center point to rotate around
@@ -830,9 +772,11 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
         }
 
         double x_magnitude =
-                -MathUtil.applyDeadband(driver_inputs_.left_y().getAsDouble(), CONSTANTS.CONTROLLER_DEADBAND);
+                -MathUtil.applyDeadband(
+                        driver_inputs_.left_y().getAsDouble(), CONSTANTS.CONTROLLER_DEADBAND);
         double y_magnitude =
-                -MathUtil.applyDeadband(driver_inputs_.left_x().getAsDouble(), CONSTANTS.CONTROLLER_DEADBAND);
+                -MathUtil.applyDeadband(
+                        driver_inputs_.left_x().getAsDouble(), CONSTANTS.CONTROLLER_DEADBAND);
         double angular_magnitude =
                 -MathUtil.applyDeadband(
                         driver_inputs_.right_x().getAsDouble(), CONSTANTS.CONTROLLER_DEADBAND);
@@ -930,12 +874,10 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return true if the robot is at the tractor beam setpoint, false otherwise
      */
     public boolean isAtTractorBeamSetpoint() {
-        double distance =
-                desired_tractor_beam_pose_
-                        .getTranslation()
-                        .minus(getFieldPose().getTranslation())
-                        .getNorm();
-        return MathUtil.isNear(0.0, distance, CONSTANTS.TRACTOR_BEAM_TRANSLATION_ERROR_MARGIN);
+        return MathUtil.isNear(
+                0.0,
+                getDistanceFromTractorBeamSetpoint(),
+                CONSTANTS.TRACTOR_BEAM_TRANSLATION_ERROR_MARGIN);
     }
 
     /**
@@ -964,8 +906,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return true if the choreo trajectory time has elapsed, false otherwise
      */
     public boolean hasChoreoTimeElapsed() {
-        if (system_state_ != SwerveStates.CHOREO_PATH
-                && system_state_ != SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
+        if (!isChoreoState(system_state_)) {
             return false;
         }
         return choreo_timer_.get() >= desired_choreo_traj_.getTotalTime();
@@ -978,8 +919,7 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return true if the choreo trajectory time has elapsed, false otherwise
      */
     public boolean hasChoreoTimeElapsed(double total_time) {
-        if (system_state_ != SwerveStates.CHOREO_PATH
-                && system_state_ != SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
+        if (!isChoreoState(system_state_)) {
             return false;
         }
         return choreo_timer_.get() >= total_time;
@@ -991,27 +931,24 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return true if the robot is at the choreo setpoint, false otherwise
      */
     public boolean isAtChoreoSetpoint() {
-        if (system_state_ != SwerveStates.CHOREO_PATH
-                && system_state_ != SwerveStates.CHOREO_PATH_ROTATION_LOCK) {
+        if (!isChoreoState(system_state_)) {
             return false;
         }
+        Pose2d pose = getFieldPose();
+        Pose2d final_pose = desired_choreo_traj_.getFinalPose(false).get();
+        SwerveSample final_sample = desired_choreo_traj_.getFinalSample(false).get();
+        ChassisSpeeds field_speeds = getCurrentChassisSpeedsFieldRelative();
         return MathUtil.isNear(
-                        desired_choreo_traj_.getFinalPose(false).get().getX(),
-                        getFieldPose().getX(),
-                        CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
+                        final_pose.getX(), pose.getX(), CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
                 && MathUtil.isNear(
-                        desired_choreo_traj_.getFinalPose(false).get().getY(),
-                        getFieldPose().getY(),
-                        CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
+                        final_pose.getY(), pose.getY(), CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
                 && MathUtil.isNear(
-                        desired_choreo_traj_.getFinalSample(false).get().vx,
-                        getCurrentChassisSpeedsFieldRelative()
-                                .vxMetersPerSecond,
+                        final_sample.vx,
+                        field_speeds.vxMetersPerSecond,
                         CONSTANTS.CHOREO_VELOCITY_ERROR_MARGIN)
                 && MathUtil.isNear(
-                        desired_choreo_traj_.getFinalSample(false).get().vy,
-                        getCurrentChassisSpeedsFieldRelative()
-                                .vyMetersPerSecond,
+                        final_sample.vy,
+                        field_speeds.vyMetersPerSecond,
                         CONSTANTS.CHOREO_VELOCITY_ERROR_MARGIN)
                 && choreo_timer_.get() >= desired_choreo_traj_.getTotalTime();
     }
@@ -1023,19 +960,20 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      *     setpoint, false otherwise
      */
     public boolean isAtEndOfChoreoTrajectoryOrTractorBeam() {
-        if (desired_choreo_traj_ != null) {
-            return (MathUtil.isNear(
-                                    desired_choreo_traj_.getFinalPose(false).get().getX(),
-                                    getFieldPose().getX(),
-                                    CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN))
-                            && MathUtil.isNear(
-                                    desired_choreo_traj_.getFinalPose(false).get().getY(),
-                                    getFieldPose().getY(),
-                                    CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
-                    || isAtTractorBeamSetpoint();
-        } else {
+        if (desired_choreo_traj_ == null) {
             return isAtTractorBeamSetpoint();
         }
+        Pose2d pose = getFieldPose();
+        Pose2d final_pose = desired_choreo_traj_.getFinalPose(false).get();
+        return (MathUtil.isNear(
+                                final_pose.getX(),
+                                pose.getX(),
+                                CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN)
+                        && MathUtil.isNear(
+                                final_pose.getY(),
+                                pose.getY(),
+                                CONSTANTS.CHOREO_TRANSLATION_ERROR_MARGIN))
+                || isAtTractorBeamSetpoint();
     }
 
     /**
@@ -1044,15 +982,12 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return the distance from the choreo endpoint in meters
      */
     public double getDistanceFromChoreoEndpoint() {
-        double distance =
-                Math.abs(
-                        desired_choreo_traj_
-                                .getFinalPose(false)
-                                .get()
-                                .minus(getFieldPose())
-                                .getTranslation()
-                                .getNorm());
-        return distance;
+        return desired_choreo_traj_
+                .getFinalPose(false)
+                .get()
+                .minus(getFieldPose())
+                .getTranslation()
+                .getNorm();
     }
 
     /**
@@ -1061,12 +996,10 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      * @return the distance from the tractor beam setpoint in meters
      */
     public double getDistanceFromTractorBeamSetpoint() {
-        double diff =
-                desired_tractor_beam_pose_
-                        .getTranslation()
-                        .minus(getFieldPose().getTranslation())
-                        .getNorm();
-        return diff;
+        return desired_tractor_beam_pose_
+                .getTranslation()
+                .minus(getFieldPose().getTranslation())
+                .getNorm();
     }
 
     // ------------------------------------------------
@@ -1146,13 +1079,13 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     // Chassis Property Methods
     // ------------------------------------------------
 
-    /** Stores the current encoder readings as offsets */
+    /** Stores the current encoder readings as the module offsets. */
     public Command setModuleOffsets() {
         return Commands.runOnce(() -> swerve_mech_.setModuleOffsets())
                 .withName("Set Module Offsets");
     }
 
-    /** Zeros the gyro yaw to the operator forward direction */
+    /** Zeros the gyro yaw to the operator forward direction. */
     public Command zeroGyroYaw() {
         return Commands.runOnce(() -> swerve_mech_.setGyroYaw(operator_forward_direction_))
                 .withName(

@@ -235,22 +235,26 @@ public class SwerveDriveConfig {
         }
 
         /** Front-left module CAN IDs and location (meters, +x forward, +y left). */
-        public Builder frontLeft(int drive_id, int steer_id, int encoder_id, Translation2d location) {
+        public Builder frontLeft(
+                int drive_id, int steer_id, int encoder_id, Translation2d location) {
             return module(0, drive_id, steer_id, encoder_id, location, false);
         }
 
         /** Front-right module CAN IDs and location (meters, +x forward, +y left). */
-        public Builder frontRight(int drive_id, int steer_id, int encoder_id, Translation2d location) {
+        public Builder frontRight(
+                int drive_id, int steer_id, int encoder_id, Translation2d location) {
             return module(1, drive_id, steer_id, encoder_id, location, false);
         }
 
         /** Back-left module CAN IDs and location (meters, +x forward, +y left). */
-        public Builder backLeft(int drive_id, int steer_id, int encoder_id, Translation2d location) {
+        public Builder backLeft(
+                int drive_id, int steer_id, int encoder_id, Translation2d location) {
             return module(2, drive_id, steer_id, encoder_id, location, false);
         }
 
         /** Back-right module CAN IDs and location (meters, +x forward, +y left). */
-        public Builder backRight(int drive_id, int steer_id, int encoder_id, Translation2d location) {
+        public Builder backRight(
+                int drive_id, int steer_id, int encoder_id, Translation2d location) {
             return module(3, drive_id, steer_id, encoder_id, location, false);
         }
 
@@ -274,7 +278,8 @@ public class SwerveDriveConfig {
         /** Builds the drivetrain config, creating fresh motor configs for every module. */
         public SwerveDriveConfig build() {
             if (module_type == null) {
-                throw new IllegalStateException("SwerveDriveConfig.Builder: moduleType is required");
+                throw new IllegalStateException(
+                        "SwerveDriveConfig.Builder: moduleType is required");
             }
             if (Double.isNaN(wheel_radius_m) || Double.isNaN(speed_at_12_volts)) {
                 throw new IllegalStateException(
