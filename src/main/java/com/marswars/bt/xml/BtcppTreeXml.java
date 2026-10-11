@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * Writes an instantiated tree the way BehaviorTree.CPP's {@code WriteTreeToXML(tree,
  * add_metadata=true, add_builtin_models=true)} does. This is the XML embedded in {@code .btlog}
- * files, which Groot2 and the BT editor use to map transitions to nodes:
+ * files, which Arbor and Groot2 use to map transitions to nodes:
  *
  * <ul>
  *   <li>every node is written by registration ID with {@code name}, {@code _uid} and its ports

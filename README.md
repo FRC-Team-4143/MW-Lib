@@ -30,11 +30,11 @@ Add to your `build.gradle` dependencies:
 
 ```gradle
 dependencies {
-    implementation 'com.marswars.frc:MWLib-java:1.0.0'
+    implementation 'com.github.frc-team-4143:mw-lib-java:26.18.0'
 }
 ```
 
-And add the Maven repository:
+And add the Maven repository (GitHub Packages needs a token with `read:packages`):
 
 ```gradle
 repositories {
@@ -48,6 +48,18 @@ repositories {
     }
 }
 ```
+
+Projects that can't hold a token (the Scriptum lessons, for example) use the same release through
+JitPack, which builds every `vX.Y.Z` tag with no credentials:
+
+```gradle
+repositories { maven { url = 'https://jitpack.io' } }
+dependencies { implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:26.18.0' }
+```
+
+Versions are `YY.minor.patch` (`26.18.0` is the 2026 season's 18th feature release); tags carry a `v`.
+Robot projects that want to build against a local checkout instead of a release use mainbot's
+`local.properties` / `mwlibLocal=true` composite build (see its README).
 
 **Note**: For GitHub Packages, you need a GitHub Personal Access Token with `read:packages` permission.
 
@@ -81,18 +93,18 @@ This library uses GitHub Actions for automated CI/CD:
 - **Build artifacts** are generated and uploaded
 
 ### Publishing Releases
-1. **Create a tag**: `git tag v1.0.0 && git push origin v1.0.0`
-2. **Create GitHub release** from the tag
-3. **GitHub Action automatically**:
-   - Builds the library with the release version
-   - Publishes to GitHub Packages
-   - Attaches `MWLib.json` vendor dependency to the release
-    - Publishes Javadocs to GitHub Pages (`https://frc-team-4143.github.io/MW-Lib/`)
+Releases are cut from `develop` by the **Make Release** workflow; nothing is tagged by hand.
 
-### Manual Publishing
-You can also trigger publishing manually:
-- Go to **Actions** → **Build and Publish** → **Run workflow**
-- Check "Force publish to GitHub Packages"
+1. Merge the work into `develop` (PR, CI green).
+2. **Actions** → **Make Release** → **Run workflow**, enter the version (`26.18.0`, no `v`).
+3. The workflow builds `develop` with that version, runs the tests, publishes `mw-lib-java` to
+   GitHub Packages, tags `v26.18.0`, creates the GitHub Release (JARs attached, release notes from
+   the commits) and publishes the Javadoc to `https://frc-team-4143.github.io/MW-Lib/`.
+4. JitPack builds the new tag on first request; check
+   `https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/26.18.0/build.log`.
+
+Put breaking changes (removed classes, renamed keys) in the PR description so they land in the
+release notes. `publish.sh` / `PUBLISHING.md` cover publishing a local build by hand for testing.
 
 ## Usage
 
@@ -162,20 +174,35 @@ public class RobotContainer extends MwSuperStateMachine<RobotStates> {
         reset(); // leave as the last line
     }
 
-    // A sequence: wanting SCORE walks through the step states AIM and SPIN_UP first.
+    // The transition table: switch on where we are, then on what was asked. Every condition
+    // lives here; updateLogic below has none. Wanting SCORE walks through the step states
+    // AIM and SPIN_UP first (nothing requests those directly).
     @Override
     protected void handleStateTransition(RobotStates wanted) {
-        if (wanted != RobotStates.SCORE) {
-            system_state_ = wanted;
-            return;
-        }
         switch (system_state_) {
-            case AIM -> { if (drive.isAimed()) system_state_ = RobotStates.SPIN_UP; }
-            case SPIN_UP -> { if (shooter.isReady()) system_state_ = RobotStates.SCORE; }
-            case SCORE -> {}
-            default -> {
-                if (!shooter.hasPiece()) failWantedState(); // autos see FAILURE
-                else system_state_ = RobotStates.AIM;
+            case AIM -> {
+                switch (wanted) {
+                    case SCORE -> { if (drive.isAimed()) system_state_ = RobotStates.SPIN_UP; }
+                    case DRIVE, IDLE -> system_state_ = wanted;
+                    default -> {}
+                }
+            }
+            case SPIN_UP -> {
+                switch (wanted) {
+                    case SCORE -> { if (shooter.isReady()) system_state_ = RobotStates.SCORE; }
+                    case DRIVE, IDLE -> system_state_ = wanted;
+                    default -> {}
+                }
+            }
+            case IDLE, DRIVE, SCORE -> {
+                switch (wanted) {
+                    case SCORE -> {
+                        if (shooter.hasPiece()) system_state_ = RobotStates.AIM;
+                        else failWantedState(); // autos see FAILURE
+                    }
+                    case DRIVE, IDLE -> system_state_ = wanted;
+                    default -> {}
+                }
             }
         }
     }
@@ -208,7 +235,7 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 | API | What it does |
 |---|---|
 | `setWantedState(s)` / `getWantedState()` / `getSystemState()` | Same as `MwSubsystem` |
-| `handleStateTransition(wanted)` | Override it for guards, enter/exit actions and step states. The default goes straight to `wanted` |
+| `handleStateTransition(wanted)` | The transition table: every condition lives here (guards, step states, decided values). No enter/exit actions. The default goes straight to `wanted` |
 | `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
 | `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |
 | `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
@@ -220,7 +247,7 @@ keys are `Robot/WantedState` and `Robot/State`.
 ## Behavior-tree autos
 
 `com.marswars.bt` runs autos written as [BehaviorTree.CPP v4](https://www.behaviortree.dev/) XML
-files, which open in Groot2 and the BT editor. Each `<Name>.xml` file in a robot project's autos
+files, which open in [Arbor](https://github.com/coalman321/Arbor) (our tree editor and live viewer) and Groot2. Each `<Name>.xml` file in a robot project's autos
 folder becomes an auto in the chooser, except library files (several trees and no
 `main_tree_to_execute`, such as a shared `common.xml`), which autos pull in with `<include>`. mainbot's `src/main/deploy/autos/README.md` is
 the guide to writing them.
@@ -232,10 +259,11 @@ BehaviorTreeFactory factory = new BehaviorTreeFactory();      // BT.CPP built-in
 SwerveNodes.register(factory, SwerveSubsystem::getInstance);  // MW-Lib swerve nodes
 RobotStateNodes.register(factory, RobotContainer::getInstance, RobotStates.class); // SetWantedState
 
+// deploy/autos is an Arbor project: bt_project.json, nodes.xml and the trees/ folder
 AutoManager.getInstance().registerAutos(BehaviorTreeAuto.loadAll(
-        factory, Filesystem.getDeployDirectory().toPath().resolve("autos")));
-BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for the BT editor
-BehaviorTreeFileLogger.enableDefault();                  // one .btlog (Groot2 format) per run
+        factory, Filesystem.getDeployDirectory().toPath().resolve("autos/trees")));
+BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for Arbor (port 1670)
+BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogger2 format) per run
 ```
 
 **What's included:**
@@ -249,7 +277,7 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog (Groot2 f
 | `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
 | `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
-| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Groot2 or the BT editor |
+| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
 
 **Node palette.** MW-Lib's shared nodes ship as `com/marswars/bt/mwlib_nodes.xml`. A robot's

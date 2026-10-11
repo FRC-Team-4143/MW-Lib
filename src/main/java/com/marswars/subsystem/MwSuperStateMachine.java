@@ -87,8 +87,11 @@ public abstract class MwSuperStateMachine<S extends Enum<S>> extends SubsystemMa
 
     /**
      * Moves from the current state toward the wanted state. Called once per loop before {@link
-     * #updateLogic(double)}. The default goes straight to the wanted state; override it to add
-     * guards (stay in a state until something is ready) or enter/exit actions.
+     * #updateLogic(double)}. The default goes straight to the wanted state. Override it as the
+     * transition table: switch on the current state, then on {@code wanted}; every condition lives
+     * here (guards, step states, values decided from sensors into fields that {@link #updateLogic}
+     * reads), and nothing else does. There are no enter/exit actions: a state asks for what it
+     * needs every loop.
      *
      * @param wanted the state that was last requested
      */

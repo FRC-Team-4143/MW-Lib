@@ -14,7 +14,7 @@ import java.nio.file.Files;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The node-spec ({@code <TreeNodesModel>}) format the BT editor consumes. */
+/** The node-spec ({@code <TreeNodesModel>}) format Arbor consumes. */
 class NodeSpecFormatTest {
 
     /** Node-spec documents have no {@code <BehaviorTree>}; parse their models only. */

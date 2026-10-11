@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Records each behavior-tree run to a {@code .btlog} file in BehaviorTree.CPP's {@code
- * FileLogger2} format, which Groot2 and the BT editor replay.
+ * FileLogger2} format, which Arbor and Groot2 replay.
  *
  * <p>File layout, all integers little-endian:
  *
