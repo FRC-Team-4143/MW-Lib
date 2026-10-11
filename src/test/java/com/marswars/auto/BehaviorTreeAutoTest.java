@@ -113,6 +113,14 @@ class BehaviorTreeAutoTest {
         assertTrue(auto.getError().contains("unknown port 'bogus'"), auto.getError());
         assertEquals(List.of("P2", "P3"), auto.getTrajectoryNames(), "last good tree kept");
 
+        // A pointer nothing sets (a typo in a tunable's name) is a load error too, not a null
+        // mid-auto; the auto's own seeded root keys ({@auto}) are fine.
+        Files.writeString(file, doc("<Follow trajectory=\"P2\" speed=\"{sped}\"/>", ""));
+        assertFalse(auto.reload());
+        assertTrue(auto.getError().contains("reads {sped}, which nothing sets"), auto.getError());
+        Files.writeString(file, doc("<Follow trajectory=\"P2\" speed=\"{@auto}\"/>", ""));
+        assertTrue(auto.reload(), auto.getError());
+
         BehaviorTree tree = auto.buildTree();
         assertEquals("MyAuto", tree.getBlackboard().get("auto"));
         assertTrue(tree.getBlackboard().get("trajectories") instanceof Function<?, ?>);

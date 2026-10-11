@@ -40,6 +40,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -530,6 +531,185 @@ public final class BehaviorTreeFactory {
         node.setChild(build(target, ctx, child_bb, path + "/", stack));
         stack.pop();
         return node;
+    }
+
+    /**
+     * Static check that every {@code {key}} an input port reads can exist when the tree runs: a
+     * parameter of the tree (a port declared for it in {@code <TreeNodesModel>} with a default, or
+     * one the calling {@code <SubTree>} passes), a key some node in the same tree writes through an
+     * output port ({@code SetBlackboard}'s {@code output_key}, a node output), a parent key under
+     * {@code _autoremap}, or a root key ({@code {@key}}) the robot code pre-populated. Without this
+     * a typo in a pointer only shows up as a null value when the node ticks, mid-auto.
+     *
+     * <p>Separate from {@link #createTree} because a tree built in code is free to fill its
+     * blackboard after construction; autos loaded from XML ({@code BehaviorTreeAuto}) run it on
+     * every load with the root blackboard a run would start from. Call it after {@code createTree}
+     * so unknown nodes and ports are reported first.
+     */
+    public void checkBlackboardFlow(TreeSpec spec, Blackboard root) {
+        BuildContext ctx = new BuildContext(spec);
+        // What the main tree starts with: the root keys the caller seeded, plus the defaults of
+        // its declared ports (createTree seeds those too).
+        Set<String> known = new HashSet<>(root.localKeys());
+        ctx.treeModel(spec.mainTreeId())
+                .ifPresent(
+                        m -> {
+                            for (PortInfo port : m.ports()) {
+                                if (port.defaultValue() != null) {
+                                    known.add(port.name());
+                                }
+                            }
+                        });
+        checkTreeFlow(spec.mainTreeId(), spec.mainTree(), ctx, known, known, new ArrayDeque<>());
+    }
+
+    private void checkTreeFlow(
+            String treeId,
+            NodeSpec body,
+            BuildContext ctx,
+            Set<String> known,
+            Set<String> rootKnown,
+            Deque<String> stack) {
+        if (stack.contains(treeId)) {
+            return; // recursion is reported by build()
+        }
+        stack.push(treeId);
+        // Writes anywhere in the tree count everywhere in it (a Repeat reads on its second pass what
+        // a later sibling wrote on its first), so collect them before checking the reads.
+        Set<String> scope = new HashSet<>(known);
+        collectWrites(body, ctx, scope);
+        walkReads(body, ctx, scope, rootKnown, stack);
+        stack.pop();
+    }
+
+    /** Keys this tree body writes: output/inout pointer ports, and SubTree output ports mapped
+     * onto a key of this tree. */
+    private void collectWrites(NodeSpec node, BuildContext ctx, Set<String> out) {
+        if (node.isSubTree()) {
+            Optional<NodeModel> model = ctx.treeModel(node.subtreeId());
+            for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
+                if ("_autoremap".equals(attr.getKey()) || !PortValues.isPointer(attr.getValue())) {
+                    continue;
+                }
+                PortDirection dir =
+                        model.flatMap(m -> m.port(attr.getKey()))
+                                .map(PortInfo::direction)
+                                .orElse(PortDirection.INPUT);
+                if (dir != PortDirection.INPUT) {
+                    out.add(PortValues.pointerKey(attr.getValue(), attr.getKey()));
+                }
+            }
+            return;
+        }
+        Registration reg = registry_.get(node.id());
+        if (reg != null) {
+            for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
+                if (!PortValues.isPointer(attr.getValue())) {
+                    continue;
+                }
+                reg.model()
+                        .port(attr.getKey())
+                        .filter(port -> port.direction() != PortDirection.INPUT)
+                        .ifPresent(
+                                port ->
+                                        out.add(
+                                                PortValues.pointerKey(
+                                                        attr.getValue(), port.name())));
+            }
+        }
+        for (NodeSpec child : node.children()) {
+            collectWrites(child, ctx, out);
+        }
+    }
+
+    private void walkReads(
+            NodeSpec node,
+            BuildContext ctx,
+            Set<String> known,
+            Set<String> rootKnown,
+            Deque<String> stack) {
+        if (node.isSubTree()) {
+            String sid = node.subtreeId();
+            Optional<NodeModel> model = ctx.treeModel(sid);
+            // What the subtree can read: every port the caller sets (literal or remapped), the
+            // defaults of its declared ports, and under _autoremap everything the caller knows.
+            Set<String> child_known = new HashSet<>();
+            boolean autoremap = false;
+            for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
+                String key = attr.getKey();
+                String value = attr.getValue();
+                if ("_autoremap".equals(key)) {
+                    autoremap = Boolean.TRUE.equals(
+                            PortValues.parseLiteral(value, Boolean.class, "_autoremap"));
+                    continue;
+                }
+                child_known.add(key);
+                if (PortValues.isPointer(value)) {
+                    PortDirection dir =
+                            model.flatMap(m -> m.port(key))
+                                    .map(PortInfo::direction)
+                                    .orElse(PortDirection.INPUT);
+                    if (dir == PortDirection.INPUT) {
+                        requireKnown(node, key, value, known, rootKnown);
+                    }
+                }
+            }
+            model.ifPresent(
+                    m -> {
+                        for (PortInfo port : m.ports()) {
+                            if (port.defaultValue() != null) {
+                                child_known.add(port.name());
+                            }
+                        }
+                    });
+            if (autoremap) {
+                child_known.addAll(known);
+            }
+            NodeSpec target = ctx.lookupTree(sid);
+            if (target != null) {
+                checkTreeFlow(sid, target, ctx, child_known, rootKnown, stack);
+            }
+            return;
+        }
+        Registration reg = registry_.get(node.id());
+        if (reg != null) {
+            for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
+                if (!PortValues.isPointer(attr.getValue())) {
+                    continue;
+                }
+                reg.model()
+                        .port(attr.getKey())
+                        .filter(port -> port.direction() == PortDirection.INPUT)
+                        .ifPresent(
+                                port ->
+                                        requireKnown(
+                                                node, port.name(), attr.getValue(), known, rootKnown));
+            }
+        }
+        for (NodeSpec child : node.children()) {
+            walkReads(child, ctx, known, rootKnown, stack);
+        }
+    }
+
+    private void requireKnown(
+            NodeSpec node, String port, String pointer, Set<String> known, Set<String> rootKnown) {
+        String key = PortValues.pointerKey(pointer, port);
+        boolean ok =
+                key.startsWith(String.valueOf(Blackboard.ROOT_PREFIX))
+                        ? rootKnown.contains(key.substring(1))
+                        : known.contains(key);
+        if (!ok) {
+            throw error(
+                    node,
+                    null,
+                    "port '"
+                            + port
+                            + "' reads {"
+                            + key
+                            + "}, which nothing sets: declare it as a port of this tree in"
+                            + " <TreeNodesModel> (with a default), pass it from the <SubTree> that"
+                            + " calls this tree, or write it with an output port first");
+        }
     }
 
     /** Sets each defaulted port of {@code model} not in {@code given} and not already present. */

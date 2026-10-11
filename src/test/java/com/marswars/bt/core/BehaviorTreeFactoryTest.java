@@ -129,6 +129,70 @@ class BehaviorTreeFactoryTest {
                         + "<BehaviorTree ID=\"B\"><AlwaysSuccess/></BehaviorTree></root>");
     }
 
+    /** The blackboard-flow check (separate from createTree): every {key} an input reads has a
+     * source. */
+    @Test
+    void blackboardPointersMustHaveASource() {
+        assertFlowError("reads {nope}, which nothing sets", doc("<RecordInput value=\"{nope}\"/>"));
+        assertFlowError("reads {typo}, which nothing sets", doc("<IsEven n=\"{typo}\"/>"));
+        // createTree itself stays permissive: code may fill the blackboard after building
+        factory.createTreeFromText(doc("<RecordInput value=\"{nope}\"/>"));
+
+        String params = "<TreeNodesModel><SubTree ID=\"Main\">"
+                + "<input_port name=\"p\" type=\"std::string\" default=\"a\"/>"
+                + "<input_port name=\"q\" type=\"std::string\"/>"
+                + "</SubTree><SubTree ID=\"Sub\">"
+                + "<input_port name=\"v\" type=\"std::string\"/>"
+                + "<input_port name=\"d\" type=\"std::string\" default=\"x\"/>"
+                + "<output_port name=\"result\" type=\"std::string\"/>"
+                + "</SubTree></TreeNodesModel>";
+        String sub = "<BehaviorTree ID=\"Sub\"><Sequence><RecordInput value=\"{v}\"/>"
+                + "<RecordInput value=\"{d}\"/><SetBlackboard output_key=\"{result}\" value=\"r\"/>"
+                + "</Sequence></BehaviorTree>";
+        java.util.function.Function<String, String> main =
+                body -> "<root BTCPP_format=\"4\" main_tree_to_execute=\"Main\">"
+                        + "<BehaviorTree ID=\"Main\">" + body + "</BehaviorTree>" + sub + params + "</root>";
+
+        // a tree parameter with a default, a value written earlier by SetBlackboard, a port passed
+        // to a subtree, a subtree output mapped back, and _autoremap all count as sources
+        checkFlow(main.apply("<RecordInput value=\"{p}\"/>"));
+        checkFlow(main.apply(
+                "<Sequence><SetBlackboard output_key=\"{x}\" value=\"1\"/><RecordInput value=\"{x}\"/></Sequence>"));
+        checkFlow(main.apply(
+                "<Sequence><SubTree ID=\"Sub\" v=\"{p}\" result=\"{r}\"/><RecordInput value=\"{r}\"/></Sequence>"));
+        checkFlow(main.apply("<SubTree ID=\"Sub\" v=\"literal\"/>"));
+        checkFlow(main.apply(
+                "<Sequence><SetBlackboard output_key=\"{v}\" value=\"1\"/><SubTree ID=\"Sub\" _autoremap=\"true\"/></Sequence>"));
+        // a Repeat may read on its second pass what a later sibling wrote on the first
+        checkFlow(main.apply(
+                "<Repeat num_cycles=\"2\"><Sequence><RecordInput value=\"{p}\"/>"
+                        + "<SetBlackboard output_key=\"{later}\" value=\"1\"/><RecordInput value=\"{later}\"/></Sequence></Repeat>"));
+        // a root key the robot code pre-populated
+        Blackboard root = Blackboard.createRoot();
+        root.set("seeded", "yes");
+        factory.checkBlackboardFlow(BtXmlParser.parse(main.apply("<RecordInput value=\"{@seeded}\"/>")), root);
+
+        // a tree parameter without a default is never set
+        assertFlowError("reads {q}, which nothing sets", main.apply("<RecordInput value=\"{q}\"/>"));
+        // a subtree port the caller didn't pass (and that has no default)
+        assertFlowError("reads {v}, which nothing sets", main.apply("<SubTree ID=\"Sub\"/>"));
+        // passing a pointer the caller itself doesn't have
+        assertFlowError("reads {missing}, which nothing sets", main.apply("<SubTree ID=\"Sub\" v=\"{missing}\"/>"));
+        // a root key nobody seeded
+        assertFlowError("reads {@nobody}, which nothing sets", main.apply("<RecordInput value=\"{@nobody}\"/>"));
+    }
+
+    private void checkFlow(String xml) {
+        factory.checkBlackboardFlow(BtXmlParser.parse(xml), Blackboard.createRoot());
+    }
+
+    private void assertFlowError(String expected, String xml) {
+        BtException e = assertThrows(BtException.class, () -> checkFlow(xml));
+        assertTrue(
+                e.getMessage().contains(expected),
+                "expected '" + expected + "' in: " + e.getMessage());
+    }
+
     private void assertError(String expected, String xml) {
         BtException e = assertThrows(BtException.class, () -> factory.createTreeFromText(xml));
         assertTrue(

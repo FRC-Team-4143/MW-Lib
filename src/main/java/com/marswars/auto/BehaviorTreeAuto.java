@@ -242,8 +242,14 @@ public class BehaviorTreeAuto extends Auto {
         TreeSpec spec;
         try {
             spec = BtXmlParser.parse(xml, base_dir_);
-            // Instantiate once to validate IDs/ports/arity now rather than at enable time.
-            factory_.createTree(spec, Blackboard.createRoot(), xml);
+            // Instantiate once to validate IDs/ports/arity now rather than at enable time, then
+            // check that every {key} the tree reads has a source, with the root keys a run seeds.
+            Blackboard root = Blackboard.createRoot();
+            factory_.createTree(spec, root, xml);
+            Function<String, ChoreoTrajectory> resolver = name -> getTrajectory(name).get();
+            root.set(TRAJECTORIES_KEY, resolver);
+            root.set(AUTO_NAME_KEY, getName());
+            factory_.checkBlackboardFlow(spec, root);
         } catch (RuntimeException e) {
             setError(e.getMessage());
             return false;
