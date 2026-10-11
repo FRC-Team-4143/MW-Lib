@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Follow needs a trajectory; this one names none. -->
-<root BTCPP_format="4" main_tree_to_execute="MissingRequiredPort">
-  <BehaviorTree ID="MissingRequiredPort">
-    <Follow/>
-  </BehaviorTree>
-</root>

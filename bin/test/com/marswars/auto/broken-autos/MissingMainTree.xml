@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Two trees and no main_tree_to_execute: the file does not say which one is the auto. -->
-<root BTCPP_format="4">
-  <BehaviorTree ID="One"><Follow trajectory="P1"/></BehaviorTree>
-  <BehaviorTree ID="Two"><Follow trajectory="P2"/></BehaviorTree>
-</root>
