@@ -61,7 +61,7 @@ public class RobotContainer extends MwSuperStateMachine<RobotStates> {
 
     @Override
     protected void updateLogic(double timestamp) {
-        switch (getSystemState()) {
+        switch (system_state_) {
             case DRIVE -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.IDLE); }
             case AIM -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.IDLE); }
             case SPIN_UP -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.SPIN_UP); }

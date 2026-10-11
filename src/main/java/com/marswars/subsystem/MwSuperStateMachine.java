@@ -29,7 +29,7 @@ import java.util.List;
  *
  *     @Override
  *     protected void updateLogic(double timestamp) {
- *         switch (getSystemState()) {
+ *         switch (system_state_) {
  *             case IDLE -> { drive.setWantedState(DriveStates.IDLE); shooter.setWantedState(ShooterStates.IDLE); }
  *             case DRIVE -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.IDLE); }
  *             case SHOOT -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.SHOOT); }
