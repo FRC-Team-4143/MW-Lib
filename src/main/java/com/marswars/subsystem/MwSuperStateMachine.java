@@ -109,7 +109,7 @@ public abstract class MwSuperStateMachine<S extends Enum<S>> extends SubsystemMa
 
     /** DO NOT OVERRIDE. Runs the robot state machine before the subsystems update. */
     @Override
-    protected final void beforeSubsystems(double timestamp) {
+    protected final void update(double timestamp) {
         MwLog.log(LOG_KEY + "WantedState", wanted_state_);
         handleStateTransition(wanted_state_);
 

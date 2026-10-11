@@ -76,7 +76,7 @@ public abstract class SubsystemManager {
 
         // Let a coordinator (see MwSuperStateMachine) request subsystem states first, so its
         // requests take effect in this same loop
-        beforeSubsystems(MwLog.timestampSeconds());
+        update(MwLog.timestampSeconds());
 
         // For each subsystem run its update loop
         for (MwSubsystemBase subsystem : subsystems) {
@@ -114,12 +114,13 @@ public abstract class SubsystemManager {
     }
 
     /**
-     * Runs once per loop after tunables are polled and before any subsystem updates. Does nothing by
-     * default; {@link MwSuperStateMachine} uses it to run the robot-level state machine.
+     * The manager's own update, named like a subsystem's: runs once per loop after tunables are
+     * polled and before any subsystem updates. Does nothing by default; {@link MwSuperStateMachine}
+     * overrides it to run the robot-level state machine.
      *
      * @param timestamp the loop timestamp in seconds
      */
-    protected void beforeSubsystems(double timestamp) {}
+    protected void update(double timestamp) {}
 
     /**
      * If subsystems all need to be reset before a robot mode change, call this function to cleanly
