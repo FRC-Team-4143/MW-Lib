@@ -63,7 +63,7 @@ public class BehaviorTreeCommand extends Command {
             return;
         }
         monitor_.publishError("");
-        monitor_.publishTree(tree_);
+        monitor_.publishStart(tree_);
         monitor_.publishActive(getName());
         BtLiveServer.active().ifPresent(server -> server.attach(tree_));
         file_log_ =

@@ -1,10 +1,7 @@
 package com.marswars.bt.monitor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.marswars.bt.core.BehaviorTree;
 import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.support.FakeClock;
@@ -35,26 +32,15 @@ class BehaviorTreeMonitorTest {
     }
 
     @Test
-    void publishesStructureXmlAndStatusOverNt() {
+    void publishesStatusOverNt() {
         BehaviorTree tree = new BehaviorTreeFactory(clock).createTreeFromText(XML);
         BehaviorTreeMonitor monitor =
                 new BehaviorTreeMonitor("Demo", new BehaviorTreeMonitor.NtSink(nt));
         StringSubscriber status = nt.getStringTopic("/BehaviorTree/Demo/Status").subscribe("");
-        StringSubscriber structure =
-                nt.getStringTopic("/BehaviorTree/Demo/Structure").subscribe("");
-        StringSubscriber xml = nt.getStringTopic("/BehaviorTree/Demo/Xml").subscribe("");
 
-        monitor.publishTree(tree);
+        monitor.publishStart(tree);
         nt.flushLocal();
         assertEquals("III", status.get());
-        assertEquals(XML, xml.get());
-        JsonObject s = JsonParser.parseString(structure.get()).getAsJsonObject();
-        assertEquals("Main", s.get("tree_id").getAsString());
-        JsonObject first = s.getAsJsonArray("nodes").get(0).getAsJsonObject();
-        assertEquals("Sequence", first.get("type").getAsString());
-        assertEquals("seq", first.get("name").getAsString());
-        assertTrue(first.get("parent").isJsonNull());
-        assertEquals(1, s.getAsJsonArray("nodes").get(1).getAsJsonObject().get("parent").getAsInt());
 
         tree.tickOnce();
         monitor.publishStatus(tree);
@@ -68,7 +54,7 @@ class BehaviorTreeMonitorTest {
         List<String> writes = new ArrayList<>();
         BehaviorTreeMonitor monitor =
                 new BehaviorTreeMonitor("Demo", (k, v) -> writes.add(k + "=" + v));
-        monitor.publishTree(tree);
+        monitor.publishStart(tree);
         writes.clear();
         tree.tickOnce();
         monitor.publishStatus(tree);

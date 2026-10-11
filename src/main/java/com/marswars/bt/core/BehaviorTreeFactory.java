@@ -1,9 +1,5 @@
 package com.marswars.bt.core;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.marswars.bt.action.AlwaysFailureNode;
 import com.marswars.bt.action.AlwaysSuccessNode;
 import com.marswars.bt.action.RunCommandNode;
@@ -289,41 +285,6 @@ public final class BehaviorTreeFactory {
         for (NodeSpec c : node.children()) {
             collectIds(c, out);
         }
-    }
-
-    /** JSON array of every model, with ports, defaults and enum choices (for tools/editors). */
-    public String nodeModelsJson() {
-        JsonArray array = new JsonArray();
-        for (NodeModel m : getNodeModels()) {
-            JsonObject o = new JsonObject();
-            o.addProperty("id", m.id());
-            o.addProperty("category", m.kind().xmlTag());
-            o.addProperty("builtin", m.builtin());
-            o.addProperty("origin", m.origin().name().toLowerCase());
-            o.addProperty("description", m.description());
-            JsonArray ports = new JsonArray();
-            for (PortInfo p : m.ports()) {
-                JsonObject po = new JsonObject();
-                po.addProperty("name", p.name());
-                po.addProperty("direction", p.direction().name().toLowerCase());
-                po.addProperty("type", p.xmlType());
-                if (p.defaultValue() != null) {
-                    po.addProperty("default", p.defaultValue());
-                }
-                po.addProperty("required", p.required());
-                po.addProperty("description", p.description());
-                if (!p.choices().isEmpty()) {
-                    JsonArray choices = new JsonArray();
-                    p.choices().forEach(choices::add);
-                    po.add("choices", choices);
-                }
-                ports.add(po);
-            }
-            o.add("ports", ports);
-            array.add(o);
-        }
-        Gson gson = new GsonBuilder().disableHtmlEscaping().create();
-        return gson.toJson(array);
     }
 
     // ------------------------------------------------------------------ tree definitions

@@ -232,14 +232,6 @@ class BehaviorTreeFactoryTest {
     }
 
     @Test
-    void modelsJsonHasChoicesAndDefaults() {
-        String json = factory.nodeModelsJson();
-        assertTrue(json.contains("\"id\":\"SetMode\""));
-        assertTrue(json.contains("\"choices\":[\"STORE\",\"INTAKE\"]"));
-        assertTrue(json.contains("\"name\":\"success_count\",\"direction\":\"input\",\"type\":\"int\",\"default\":\"-1\""));
-    }
-
-    @Test
     void modelsUsedByListsOnlyCustomNodes() {
         var spec = BtXmlParser.parse(doc("<Sequence><SetMode state=\"STORE\"/><AlwaysSuccess/></Sequence>"));
         assertEquals(List.of("SetMode"),

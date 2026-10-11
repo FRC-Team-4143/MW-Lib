@@ -271,7 +271,6 @@ public class BehaviorTreeAuto extends Auto {
             message_log_.accept("[BehaviorTree] " + getName() + ": " + warning);
         }
         setError("");
-        monitor_.publishXml(xml);
         return true;
     }
 
