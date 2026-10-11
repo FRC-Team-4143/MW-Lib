@@ -89,6 +89,15 @@ public final class AutoTrajectories {
         }
     }
 
+    /** Uses a tree's trajectories: the loaded set, or just their names when not loaded yet. */
+    void use(List<String> names, Map<String, ChoreoTrajectory> loaded) {
+        if (loaded != null) {
+            replaceWith(loaded);
+        } else {
+            registerOnly(names);
+        }
+    }
+
     /** A loaded trajectory, looked up when the supplier is called. */
     public Supplier<ChoreoTrajectory> get(String name) {
         return () -> {

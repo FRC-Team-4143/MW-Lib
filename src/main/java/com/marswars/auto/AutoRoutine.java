@@ -17,13 +17,13 @@ public interface AutoRoutine {
 
     /**
      * Gets ready to run on this alliance: reads files, loads and flips paths. {@link AutoManager}
-     * calls it off the main robot thread, so it must not touch robot state, NetworkTables-backed
-     * objects or logs; anything like that goes in {@link #finishPrepare()}.
+     * calls it on a background thread, so it only computes; it must not change robot state,
+     * NetworkTables-backed objects or logs. It returns the step that puts the result in use (swap
+     * in the paths, publish errors, log inputs), which {@link AutoManager} runs on the robot thread.
      */
-    default void prepare(boolean is_red_alliance) {}
-
-    /** The main-thread half of {@link #prepare}: publish errors, log inputs, swap in the result. */
-    default void finishPrepare() {}
+    default Runnable prepare(boolean is_red_alliance) {
+        return () -> {};
+    }
 
     /** Where the robot starts (the first path's first pose), or {@link Pose2d#kZero}. */
     default Pose2d getStartPose() {

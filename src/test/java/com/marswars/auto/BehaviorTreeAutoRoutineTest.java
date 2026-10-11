@@ -104,15 +104,15 @@ class BehaviorTreeAutoRoutineTest {
     }
 
     @Test
-    void aBackgroundPrepareChangesNothingUntilTheRobotThreadFinishesIt() {
+    void aBackgroundPrepareChangesNothingUntilItsStepRuns() {
         BehaviorTreeAuto auto = auto("<Step id=\"old\"/>");
         xml.set(doc("<Step id=\"new\"/>"));
-        auto.prepare(false); // what AutoManager runs on its loader thread
+        Runnable use = auto.prepare(false); // what AutoManager runs on its loader thread
         auto.start();
         auto.periodic();
-        assertEquals(List.of("old"), ran, "still the old tree before finishPrepare");
+        assertEquals(List.of("old"), ran, "still the old tree until the returned step runs");
         auto.stop(true);
-        auto.finishPrepare(); // robot thread
+        use.run(); // robot thread
         auto.start();
         auto.periodic();
         assertEquals("new", ran.get(ran.size() - 1));
@@ -124,8 +124,7 @@ class BehaviorTreeAutoRoutineTest {
         BehaviorTreeAuto auto = auto("<Step id=\"good\"/>");
         assertTrue(auto.isLoaded());
         xml.set(doc("<Follow trajectory=\"Nowhere\"/>"));
-        auto.prepare(true);
-        auto.finishPrepare();
+        auto.prepare(true).run();
         assertTrue(auto.getError().contains("Nowhere"), auto.getError());
         auto.start();
         auto.periodic();

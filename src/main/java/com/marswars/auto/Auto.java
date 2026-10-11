@@ -77,10 +77,11 @@ public class Auto extends SequentialCommandGroup implements AutoRoutine {
 
   // ------------------------------------------------------------------ AutoRoutine
 
-  /** Loads the paths; safe off the main thread (it only reads files). */
+  /** Loads and flips the paths off the robot thread; the returned step swaps them in. */
   @Override
-  public void prepare(boolean is_red_alliance) {
-    cacheTrajetories(is_red_alliance);
+  public Runnable prepare(boolean is_red_alliance) {
+    Map<String, ChoreoTrajectory> loaded = AutoTrajectories.load(paths_.names(), is_red_alliance);
+    return () -> paths_.replaceWith(loaded);
   }
 
   @Override

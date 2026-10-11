@@ -63,7 +63,7 @@ class BehaviorTreeAutoTest {
                                 + "<BehaviorTree ID=\"Unused\"><Follow trajectory=\"Never\"/></BehaviorTree>");
         assertEquals(
                 List.of("P1", "P2", "Fixed", "P3"),
-                BehaviorTreeAuto.discoverTrajectoryNames(BtXmlParser.parse(xml), factory));
+                TrajectoryNames.discover(BtXmlParser.parse(xml), factory));
     }
 
     @Test
@@ -73,8 +73,8 @@ class BehaviorTreeAutoTest {
         Files.writeString(dir.resolve("notes.txt"), "x");
         Files.createDirectory(dir.resolve("sub.xml"));
         assertEquals(
-                List.of(dir.resolve("a.xml"), dir.resolve("b.xml")), BehaviorTreeAuto.listXml(dir));
-        assertEquals(List.of(), BehaviorTreeAuto.listXml(dir.resolve("missing")));
+                List.of(dir.resolve("a.xml"), dir.resolve("b.xml")), AutoFiles.listXml(dir));
+        assertEquals(List.of(), AutoFiles.listXml(dir.resolve("missing")));
     }
 
     @Test
@@ -87,7 +87,7 @@ class BehaviorTreeAutoTest {
         Files.writeString(dir.resolve("Broken.xml"), "<root BTCPP_format=\"4\"><BehaviorTree");
         assertEquals(
                 List.of(dir.resolve("Auto.xml"), dir.resolve("Broken.xml")),
-                BehaviorTreeAuto.listAutos(dir));
+                AutoFiles.listAutos(dir));
         assertEquals(
                 List.of("Auto", "Broken"),
                 BehaviorTreeAuto.loadAll(factory, dir).stream().map(a -> a.getName()).toList());
