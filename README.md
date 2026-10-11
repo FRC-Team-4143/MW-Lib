@@ -18,15 +18,8 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 
 ## Installation
 
-### Option 1: Vendor Dependency
-
-1. Download the `MWLib.json` vendordep file from the [latest release](https://github.com/FRC-Team-4143/MW-Lib/releases/latest)
-2. Place it in your robot project's `vendordeps/` directory
-3. Refresh your Gradle project
-
-### Option 2: JitPack (Recommended)
-
-JitPack builds every `vX.Y.Z` tag on first request, with no token or credentials. Add to your `build.gradle`:
+MW-Lib is published only through [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib), with no token
+or credentials. Add to your `build.gradle`:
 
 ```gradle
 repositories {
@@ -63,6 +56,9 @@ cd MW-Lib
 ./gradlew publishToMavenLocal
 ```
 
+To try an unreleased branch from another project, JitPack also builds any commit:
+`com.github.FRC-Team-4143.MW-Lib:mw-lib-java:<commit-sha>` (first request takes a few minutes).
+
 ## Development & Publishing
 
 This library uses GitHub Actions for automated CI/CD:
@@ -77,14 +73,13 @@ Releases are cut from `develop` by the **Make Release** workflow; nothing is tag
 
 1. Merge the work into `develop` (PR, CI green).
 2. **Actions** → **Make Release** → **Run workflow**, enter the version (`27.0.0`, no `v`).
-3. The workflow builds `develop` with that version, runs the tests, publishes `mw-lib-java` to
-   GitHub Packages, tags `v27.0.0`, creates the GitHub Release (JARs attached, release notes from
-   the commits) and publishes the Javadoc to `https://frc-team-4143.github.io/MW-Lib/`.
-4. JitPack builds the new tag on first request; check
-   `https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/27.0.0/build.log`.
+3. The workflow runs the tests on `develop`, tags `v27.0.0`, asks JitPack to build that tag and
+   waits until `mw-lib-java:27.0.0` resolves (a failed JitPack build fails the run and prints its
+   log), then creates the GitHub Release (notes from the commits) and publishes the Javadoc to
+   `https://frc-team-4143.github.io/MW-Lib/`.
 
-Put breaking changes (removed classes, renamed keys) in the PR description so they land in the
-release notes. `publish.sh` / `PUBLISHING.md` cover publishing a local build by hand for testing.
+JitPack reads `jitpack.yml` (JDK 17) and versions the build from the tag. Put breaking changes
+(removed classes, renamed keys) in the PR description so they land in the release notes.
 
 ## Documentation
 

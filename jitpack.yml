@@ -1,0 +1,3 @@
+# JitPack builds every tag on first request: com.github.FRC-Team-4143.MW-Lib:mw-lib-java:<tag>
+jdk:
+  - openjdk17
