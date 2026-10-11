@@ -105,7 +105,7 @@ The team documentation site has the longer how-to pages: [Robot development](htt
 - `com.marswars.util` - General utilities, including `RobotIdentity`
 - `com.marswars.subsystem` - Subsystem state machines and the robot super state machine (see [State machines](docs/state-machines.md))
 - `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](docs/behavior-tree-autos.md))
-- `com.marswars.auto` - `Auto`, `AutoManager` and `BehaviorTreeAuto`
+- `com.marswars.auto` - `AutoRoutine`, `AutoManager`, `BehaviorTreeAuto` and the command-based `Auto`
 
 ## Dependencies
 

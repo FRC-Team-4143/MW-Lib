@@ -13,10 +13,12 @@ import com.marswars.bt.core.PortValues;
 import com.marswars.bt.core.TreeSpec;
 import com.marswars.bt.monitor.BehaviorTreeCommand;
 import com.marswars.bt.monitor.BehaviorTreeMonitor;
+import com.marswars.bt.monitor.BehaviorTreeRunner;
 import com.marswars.bt.monitor.NetworkParameterStore;
 import com.marswars.bt.xml.BtXmlParser;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DataLogManager;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -67,13 +69,18 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  * auto loads, and its current value is written into the root blackboard at the start of every
  * run. No special node types are involved.
  *
- * <p>The XML is re-read whenever the auto is (re)selected or the alliance changes ({@link
- * #cacheTrajetories}), so copying a new file to the robot and re-selecting is enough to pick up
- * edits. The text is processed as an AdvantageKit input, so log replay rebuilds the same tree. A
- * file that fails to load keeps the last good version (if any), raises an {@link Alert}, and logs
- * {@code BehaviorTree/<name>/Error}.
+ * <p>The XML is re-read whenever the auto is (re)selected or the alliance changes, so copying a new
+ * file to the robot and re-selecting is enough to pick up edits. {@link AutoManager} does that in
+ * two halves: {@link #prepare} (on a background thread: read, parse, validate, load and flip the
+ * paths) and {@link #finishPrepare} (on the robot thread: log the text as an AdvantageKit input, so
+ * log replay rebuilds the same tree, publish errors and tunables, swap the result in). A file that
+ * fails to load keeps the last good version (if any), raises an {@link Alert}, and logs {@code
+ * BehaviorTree/<name>/Error}.
+ *
+ * <p>It is an {@link AutoRoutine}, not a WPILib command: the tree is ticked straight from the robot
+ * loop by a {@link BehaviorTreeRunner}. {@link #asCommand()} gives a command for compositions.
  */
-public class BehaviorTreeAuto extends Auto {
+public class BehaviorTreeAuto implements AutoRoutine {
     /** Root blackboard key of the {@code Function<String, ChoreoTrajectory>} resolver. */
     public static final String TRAJECTORIES_KEY = "trajectories";
     /** Root blackboard key holding this auto's name. */
@@ -85,12 +92,17 @@ public class BehaviorTreeAuto extends Auto {
     /** Shared dashboard-backed store; created lazily so unit tests never touch NetworkTables. */
     private static ParameterStore default_parameters_ = null;
 
+    private final String name_;
     private final BehaviorTreeFactory factory_;
     private final ParameterStore parameters_;
     private final Supplier<String> xml_source_;
     private final Path base_dir_;
     private final BehaviorTreeMonitor monitor_;
+    private final BehaviorTreeRunner runner_;
+    private final AutoTrajectories paths_ = new AutoTrajectories();
     private final XmlInputs inputs_ = new XmlInputs();
+    /** What the last {@link #prepare} produced, waiting for {@link #finishPrepare}. */
+    private volatile Prepared pending_ = null;
     private Alert alert_ = null;
 
     private TreeSpec spec_ = null;
@@ -135,10 +147,15 @@ public class BehaviorTreeAuto extends Auto {
         factory_ = Objects.requireNonNull(factory, "factory");
         xml_source_ = Objects.requireNonNull(xmlSource, "xmlSource");
         base_dir_ = baseDir;
-        setName(name);
+        name_ = Objects.requireNonNull(name, "name");
         monitor_ = new BehaviorTreeMonitor(name);
+        runner_ = new BehaviorTreeRunner(name, this::buildTree, monitor_);
         reload();
-        addCommands(new BehaviorTreeCommand(name, this::buildTree, monitor_));
+    }
+
+    @Override
+    public String getName() {
+        return name_;
     }
 
     /**
@@ -167,7 +184,7 @@ public class BehaviorTreeAuto extends Auto {
 
     /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
     public String parameterKey(String port) {
-        return "Autos/" + getName() + "/" + port;
+        return "Autos/" + name_ + "/" + port;
     }
 
     /**
@@ -221,64 +238,124 @@ public class BehaviorTreeAuto extends Auto {
 
     // ------------------------------------------------------------------ loading
 
-    /**
-     * Re-reads and validates the XML, and re-registers its trajectories. Keeps the last good tree
-     * on failure. Returns true when the new XML was accepted.
-     */
-    public synchronized boolean reload() {
-        String xml;
-        try {
-            inputs_.xml = xml_source_.get();
-        } catch (RuntimeException e) {
-            inputs_.xml = null;
-            setError("cannot read XML: " + e.getMessage());
+    /** One load of the XML, computed without touching shared state (see {@link #compute}). */
+    private record Prepared(
+            String xml,
+            TreeSpec spec,
+            String error,
+            List<String> trajectoryNames,
+            Map<String, ChoreoTrajectory> trajectories) {
+        static Prepared failed(String xml, String error) {
+            return new Prepared(xml, null, error, List.of(), null);
         }
-        Logger.processInputs(BehaviorTreeMonitor.PREFIX + getName(), inputs_);
-        xml = inputs_.xml;
-        if (xml == null) {
-            return false;
-        }
+    }
 
-        TreeSpec spec;
+    /**
+     * Parses and validates {@code xml}, finds its trajectories and, when {@code is_red_alliance} is
+     * not null, loads and flips them. Pure: no logging, NetworkTables or fields, so it can run on a
+     * background thread.
+     */
+    private Prepared compute(String xml, Boolean is_red_alliance) {
+        if (xml == null) {
+            return Prepared.failed(null, "no XML");
+        }
         try {
-            spec = BtXmlParser.parse(xml, base_dir_);
+            TreeSpec spec = BtXmlParser.parse(xml, base_dir_);
             // Instantiate once to validate IDs/ports/arity now rather than at enable time, then
             // check that every {key} the tree reads has a source, with the root keys a run seeds.
             Blackboard root = Blackboard.createRoot();
             factory_.createTree(spec, root, xml);
-            Function<String, ChoreoTrajectory> resolver = name -> getTrajectory(name).get();
+            Function<String, ChoreoTrajectory> resolver = name -> paths_.get(name).get();
             root.set(TRAJECTORIES_KEY, resolver);
-            root.set(AUTO_NAME_KEY, getName());
+            root.set(AUTO_NAME_KEY, name_);
             factory_.checkBlackboardFlow(spec, root);
+            List<String> names = discoverTrajectoryNames(spec, factory_);
+            Map<String, ChoreoTrajectory> loaded =
+                    is_red_alliance == null ? null : AutoTrajectories.load(names, is_red_alliance);
+            return new Prepared(xml, spec, "", names, loaded);
         } catch (RuntimeException e) {
-            setError(e.getMessage());
+            return Prepared.failed(xml, e.getMessage());
+        }
+    }
+
+    private Prepared readAndCompute(Boolean is_red_alliance) {
+        String xml;
+        try {
+            xml = xml_source_.get();
+        } catch (RuntimeException e) {
+            return Prepared.failed(null, "cannot read XML: " + e.getMessage());
+        }
+        return compute(xml, is_red_alliance);
+    }
+
+    /**
+     * Applies a load on the robot thread: logs the XML as an AdvantageKit input (in replay the
+     * logged text wins and is re-parsed), then keeps the new tree or, if it failed, the last good
+     * one. Returns true when the new XML was accepted.
+     */
+    private synchronized boolean commit(Prepared prepared, Boolean is_red_alliance) {
+        inputs_.xml = prepared.xml();
+        Logger.processInputs(BehaviorTreeMonitor.PREFIX + name_, inputs_);
+        if (!Objects.equals(inputs_.xml, prepared.xml())) {
+            prepared = compute(inputs_.xml, is_red_alliance);
+        }
+        if (prepared.spec() == null) {
+            setError(prepared.error());
             return false;
         }
-
-        spec_ = spec;
-        xml_ = xml;
+        spec_ = prepared.spec();
+        xml_ = prepared.xml();
         // Publish tree parameters now so they can be tuned while disabled, before the run.
-        for (PortInfo port : spec.mainTreeParameters()) {
+        for (PortInfo port : spec_.mainTreeParameters()) {
             if (port.defaultValue() != null) {
                 parameters_.value(parameterKey(port.name()), port);
             }
         }
-        trajectories_.clear();
-        for (String name : discoverTrajectoryNames(spec, factory_)) {
-            loadTrajectory(name);
+        if (prepared.trajectories() != null) {
+            paths_.replaceWith(prepared.trajectories());
+        } else {
+            paths_.registerOnly(prepared.trajectoryNames());
         }
-        for (String warning : spec.warnings()) {
-            message_log_.accept("[BehaviorTree] " + getName() + ": " + warning);
+        for (String warning : spec_.warnings()) {
+            message_log_.accept("[BehaviorTree] " + name_ + ": " + warning);
         }
         setError("");
         return true;
     }
 
-    /** Reloads the XML, then loads (and alliance-flips) its trajectories. */
+    /**
+     * Re-reads and validates the XML on the calling thread and registers its trajectory names (the
+     * files themselves load in {@link #prepare}). Keeps the last good tree on failure. Returns true
+     * when the new XML was accepted.
+     */
+    public boolean reload() {
+        return commit(readAndCompute(null), null);
+    }
+
+    /** Background half of a reload: read, parse, validate, load and flip the paths. */
     @Override
+    public void prepare(boolean is_red_alliance) {
+        Prepared prepared = readAndCompute(is_red_alliance);
+        pending_red_ = is_red_alliance;
+        pending_ = prepared;
+    }
+
+    /** Robot-thread half of a reload (see {@link #commit}). */
+    @Override
+    public void finishPrepare() {
+        Prepared prepared = pending_;
+        pending_ = null;
+        if (prepared != null) {
+            commit(prepared, pending_red_);
+        }
+    }
+
+    private volatile boolean pending_red_ = false;
+
+    /** Reloads the XML and loads (and alliance-flips) its trajectories, all on this thread. */
     public void cacheTrajetories(boolean is_red_alliance) {
-        reload();
-        super.cacheTrajetories(is_red_alliance);
+        prepare(is_red_alliance);
+        finishPrepare();
     }
 
     /** Builds a fresh tree for one run; the root blackboard carries the trajectory resolver. */
@@ -287,9 +364,9 @@ public class BehaviorTreeAuto extends Auto {
             throw new BtException(error_.isEmpty() ? "no tree loaded" : error_);
         }
         Blackboard root = Blackboard.createRoot();
-        Function<String, ChoreoTrajectory> resolver = name -> getTrajectory(name).get();
+        Function<String, ChoreoTrajectory> resolver = name -> paths_.get(name).get();
         root.set(TRAJECTORIES_KEY, resolver);
-        root.set(AUTO_NAME_KEY, getName());
+        root.set(AUTO_NAME_KEY, name_);
         for (PortInfo port : spec_.mainTreeParameters()) {
             if (port.defaultValue() != null) {
                 root.set(port.name(), parameters_.value(parameterKey(port.name()), port));
@@ -317,22 +394,59 @@ public class BehaviorTreeAuto extends Auto {
 
     /** Names of the trajectories this auto loads, in load order. */
     public List<String> getTrajectoryNames() {
-        synchronized (trajectories_) {
-            return List.copyOf(trajectories_.keySet());
-        }
+        return paths_.names();
+    }
+
+    @Override
+    public Pose2d getStartPose() {
+        return paths_.startPose();
+    }
+
+    @Override
+    public Pose2d[] getPath() {
+        return paths_.path();
+    }
+
+    // ------------------------------------------------------------------ running
+
+    /** Starts a run: a fresh tree from the current XML, ticked by {@link #periodic()}. */
+    @Override
+    public void start() {
+        runner_.start();
+    }
+
+    /** Ticks the tree once. Called every robot loop by the {@link AutoManager}. */
+    @Override
+    public void periodic() {
+        runner_.tick();
+    }
+
+    @Override
+    public void stop(boolean interrupted) {
+        runner_.stop(interrupted);
+    }
+
+    @Override
+    public boolean isRunning() {
+        return runner_.isRunning();
+    }
+
+    /** This auto as a WPILib command, for using the tree inside a command composition. */
+    public BehaviorTreeCommand asCommand() {
+        return new BehaviorTreeCommand(name_, this::buildTree, monitor_);
     }
 
     private void setError(String error) {
         error_ = error == null ? "" : error;
         monitor_.publishError(error_);
         if (!error_.isEmpty()) {
-            message_log_.accept("[BehaviorTree] " + getName() + ": " + error_);
+            message_log_.accept("[BehaviorTree] " + name_ + ": " + error_);
         }
         if (alert_ == null && !error_.isEmpty()) {
             alert_ = new Alert("", AlertType.kError);
         }
         if (alert_ != null) {
-            alert_.setText("BT auto " + getName() + ": " + error_);
+            alert_.setText("BT auto " + name_ + ": " + error_);
             alert_.set(!error_.isEmpty());
         }
     }

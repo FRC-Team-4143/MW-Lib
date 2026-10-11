@@ -20,6 +20,30 @@ BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for Arbor 
 BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogger2 format) per run
 ```
 
+**Running autos.** Autos are `AutoRoutine`s, and `AutoManager` runs them from the robot loop. A
+behavior tree is ticked directly; it is not a WPILib command and never touches the `CommandScheduler`:
+
+```java
+public void robotPeriodic() {
+    CommandScheduler.getInstance().run();
+    AutoManager.getInstance().periodic();   // ticks the running tree, prepares the selected auto
+    robot_container_.doControlLoop();       // after the tick, so requested states apply this loop
+}
+public void autonomousInit() { AutoManager.getInstance().start(); }
+public void disabledInit()   { AutoManager.getInstance().stop(); }
+public void teleopInit()     { AutoManager.getInstance().stop(); }
+```
+
+Preparing the selected auto (re-reading its XML, loading and alliance-flipping its Choreo paths)
+happens on a background `auto-loader` thread whenever the selection or alliance changes, so file I/O
+never stretches a robot loop. The result is swapped in on the robot thread. During log replay it all
+runs on the robot thread, so replay stays deterministic.
+
+**Command-based autos still work.** `Auto` (a `SequentialCommandGroup`) is an `AutoRoutine` that runs
+through the scheduler, and any command can be added with
+`AutoManager.getInstance().registerAuto("Name", command)`. Both kinds can sit in the same chooser. A
+tree can go inside a command composition with `behaviorTreeAuto.asCommand()`.
+
 **What's included:**
 
 | Piece | What it is |
@@ -29,7 +53,8 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogg
 | `ParallelDeadline` | MW-Lib control node: runs children together until the first one finishes, then halts the rest |
 | `bt.RobotStateNodes` | `SetWantedState` and `IsSystemState` for the robot's super state machine. Autos use the same robot states and sequences as teleop |
 | `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
-| `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
+| `auto.BehaviorTreeAuto` | An `AutoRoutine` loaded from XML, ticked by a `BehaviorTreeRunner` (no command). It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
+| `auto.AutoRoutine`, `AutoManager` | The routine interface and the chooser that prepares routines in the background and runs them from `periodic()`. `Auto` and `AutoRoutine.of(name, command)` keep command-based autos |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
 | `bt.monitor` | Logs `BehaviorTree/{Active}` and `BehaviorTree/<auto>/{Transitions,Result,Error}` through `MwLog` (`Transitions` is each node's status change since the last tick as `"<node>: <STATE>"`; only what AdvantageScope can show, the tree's shape is Arbor's job). `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |

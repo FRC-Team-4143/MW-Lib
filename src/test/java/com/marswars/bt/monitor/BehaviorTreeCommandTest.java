@@ -29,8 +29,8 @@ class BehaviorTreeCommandTest {
 
     @BeforeEach
     void setUp() {
-        saved_log = BehaviorTreeCommand.message_log_;
-        BehaviorTreeCommand.message_log_ = messages::add;
+        saved_log = BehaviorTreeRunner.message_log_;
+        BehaviorTreeRunner.message_log_ = messages::add;
         factory = new BehaviorTreeFactory(clock);
         factory.registerNodeType(
                 "Drive",
@@ -46,7 +46,7 @@ class BehaviorTreeCommandTest {
 
     @AfterEach
     void tearDown() {
-        BehaviorTreeCommand.message_log_ = saved_log;
+        BehaviorTreeRunner.message_log_ = saved_log;
     }
 
     BehaviorTreeCommand command(String body) {
