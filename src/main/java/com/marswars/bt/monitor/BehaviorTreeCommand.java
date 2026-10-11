@@ -81,7 +81,7 @@ public class BehaviorTreeCommand extends Command {
             last_status_ = NodeStatus.FAILURE;
             reportError("exception while ticking: " + e);
         }
-        monitor_.publishStatus(tree_);
+        monitor_.publishTransitions();
     }
 
     @Override
@@ -96,7 +96,8 @@ public class BehaviorTreeCommand extends Command {
             return;
         }
         tree_.haltTree();
-        monitor_.publishStatus(tree_);
+        monitor_.publishTransitions();
+        monitor_.detach();
         String result = interrupted ? "INTERRUPTED" : last_status_.name();
         monitor_.publishResult(result);
         if (file_log_ != null) {

@@ -31,7 +31,7 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogg
 | `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
 | `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
-| `bt.monitor` | Logs `BehaviorTree/{Active}` and `BehaviorTree/<auto>/{Status,Result,Error}` through `MwLog` (only what AdvantageScope can show; the tree's shape is Arbor's job). `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
+| `bt.monitor` | Logs `BehaviorTree/{Active}` and `BehaviorTree/<auto>/{Transitions,Result,Error}` through `MwLog` (`Transitions` is each node's status change since the last tick as `"<node>: <STATE>"`; only what AdvantageScope can show, the tree's shape is Arbor's job). `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
 
 **Node palette.** MW-Lib's shared nodes are generated from their registrations
