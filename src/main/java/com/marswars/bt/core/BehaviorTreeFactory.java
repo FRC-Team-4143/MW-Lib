@@ -524,6 +524,83 @@ public final class BehaviorTreeFactory {
         checkTreeFlow(spec.mainTreeId(), spec.mainTree(), ctx, known, known, new ArrayDeque<>());
     }
 
+    /**
+     * Parses {@code xml} and checks it the way a run will use it: builds the tree once (unknown
+     * nodes, bad ports, wrong child counts) and runs {@link #checkBlackboardFlow} against {@code
+     * root}, the blackboard a run starts with. Nothing is registered and the tree is thrown away.
+     *
+     * @param baseDir directory {@code <include>} paths resolve against (may be null)
+     * @throws BtException describing the first problem
+     */
+    public TreeSpec checkTree(String xml, Path baseDir, Blackboard root) {
+        TreeSpec spec = BtXmlParser.parse(xml, baseDir);
+        createTree(spec, root, xml);
+        checkBlackboardFlow(spec, root);
+        return spec;
+    }
+
+    /**
+     * Literal values given to ports of {@code type} in the main tree, in document order and without
+     * duplicates (for example every trajectory name an auto uses, so it can load them before it
+     * runs). SubTrees are expanded in place; a {@code {key}} inside a SubTree resolves to a literal
+     * its {@code <SubTree>} element passes for that key. Pointers with no literal are skipped.
+     */
+    public List<String> literalPortValues(TreeSpec spec, PortType type) {
+        Set<String> values = new LinkedHashSet<>();
+        if (spec.mainTreeId() != null && spec.trees().containsKey(spec.mainTreeId())) {
+            collectLiterals(spec.mainTree(), spec, type, Map.of(), new ArrayDeque<>(), values);
+        }
+        return List.copyOf(values);
+    }
+
+    private void collectLiterals(
+            NodeSpec node,
+            TreeSpec spec,
+            PortType type,
+            Map<String, String> literals,
+            Deque<String> stack,
+            Set<String> out) {
+        if (node.isSubTree()) {
+            NodeSpec target = spec.trees().get(node.subtreeId());
+            if (target == null || stack.contains(node.subtreeId())) {
+                return;
+            }
+            Map<String, String> inner = new HashMap<>();
+            node.attributes().forEach((port, raw) -> {
+                String value = literal(raw, port, literals);
+                if (value != null && !port.startsWith("_")) {
+                    inner.put(port, value);
+                }
+            });
+            stack.push(node.subtreeId());
+            collectLiterals(target, spec, type, inner, stack, out);
+            stack.pop();
+            return;
+        }
+        getNodeModel(node.id()).ifPresent(model -> {
+            for (PortInfo port : model.ports()) {
+                if (port.type() == type) {
+                    String raw = node.attributes().getOrDefault(port.name(), port.defaultValue());
+                    String value = literal(raw, port.name(), literals);
+                    if (value != null && !value.isBlank()) {
+                        out.add(value.trim());
+                    }
+                }
+            }
+        });
+        for (NodeSpec child : node.children()) {
+            collectLiterals(child, spec, type, literals, stack, out);
+        }
+    }
+
+    /** The literal {@code raw} stands for: itself, or what a {@code {key}} maps to (else null). */
+    private static String literal(String raw, String port, Map<String, String> literals) {
+        if (raw == null) {
+            return null;
+        }
+        return PortValues.isPointer(raw) ? literals.get(PortValues.pointerKey(raw, port)) : raw;
+    }
+
     private void checkTreeFlow(
             String treeId,
             NodeSpec body,

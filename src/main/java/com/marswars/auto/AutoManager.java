@@ -20,8 +20,7 @@ import java.util.Set;
  *       Chooser"; "Selected Auto Path" previews its paths.
  *   <li><b>Preparing:</b> when the selection or the alliance changes, the selected routine's
  *       {@link AutoRoutine#prepare} (reading files, loading and flipping paths) runs on a background
- *       thread and the step it returns runs on the robot thread ({@link AutoPreparer}). During log
- *       replay both run on the robot thread, so replay is unchanged.
+ *       thread and the step it returns runs on the robot thread ({@link AutoPreparer}).
  *   <li><b>Running:</b> {@link #start()} in {@code autonomousInit}; {@link #periodic()} every loop
  *       steps it (a behavior tree is ticked here, a command auto runs in the {@code
  *       CommandScheduler}); it is stopped when it finishes, when autonomous ends, or by {@link

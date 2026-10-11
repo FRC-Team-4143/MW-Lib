@@ -76,6 +76,34 @@ public final class BtXmlParser {
         return parseFile(file.toAbsolutePath().normalize(), new HashSet<>());
     }
 
+    /** Sorted {@code *.xml} files directly in {@code dir} (empty if it is missing). */
+    public static List<Path> listXml(Path dir) {
+        if (!Files.isDirectory(dir)) {
+            return List.of();
+        }
+        try (java.util.stream.Stream<Path> files = Files.list(dir)) {
+            return files.filter(p -> p.getFileName().toString().endsWith(".xml"))
+                    .filter(Files::isRegularFile)
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new BtXmlException("cannot list " + dir + ": " + e.getMessage(), 0);
+        }
+    }
+
+    /**
+     * True for a library file: one that parses but names no tree to run (no {@code
+     * main_tree_to_execute}), such as a {@code common.xml} of shared subtrees. A file that doesn't
+     * parse is not a library file, so callers still see it and its error.
+     */
+    public static boolean isLibraryFile(Path file) {
+        try {
+            return parse(file).mainTreeId().isEmpty();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     /** Parses XML text whose {@code <include>} paths resolve against {@code baseDir}. */
     public static TreeSpec parse(String xml, Path baseDir) {
         return parseText(xml, baseDir, new HashSet<>(), true);

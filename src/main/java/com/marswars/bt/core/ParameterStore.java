@@ -24,6 +24,27 @@ public interface ParameterStore {
      */
     Object value(String key, PortInfo port);
 
+    /**
+     * Creates an entry {@code prefix + port} (at its default) for each parameter the main tree
+     * declares, so it can be tuned before the tree runs.
+     */
+    default void publish(String prefix, TreeSpec spec) {
+        for (PortInfo port : spec.mainTreeParameters()) {
+            if (port.defaultValue() != null) {
+                value(prefix + port.name(), port);
+            }
+        }
+    }
+
+    /** Writes each main-tree parameter's current value into a run's root blackboard. */
+    default void seed(String prefix, TreeSpec spec, Blackboard root) {
+        for (PortInfo port : spec.mainTreeParameters()) {
+            if (port.defaultValue() != null) {
+                root.set(port.name(), value(prefix + port.name(), port));
+            }
+        }
+    }
+
     /** Typed value of a port literal: Double, Integer, Boolean, or the string itself. */
     static Object typed(PortInfo port, String literal) {
         if (literal == null) {

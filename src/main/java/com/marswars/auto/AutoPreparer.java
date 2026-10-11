@@ -1,6 +1,5 @@
 package com.marswars.auto;
 
-import com.marswars.logging.MwLog;
 import edu.wpi.first.wpilibj.DataLogManager;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -12,8 +11,7 @@ import java.util.function.Consumer;
 /**
  * Prepares one auto at a time on a background thread ({@link AutoRoutine#prepare}) and runs the
  * step it returns on the robot thread, so reading files and loading paths never stretches a robot
- * loop. Remembers which auto and alliance it prepared last. In log replay everything runs on the
- * robot thread, so replay stays deterministic.
+ * loop. Remembers which auto and alliance it prepared last.
  */
 final class AutoPreparer {
     /** Where failures go; replaceable for tests. */
@@ -56,12 +54,8 @@ final class AutoPreparer {
         return prepared_auto_ == auto && prepared_red_ == red;
     }
 
-    /** Starts preparing {@code auto} in the background (in log replay, prepares it now). */
+    /** Starts preparing {@code auto} in the background. */
     void submit(AutoRoutine auto, boolean red) {
-        if (MwLog.isReplay()) {
-            prepareNow(auto, red);
-            return;
-        }
         job_ = new Job(auto, red, executor_.submit(() -> auto.prepare(red)));
     }
 

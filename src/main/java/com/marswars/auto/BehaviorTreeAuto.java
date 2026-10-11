@@ -5,18 +5,25 @@ import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.Blackboard;
 import com.marswars.bt.core.BtException;
 import com.marswars.bt.core.ParameterStore;
+import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.TreeNode;
 import com.marswars.bt.core.TreeSpec;
 import com.marswars.bt.monitor.BehaviorTreeCommand;
 import com.marswars.bt.monitor.BehaviorTreeMonitor;
 import com.marswars.bt.monitor.BehaviorTreeRunner;
+import com.marswars.bt.monitor.NetworkParameterStore;
+import com.marswars.bt.xml.BtXmlParser;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DataLogManager;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -27,16 +34,14 @@ import java.util.function.Supplier;
  * deploy/autos/trees/<Name>.xml}). It is an {@link AutoRoutine}, not a WPILib command: a {@link
  * BehaviorTreeRunner} ticks the tree straight from the robot loop.
  *
- * <p>This class only wires small pieces together:
+ * <p>The tree work is the BT library's: {@link BehaviorTreeFactory#checkTree} parses and checks
+ * the XML, {@link BehaviorTreeFactory#literalPortValues} finds the trajectories it names, the
+ * {@link ParameterStore} holds its tunable values ({@code /Tuning/Autos/<auto>/<port>}) and a
+ * {@link BehaviorTreeRunner} runs it. This class adds the auto parts: loading the paths ({@link
+ * AutoTrajectories}) and reloading off the robot thread.
  *
- * <ul>
- *   <li>{@link TreeLoad}: parse and check the XML and load the paths it names ({@link
- *       TrajectoryNames}), on a background thread;
- *   <li>{@link LoggedXml}: log the text, so replay rebuilds the same tree;
- *   <li>{@link TreeParameters}: the auto's tunable values, {@code /Tuning/Autos/<auto>/<port>};
- *   <li>{@link AutoTrajectories}: the loaded, alliance-flipped paths;
- *   <li>{@link BehaviorTreeRunner}: one run of the tree.
- * </ul>
+ * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the
+ * trees as they are now.
  *
  * <p>Nodes get trajectories through the root blackboard entry {@code @trajectories}:
  *
@@ -56,31 +61,40 @@ public class BehaviorTreeAuto implements AutoRoutine {
     /** Where load messages go; replaceable so unit tests don't start a DataLog file. */
     static Consumer<String> message_log_ = DataLogManager::log;
 
+    private static ParameterStore default_parameters_ = null;
+
     private final String name_;
     private final BehaviorTreeFactory factory_;
     private final Supplier<String> xml_source_;
     private final Path base_dir_;
-    private final TreeParameters parameters_;
+    private final ParameterStore parameters_;
     private final AutoTrajectories paths_ = new AutoTrajectories();
-    private final LoggedXml logged_xml_;
     private final BehaviorTreeMonitor monitor_;
     private final BehaviorTreeRunner runner_;
 
-    private TreeLoad loaded_ = null; // the last good load
+    /** One load of the XML; made off the robot thread, so it touches no shared state. */
+    private record Load(
+            String xml,
+            TreeSpec spec,
+            String error,
+            List<String> trajectoryNames,
+            Map<String, ChoreoTrajectory> trajectories) {}
+
+    private Load loaded_ = null; // the last good load
     private String error_ = "";
     private Alert alert_ = null;
 
     /** Auto named after the file ({@code CitrusSynergy.xml} gives {@code CitrusSynergy}). */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile) {
-        this(factory, xmlFile, TreeParameters.defaultStore());
+        this(factory, xmlFile, defaultParameters());
     }
 
     /** Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store. */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile, ParameterStore parameters) {
         this(
                 factory,
-                AutoFiles.autoName(xmlFile),
-                () -> AutoFiles.read(xmlFile),
+                autoName(xmlFile),
+                () -> read(xmlFile),
                 xmlFile.toAbsolutePath().getParent(),
                 parameters);
     }
@@ -92,7 +106,7 @@ public class BehaviorTreeAuto implements AutoRoutine {
      */
     public BehaviorTreeAuto(
             BehaviorTreeFactory factory, String name, Supplier<String> xmlSource, Path baseDir) {
-        this(factory, name, xmlSource, baseDir, TreeParameters.defaultStore());
+        this(factory, name, xmlSource, baseDir, defaultParameters());
     }
 
     /**
@@ -108,25 +122,29 @@ public class BehaviorTreeAuto implements AutoRoutine {
         factory_ = Objects.requireNonNull(factory, "factory");
         xml_source_ = Objects.requireNonNull(xmlSource, "xmlSource");
         base_dir_ = baseDir;
-        parameters_ = new TreeParameters(name, parameters);
-        logged_xml_ = new LoggedXml(BehaviorTreeMonitor.PREFIX + name);
+        parameters_ = Objects.requireNonNull(parameters, "parameters");
         monitor_ = new BehaviorTreeMonitor(name);
         runner_ = new BehaviorTreeRunner(name, this::buildTree, monitor_);
         reload();
     }
 
-    /** One auto per auto file in {@code dir} (see {@link AutoFiles#listAutos}), by file name. */
+    /** One auto per auto file in {@code dir} (see {@link #listAutos}), by file name. */
     public static List<BehaviorTreeAuto> loadAll(BehaviorTreeFactory factory, Path dir) {
-        return loadAll(factory, dir, TreeParameters.defaultStore());
+        return loadAll(factory, dir, defaultParameters());
     }
 
     public static List<BehaviorTreeAuto> loadAll(
             BehaviorTreeFactory factory, Path dir, ParameterStore parameters) {
         List<BehaviorTreeAuto> autos = new ArrayList<>();
-        for (Path file : AutoFiles.listAutos(dir)) {
+        for (Path file : listAutos(dir)) {
             autos.add(new BehaviorTreeAuto(factory, file, parameters));
         }
         return autos;
+    }
+
+    /** The auto files in {@code dir}: its {@code *.xml} files except library files. */
+    public static List<Path> listAutos(Path dir) {
+        return BtXmlParser.listXml(dir).stream().filter(f -> !BtXmlParser.isLibraryFile(f)).toList();
     }
 
     /** The {@code @trajectories} resolver from a node's blackboard. */
@@ -150,7 +168,7 @@ public class BehaviorTreeAuto implements AutoRoutine {
 
     /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
     public String parameterKey(String port) {
-        return parameters_.key(port);
+        return parameterPrefix() + port;
     }
 
     // ------------------------------------------------------------------ loading
@@ -160,38 +178,39 @@ public class BehaviorTreeAuto implements AutoRoutine {
      * paths themselves load in {@link #prepare}). Returns true when the new XML was accepted.
      */
     public boolean reload() {
-        return use(load(null), null);
+        return use(load(null));
     }
 
     /** Reads, checks and loads the paths off the robot thread; the returned step puts it in use. */
     @Override
     public Runnable prepare(boolean is_red_alliance) {
-        TreeLoad load = load(is_red_alliance);
-        return () -> use(load, is_red_alliance);
+        Load load = load(is_red_alliance);
+        return () -> use(load);
     }
 
-    private TreeLoad load(Boolean is_red_alliance) {
-        String xml;
+    /** Reads and checks the XML; when {@code is_red_alliance} is set, also loads its paths. */
+    private Load load(Boolean is_red_alliance) {
+        String xml = null;
         try {
             xml = xml_source_.get();
+            TreeSpec spec = factory_.checkTree(xml, base_dir_, newRoot());
+            List<String> names = factory_.literalPortValues(spec, PortType.TRAJECTORY);
+            Map<String, ChoreoTrajectory> paths =
+                    is_red_alliance == null ? null : AutoTrajectories.load(names, is_red_alliance);
+            return new Load(xml, spec, "", names, paths);
         } catch (RuntimeException e) {
-            return TreeLoad.failed(null, "cannot read XML: " + e.getMessage());
+            return new Load(xml, null, e.getMessage(), List.of(), null);
         }
-        return TreeLoad.of(xml, base_dir_, factory_, newRoot(), is_red_alliance);
     }
 
     /** Puts a load in use on the robot thread, or keeps the last good one if it failed. */
-    private synchronized boolean use(TreeLoad load, Boolean is_red_alliance) {
-        String xml = logged_xml_.process(load.xml());
-        if (!Objects.equals(xml, load.xml())) { // log replay: run what the robot ran
-            load = TreeLoad.of(xml, base_dir_, factory_, newRoot(), is_red_alliance);
-        }
-        if (!load.ok()) {
+    private synchronized boolean use(Load load) {
+        if (load.spec() == null) {
             setError(load.error());
             return false;
         }
         loaded_ = load;
-        parameters_.publish(load.spec());
+        parameters_.publish(parameterPrefix(), load.spec());
         paths_.use(load.trajectoryNames(), load.trajectories());
         for (String warning : load.spec().warnings()) {
             message_log_.accept("[BehaviorTree] " + name_ + ": " + warning);
@@ -215,7 +234,7 @@ public class BehaviorTreeAuto implements AutoRoutine {
             throw new BtException(error_.isEmpty() ? "no tree loaded" : error_);
         }
         Blackboard root = newRoot();
-        parameters_.seed(loaded_.spec(), root);
+        parameters_.seed(parameterPrefix(), loaded_.spec(), root);
         return factory_.createTree(loaded_.spec(), root, loaded_.xml());
     }
 
@@ -291,5 +310,32 @@ public class BehaviorTreeAuto implements AutoRoutine {
     /** This auto as a WPILib command, for using the tree inside a command composition. */
     public BehaviorTreeCommand asCommand() {
         return new BehaviorTreeCommand(name_, this::buildTree, monitor_);
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private String parameterPrefix() {
+        return "Autos/" + name_ + "/";
+    }
+
+    private static synchronized ParameterStore defaultParameters() {
+        if (default_parameters_ == null) {
+            default_parameters_ = new NetworkParameterStore(); // lazily: tests never touch NT
+        }
+        return default_parameters_;
+    }
+
+    private static String autoName(Path file) {
+        String n = file.getFileName().toString();
+        int dot = n.lastIndexOf('.');
+        return dot > 0 ? n.substring(0, dot) : n;
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new BtException("cannot read " + file + ": " + e.getMessage(), e);
+        }
     }
 }
