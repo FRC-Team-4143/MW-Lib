@@ -2,7 +2,9 @@
 
 Every MW-Lib subsystem is a state machine (`MwSubsystem`). The robot as a whole is one more state
 machine on top of them: the **super state machine**. A robot's `RobotContainer` extends
-`MwSuperStateMachine<RobotStates>`, which coordinates the subsystems. Each loop:
+`MwSuperStateMachine<RobotStates, RobotConstants>`, which coordinates the subsystems. It is written
+like a big subsystem: a states enum, a constants class (`CONSTANTS`), `system_state_`,
+`handleStateTransition` and `updateLogic`. Each loop:
 
 1. **`RobotContainer` (super state machine).** It moves to the wanted robot state through
    `handleStateTransition`. Then `updateLogic` requests a state from each subsystem with
@@ -18,9 +20,9 @@ lives in one place, the super state machine, and teleop and autos share it. A sc
 written once, as a robot state, and both teleop and autos use it.
 
 ```java
-public class RobotContainer extends MwSuperStateMachine<RobotStates> {
+public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
     public RobotContainer() {
-        super(RobotStates.DRIVE, BuildConstants.class);
+        super(RobotStates.DRIVE, new RobotConstants(), BuildConstants.class);
         registerSubsystem(DrivetrainSubsystem.getInstance());
         registerSubsystem(ShooterSubsystem.getInstance());
         reset(); // leave as the last line
@@ -86,7 +88,8 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 
 | API | What it does |
 |---|---|
-| `setWantedState(s)` / `getWantedState()` / `getSystemState()` | Same as `MwSubsystem` |
+| `setWantedState(s)` / `getWantedState()` / `getSystemState()` / `system_state_` | Same as `MwSubsystem` |
+| `CONSTANTS` | The robot's constants class (`extends MwConstants`), like a subsystem's. Keep the robot identity in it as `static` members (`RobotConstants.ROBOT`): subsystems read it while `RobotContainer` is still being constructed |
 | `handleStateTransition(wanted)` | The transition table: every condition lives here (guards, step states, decided values). No enter/exit actions. The default goes straight to `wanted` |
 | `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
 | `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |

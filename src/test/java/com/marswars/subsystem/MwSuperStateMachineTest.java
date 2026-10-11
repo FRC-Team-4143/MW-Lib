@@ -56,12 +56,17 @@ class MwSuperStateMachineTest {
         }
     }
 
-    static class TestContainer extends MwSuperStateMachine<RobotStates> {
+    /** Robot-level constants, the way a robot project writes them. */
+    static class TestRobotConstants extends MwConstants {
+        final double SHOOT_SCALE = 0.25;
+    }
+
+    static class TestContainer extends MwSuperStateMachine<RobotStates, TestRobotConstants> {
         final ShooterSubsystem shooter = new ShooterSubsystem();
         int resets = 0;
 
         TestContainer() {
-            super(RobotStates.IDLE, new Object(), List.of(), false);
+            super(RobotStates.IDLE, new TestRobotConstants(), new Object(), List.of(), false);
             registerSubsystem(shooter);
             reset();
         }
@@ -89,6 +94,13 @@ class MwSuperStateMachineTest {
     @BeforeEach
     void setUp() {
         robot = new TestContainer();
+    }
+
+    @Test
+    void constantsAreAvailableLikeASubsystem() {
+        TestContainer robot = new TestContainer();
+        assertEquals(0.25, robot.CONSTANTS.SHOOT_SCALE);
+        assertEquals("testrobot", robot.CONSTANTS.getSystemName());
     }
 
     @Test

@@ -19,9 +19,9 @@ import java.util.List;
  * autos share it. Autos wait on {@link #getStateResult()} to know when a state finished or failed.
  *
  * <pre>{@code
- * public class RobotContainer extends MwSuperStateMachine<RobotStates> {
+ * public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
  *     public RobotContainer() {
- *         super(RobotStates.IDLE, BuildConstants.class);
+ *         super(RobotStates.IDLE, new RobotConstants(), BuildConstants.class);
  *         registerSubsystem(DrivetrainSubsystem.getInstance());
  *         registerSubsystem(ShooterSubsystem.getInstance());
  *         reset();
@@ -45,41 +45,48 @@ import java.util.List;
  *
  * @param <S> the robot state enum
  */
-public abstract class MwSuperStateMachine<S extends Enum<S>> extends SubsystemManager {
+public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstants>
+        extends SubsystemManager {
     /** Logging key prefix for the robot state, e.g. {@code Robot/State}. */
     public static final String LOG_KEY = "Robot/";
 
     // state info
     protected S system_state_;
+    /** The robot's own constants, like a subsystem's {@code CONSTANTS}. */
+    protected final C CONSTANTS;
     private S wanted_state_;
     private final S default_state_;
     private boolean wanted_failed_ = false;
 
     /**
      * @param default_state the state at startup and after {@link #reset()}
+     * @param constants the robot's constants, available as {@code CONSTANTS}
      * @param build_constants the generated BuildConstants class, for log metadata
      */
-    public MwSuperStateMachine(S default_state, Object build_constants) {
-        this(default_state, build_constants, List.of());
+    public MwSuperStateMachine(S default_state, C constants, Object build_constants) {
+        this(default_state, constants, build_constants, List.of());
     }
 
     /**
      * @param default_state the state at startup and after {@link #reset()}
+     * @param constants the robot's constants, available as {@code CONSTANTS}
      * @param build_constants the generated BuildConstants class, for log metadata
      * @param disabled_subsystems names of subsystems that should not be registered
      */
     public MwSuperStateMachine(
-            S default_state, Object build_constants, List<String> disabled_subsystems) {
-        this(default_state, build_constants, disabled_subsystems, true);
+            S default_state, C constants, Object build_constants, List<String> disabled_subsystems) {
+        this(default_state, constants, build_constants, disabled_subsystems, true);
     }
 
     /** Unit tests only: {@code start_logging = false} skips starting AdvantageKit. */
     MwSuperStateMachine(
             S default_state,
+            C constants,
             Object build_constants,
             List<String> disabled_subsystems,
             boolean start_logging) {
         super(build_constants, disabled_subsystems, start_logging);
+        CONSTANTS = java.util.Objects.requireNonNull(constants, "constants");
         default_state_ = default_state;
         system_state_ = default_state;
         wanted_state_ = default_state;

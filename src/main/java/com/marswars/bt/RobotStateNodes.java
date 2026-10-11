@@ -34,7 +34,7 @@ public final class RobotStateNodes {
 
     public static <S extends Enum<S>> void register(
             BehaviorTreeFactory factory,
-            Supplier<? extends MwSuperStateMachine<S>> robot,
+            Supplier<? extends MwSuperStateMachine<S, ?>> robot,
             Class<S> state_class) {
         factory.registerNodeType(
                 "SetWantedState",
@@ -55,7 +55,7 @@ public final class RobotStateNodes {
 
                             @Override
                             protected NodeStatus onRunning() {
-                                MwSuperStateMachine<S> sm = robot.get();
+                                MwSuperStateMachine<S, ?> sm = robot.get();
                                 if (sm.getWantedState() != state_) {
                                     return NodeStatus.FAILURE; // someone asked for another state
                                 }
