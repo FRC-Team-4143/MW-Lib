@@ -280,13 +280,11 @@ BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogg
 | `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
 
-**Node palette.** MW-Lib's shared nodes ship as `com/marswars/bt/mwlib_nodes.xml`. A robot's
-palette is that file with the robot's own nodes appended, from
-`factory.writeTreeNodesModelXml(false)`. Regenerate MW-Lib's copy after changing a shared node:
-
-```
-./gradlew test -PupdateNodeSpec
-```
+**Node palette.** MW-Lib's shared nodes are generated from their registrations
+(`MwLibNodes.nodeSpecXml()`), so there is no file in this repo to keep in sync. A robot's palette (the
+editor's `nodes.xml`) is MW-Lib's section with the robot's own nodes appended, from
+`factory.writeTreeNodesModelXml(false)`; the robot regenerates it with `./gradlew test -PupdateNodeSpec`
+in its own project.
 
 Generic nodes any robot could use belong in MW-Lib, registered with `registerLibraryNode`. Robot
 projects register only their own.
