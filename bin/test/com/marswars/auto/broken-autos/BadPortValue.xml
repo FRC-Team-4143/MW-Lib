@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- speed is a number; "fast" is not. -->
+<root BTCPP_format="4" main_tree_to_execute="BadPortValue">
+  <BehaviorTree ID="BadPortValue">
+    <Follow trajectory="P1" speed="fast"/>
+  </BehaviorTree>
+</root>

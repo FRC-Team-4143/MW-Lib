@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Control: loads fine, so the broken ones below are judged against something that works. -->
+<root BTCPP_format="4" main_tree_to_execute="Good">
+  <BehaviorTree ID="Good">
+    <Sequence>
+      <Follow trajectory="P1" speed="{speed}"/>
+      <Follow trajectory="P2"/>
+    </Sequence>
+  </BehaviorTree>
+  <TreeNodesModel>
+    <SubTree ID="Good">
+      <input_port name="speed" type="double" default="1.5">Cruise speed</input_port>
+    </SubTree>
+  </TreeNodesModel>
+</root>

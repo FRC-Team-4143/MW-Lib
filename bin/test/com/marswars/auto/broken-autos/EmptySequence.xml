@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A Sequence with nothing in it. -->
+<root BTCPP_format="4" main_tree_to_execute="EmptySequence">
+  <BehaviorTree ID="EmptySequence">
+    <Sequence/>
+  </BehaviorTree>
+</root>
