@@ -141,7 +141,10 @@ public class BehaviorTreeAuto extends Auto {
         addCommands(new BehaviorTreeCommand(name, this::buildTree, monitor_));
     }
 
-    /** One auto per {@code *.xml} in {@code dir}, sorted by file name (empty if the dir is missing). */
+    /**
+     * One auto per auto file in {@code dir} (see {@link #listAutos}), sorted by file name (empty if
+     * the dir is missing).
+     */
     public static List<BehaviorTreeAuto> loadAll(BehaviorTreeFactory factory, Path dir) {
         return loadAll(factory, dir, defaultParameters());
     }
@@ -149,7 +152,7 @@ public class BehaviorTreeAuto extends Auto {
     public static List<BehaviorTreeAuto> loadAll(
             BehaviorTreeFactory factory, Path dir, ParameterStore parameters) {
         List<BehaviorTreeAuto> autos = new ArrayList<>();
-        for (Path file : listXml(dir)) {
+        for (Path file : listAutos(dir)) {
             autos.add(new BehaviorTreeAuto(factory, file, parameters));
         }
         return autos;
@@ -165,6 +168,25 @@ public class BehaviorTreeAuto extends Auto {
     /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
     public String parameterKey(String port) {
         return "Autos/" + getName() + "/" + port;
+    }
+
+    /**
+     * The auto files in {@code dir}: {@link #listXml} without library files. A library file (shared
+     * subtrees such as {@code common.xml}) defines several trees and no {@code
+     * main_tree_to_execute}, so it has no tree to run. A file that doesn't parse is still listed, so
+     * it shows up in the chooser with its error.
+     */
+    public static List<Path> listAutos(Path dir) {
+        return listXml(dir).stream().filter(file -> !isLibraryFile(file)).toList();
+    }
+
+    /** True for a file that parses but names no tree to run (see {@link #listAutos}). */
+    public static boolean isLibraryFile(Path file) {
+        try {
+            return BtXmlParser.parse(file).mainTreeId().isEmpty();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Sorted {@code *.xml} files directly in {@code dir}. */

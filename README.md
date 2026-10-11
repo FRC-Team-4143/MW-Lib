@@ -220,9 +220,10 @@ keys are `Robot/WantedState` and `Robot/State`.
 ## Behavior-tree autos
 
 `com.marswars.bt` runs autos written as [BehaviorTree.CPP v4](https://www.behaviortree.dev/) XML
-files, which open in Groot2 and the BT editor. Each `deploy/autos/<Name>.xml` file in a robot
-project becomes an auto in the chooser. mainbot's `src/main/deploy/autos/README.md` is the guide
-to writing them.
+files, which open in Groot2 and the BT editor. Each `<Name>.xml` file in a robot project's autos
+folder becomes an auto in the chooser, except library files (several trees and no
+`main_tree_to_execute`, such as a shared `common.xml`), which autos pull in with `<include>`. mainbot's `src/main/deploy/autos/README.md` is
+the guide to writing them.
 
 **Setting it up in a robot project:**
 

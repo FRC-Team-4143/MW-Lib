@@ -78,6 +78,22 @@ class BehaviorTreeAutoTest {
     }
 
     @Test
+    void libraryFilesAreNotAutos(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("Auto.xml"), doc("<AlwaysSuccess/>", ""));
+        Files.writeString(
+                dir.resolve("common.xml"),
+                "<root BTCPP_format=\"4\"><BehaviorTree ID=\"A\"><AlwaysSuccess/></BehaviorTree>"
+                        + "<BehaviorTree ID=\"B\"><AlwaysSuccess/></BehaviorTree></root>");
+        Files.writeString(dir.resolve("Broken.xml"), "<root BTCPP_format=\"4\"><BehaviorTree");
+        assertEquals(
+                List.of(dir.resolve("Auto.xml"), dir.resolve("Broken.xml")),
+                BehaviorTreeAuto.listAutos(dir));
+        assertEquals(
+                List.of("Auto", "Broken"),
+                BehaviorTreeAuto.loadAll(factory, dir).stream().map(a -> a.getName()).toList());
+    }
+
+    @Test
     void loadsReloadsAndKeepsLastGoodTree(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("MyAuto.xml");
         Files.writeString(file, doc("<Follow trajectory=\"P1\"/>", ""));
