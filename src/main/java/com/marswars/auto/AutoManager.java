@@ -69,7 +69,11 @@ public class AutoManager {
       // (BehaviorTreeAuto) share one class and are named after their file.
       String name = auto.getName();
       if (!registered_names_.add(name)) {
-        throw new IllegalArgumentException("Duplicate auto name: " + name);
+        // Two autos with one name would be one chooser entry; keep the first and say so loudly
+        // rather than stop the robot code.
+        DriverStation.reportError(
+            "Duplicate auto name '" + name + "': the second one is not in the chooser", false);
+        continue;
       }
       auto_chooser_.addOption(name, auto);
     }

@@ -30,7 +30,7 @@ Add to your `build.gradle` dependencies:
 
 ```gradle
 dependencies {
-    implementation 'com.github.frc-team-4143:mw-lib-java:26.18.0'
+    implementation 'com.github.frc-team-4143:mw-lib-java:27.0.0'
 }
 ```
 
@@ -54,10 +54,10 @@ JitPack, which builds every `vX.Y.Z` tag with no credentials:
 
 ```gradle
 repositories { maven { url = 'https://jitpack.io' } }
-dependencies { implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:26.18.0' }
+dependencies { implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:27.0.0' }
 ```
 
-Versions are `YY.minor.patch` (`26.18.0` is the 2026 season's 18th feature release); tags carry a `v`.
+Versions are `YY.minor.patch`: the first number is the season the architecture is written for (`27.0.0` opens the 2027 season), the second a feature release within it, the third a fix. Tags carry a `v`.
 Robot projects that want to build against a local checkout instead of a release use mainbot's
 `local.properties` / `mwlibLocal=true` composite build (see its README).
 
@@ -96,12 +96,12 @@ This library uses GitHub Actions for automated CI/CD:
 Releases are cut from `develop` by the **Make Release** workflow; nothing is tagged by hand.
 
 1. Merge the work into `develop` (PR, CI green).
-2. **Actions** → **Make Release** → **Run workflow**, enter the version (`26.18.0`, no `v`).
+2. **Actions** → **Make Release** → **Run workflow**, enter the version (`27.0.0`, no `v`).
 3. The workflow builds `develop` with that version, runs the tests, publishes `mw-lib-java` to
-   GitHub Packages, tags `v26.18.0`, creates the GitHub Release (JARs attached, release notes from
+   GitHub Packages, tags `v27.0.0`, creates the GitHub Release (JARs attached, release notes from
    the commits) and publishes the Javadoc to `https://frc-team-4143.github.io/MW-Lib/`.
 4. JitPack builds the new tag on first request; check
-   `https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/26.18.0/build.log`.
+   `https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/27.0.0/build.log`.
 
 Put breaking changes (removed classes, renamed keys) in the PR description so they land in the
 release notes. `publish.sh` / `PUBLISHING.md` cover publishing a local build by hand for testing.

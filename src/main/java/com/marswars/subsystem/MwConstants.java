@@ -1,5 +1,6 @@
 package com.marswars.subsystem;
 
+import com.marswars.util.MWPreferences;
 import edu.wpi.first.wpilibj.DataLogManager;
 
 public class MwConstants {
@@ -17,6 +18,12 @@ public class MwConstants {
 
         DataLogManager.log("Loading constants for " + system_name);
     }
+
+    /**
+     * Robot preferences, for values a subsystem stores on the roboRIO itself (a zeroed arm offset,
+     * a module offset) rather than in code.
+     */
+    protected final MWPreferences PREFERENCES = MWPreferences.getInstance();
 
     protected String getSystemName() {
         return system_name;

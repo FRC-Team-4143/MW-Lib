@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <TreeNodesModel>
+    <!-- MW-Lib shared nodes (com.marswars.bt) -->
+    <Control ID="ParallelDeadline">
+      <description>Run all children until the first one finishes, then halt the rest and return its result</description>
+    </Control>
+    <Action ID="FollowTrajectory">
+      <input_port name="trajectory" type="trajectory">Choreo trajectory name (deploy/choreo/&lt;name&gt;.traj)</input_port>
+      <input_port name="path_state" type="SwerveStates" default="CHOREO_PATH">Swerve state used while following (CHOREO_PATH or CHOREO_PATH_ROTATION_LOCK)</input_port>
+      <input_port name="end_state" type="SwerveStates" default="IDLE">Swerve state requested when the path finishes or is halted</input_port>
+      <input_port name="min_time" type="double" default="0">Minimum seconds on the path before it may succeed</input_port>
+      <description>Follow a Choreo trajectory until its end setpoint is reached</description>
+    </Action>
+    <Action ID="WaitForChoreoEvent">
+      <input_port name="event" type="std::string">Choreo event marker name</input_port>
+      <description>Wait until the running trajectory passes a Choreo event marker (use next to a FollowTrajectory in a ParallelDeadline)</description>
+    </Action>
+    <Action ID="SetSwerveState">
+      <input_port name="state" type="SwerveStates">State to request</input_port>
+      <description>Request a swerve state</description>
+    </Action>
+    <Condition ID="IsAtChoreoSetpoint">
+      <description>The swerve reached the end of its Choreo trajectory</description>
+    </Condition>
+    <Condition ID="HasChoreoTimeElapsed">
+      <input_port name="seconds" type="double">Seconds on the path</input_port>
+      <description>At least `seconds` of the current Choreo trajectory have run</description>
+    </Condition>
+    <Condition ID="HasChoreoEventPassed">
+      <input_port name="event" type="std::string">Choreo event marker name</input_port>
+      <description>The running trajectory passed a Choreo event marker</description>
+    </Condition>
+    <Condition ID="IsChassisStationary">
+      <description>The chassis is not moving</description>
+    </Condition>
+  </TreeNodesModel>
+</root>
