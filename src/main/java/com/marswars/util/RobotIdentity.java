@@ -90,4 +90,45 @@ public class RobotIdentity {
     public String getRobotName() {
         return robot_name_;
     }
+
+    /**
+     * Maps the robot name onto one of the robot project's IDs, e.g.
+     *
+     * <pre>{@code
+     * public enum Robot { ALPHA_BOT, BETA_BOT, SIM_BOT }
+     * public static final Robot ROBOT = RobotIdentity.getInstance().getRobot(Robot.class);
+     * }</pre>
+     *
+     * Constant names match case-insensitively and ignoring underscores ("BetaBot" matches {@code
+     * BETA_BOT}). An unknown name reports an error and falls back to the first constant.
+     *
+     * @param robots the robot project's enum of robots
+     * @return the constant for the robot the code is running on
+     */
+    public <E extends Enum<E>> E getRobot(Class<E> robots) {
+        E robot = match(robot_name_, robots);
+        if (robot == null) {
+            robot = robots.getEnumConstants()[0];
+            DriverStation.reportError(
+                    "Unknown robot name '" + robot_name_ + "', defaulting to " + robot.name(),
+                    false);
+        }
+        DataLogManager.log("Robot: " + robot.name());
+        return robot;
+    }
+
+    /** The constant whose name matches {@code name} ignoring case and underscores, or null. */
+    static <E extends Enum<E>> E match(String name, Class<E> robots) {
+        String wanted = normalize(name);
+        for (E robot : robots.getEnumConstants()) {
+            if (normalize(robot.name()).equals(wanted)) {
+                return robot;
+            }
+        }
+        return null;
+    }
+
+    private static String normalize(String name) {
+        return name.replace("_", "").toLowerCase();
+    }
 }
