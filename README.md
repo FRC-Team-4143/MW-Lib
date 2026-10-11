@@ -18,50 +18,30 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 
 ## Installation
 
-### Option 1: Vendor Dependency (Recommended)
+### Option 1: Vendor Dependency
 
 1. Download the `MWLib.json` vendordep file from the [latest release](https://github.com/FRC-Team-4143/MW-Lib/releases/latest)
 2. Place it in your robot project's `vendordeps/` directory
 3. Refresh your Gradle project
 
-### Option 2: Manual Installation
+### Option 2: JitPack (Recommended)
 
-Add to your `build.gradle` dependencies:
-
-```gradle
-dependencies {
-    implementation 'com.github.frc-team-4143:mw-lib-java:27.0.0'
-}
-```
-
-And add the Maven repository (GitHub Packages needs a token with `read:packages`):
+JitPack builds every `vX.Y.Z` tag on first request, with no token or credentials. Add to your `build.gradle`:
 
 ```gradle
 repositories {
-    maven {
-        name = "GitHubPackages"
-        url = "https://maven.pkg.github.com/FRC-Team-4143/MW-Lib"
-        credentials {
-            username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-            password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-        }
-    }
+    maven { url = 'https://jitpack.io' }
 }
-```
 
-Projects that can't hold a token (the Scriptum lessons, for example) use the same release through
-JitPack, which builds every `vX.Y.Z` tag with no credentials:
-
-```gradle
-repositories { maven { url = 'https://jitpack.io' } }
-dependencies { implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:27.0.0' }
+dependencies {
+    implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:27.0.0'
+}
 ```
 
 Versions are `YY.minor.patch`: the first number is the season the architecture is written for (`27.0.0` opens the 2027 season), the second a feature release within it, the third a fix. Tags carry a `v`.
 Robot projects that want to build against a local checkout instead of a release use mainbot's
 `local.properties` / `mwlibLocal=true` composite build (see its README).
 
-**Note**: For GitHub Packages, you need a GitHub Personal Access Token with `read:packages` permission.
 
 ## Building from Source
 
