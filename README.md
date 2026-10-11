@@ -86,188 +86,26 @@ Releases are cut from `develop` by the **Make Release** workflow; nothing is tag
 Put breaking changes (removed classes, renamed keys) in the PR description so they land in the
 release notes. `publish.sh` / `PUBLISHING.md` cover publishing a local build by hand for testing.
 
-## Usage
+## Documentation
 
-The library is organized into several packages:
+Feature guides live in [`docs/`](docs/):
 
-- `com.marswars.swerve_lib` - Swerve drive implementation
+- [State machines](docs/state-machines.md): `MwSubsystem` and `MwSuperStateMachine`, the robot's super state machine that buttons and autos ask for states.
+- [Behavior-tree autos](docs/behavior-tree-autos.md): the `com.marswars.bt` engine, `BehaviorTreeAuto`, the node library, run logs and the live view.
+- [Swerve and robot identity](docs/swerve-and-robot-identity.md): `MwSwerveSubsystem`, `SwerveDriveConfig.builder()` and `RobotIdentity`.
+
+The team documentation site has the longer how-to pages: [Robot development](https://frc-team-4143.github.io/docs/software/robot_dev/quick-ref).
+
+## Packages
+
+- `com.marswars.swerve_lib` - Swerve drive implementation (see [Swerve and robot identity](docs/swerve-and-robot-identity.md))
 - `com.marswars.mechanisms` - Mechanism base classes
 - `com.marswars.geometry` - Geometric utilities
 - `com.marswars.logging` - Logging utilities
-- `com.marswars.util` - General utilities
-- `com.marswars.subsystem` - Subsystem state machines and the robot super state machine (see [State machines](#state-machines))
-- `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](#behavior-tree-autos))
-
-Example usage:
-
-```java
-import com.marswars.swerve_lib.MwSwerveSubsystem;
-import com.marswars.swerve_lib.SwerveDriverInputs;
-import com.marswars.mechanisms.ArmMech;
-import com.marswars.util.RobotIdentity;
-
-// Resolve which robot the code is running on (burned "RobotName" preference,
-// or SimBot/ROBOT_NAME env var in simulation), mapped onto the project's own enum
-// ("BetaBot" -> BETA_BOT); constants variants switch on it
-public enum Robot { ALPHA_BOT, BETA_BOT, SIM_BOT }
-Robot robot = RobotIdentity.getInstance().getRobot(Robot.class);
-
-// Swerve drive: extend MwSwerveSubsystem with your constants (extending MwSwerveConstants),
-// a field-pose supplier and the driver joystick inputs. The constants' getDriveConfig() is
-// built with SwerveDriveConfig.builder() (module type, wheel radius, gains, CAN IDs, positions).
-public class SwerveSubsystem extends MwSwerveSubsystem<SwerveConstants> {
-    public SwerveSubsystem() {
-        super(SwerveConstants.create(), localization::getFieldPose,
-                new SwerveDriverInputs(oi::leftX, oi::leftY, oi::rightX, oi::pov));
-    }
-}
-
-// Use arm mechanism
-ArmMech arm = new ArmMech(config);
-```
-
-## State machines
-
-Every MW-Lib subsystem is a state machine (`MwSubsystem`). The robot as a whole is one more state
-machine on top of them: the **super state machine**. A robot's `RobotContainer` extends
-`MwSuperStateMachine<RobotStates>`, which coordinates the subsystems. Each loop:
-
-1. **`RobotContainer` (super state machine).** It moves to the wanted robot state through
-   `handleStateTransition`. Then `updateLogic` requests a state from each subsystem with
-   `setWantedState(...)`.
-2. **Every registered subsystem.** It reads inputs, moves to its own wanted state, runs its logic
-   and writes outputs.
-
-The subsystems see the super state's requests in the same loop.
-
-Buttons and autos call `setWantedState(...)` on the robot, the same way the robot calls it on
-subsystems. There are no per-subsystem command files. Logic that involves more than one subsystem
-lives in one place, the super state machine, and teleop and autos share it. A scoring sequence is
-written once, as a robot state, and both teleop and autos use it.
-
-```java
-public class RobotContainer extends MwSuperStateMachine<RobotStates> {
-    public RobotContainer() {
-        super(RobotStates.DRIVE, BuildConstants.class);
-        registerSubsystem(DrivetrainSubsystem.getInstance());
-        registerSubsystem(ShooterSubsystem.getInstance());
-        reset(); // leave as the last line
-    }
-
-    // The transition table: switch on where we are, then on what was asked. Every condition
-    // lives here; updateLogic below has none. Wanting SCORE walks through the step states
-    // AIM and SPIN_UP first (nothing requests those directly).
-    @Override
-    protected void handleStateTransition(RobotStates wanted) {
-        switch (system_state_) {
-            case AIM -> {
-                switch (wanted) {
-                    case SCORE -> { if (drive.isAimed()) system_state_ = RobotStates.SPIN_UP; }
-                    case DRIVE, IDLE -> system_state_ = wanted;
-                    default -> {}
-                }
-            }
-            case SPIN_UP -> {
-                switch (wanted) {
-                    case SCORE -> { if (shooter.isReady()) system_state_ = RobotStates.SCORE; }
-                    case DRIVE, IDLE -> system_state_ = wanted;
-                    default -> {}
-                }
-            }
-            case IDLE, DRIVE, SCORE -> {
-                switch (wanted) {
-                    case SCORE -> {
-                        if (shooter.hasPiece()) system_state_ = RobotStates.AIM;
-                        else failWantedState(); // autos see FAILURE
-                    }
-                    case DRIVE, IDLE -> system_state_ = wanted;
-                    default -> {}
-                }
-            }
-        }
-    }
-
-    @Override
-    protected void updateLogic(double timestamp) {
-        switch (getSystemState()) {
-            case DRIVE -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.IDLE); }
-            case AIM -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.IDLE); }
-            case SPIN_UP -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.SPIN_UP); }
-            case SCORE -> { drive.setWantedState(DriveStates.AIM); shooter.setWantedState(ShooterStates.SHOOT); }
-        }
-    }
-}
-
-// OI.configureBindings()
-driver.rightBumper().whileTrue(Commands.startEnd(
-        () -> robot.setWantedState(RobotStates.SCORE),
-        () -> robot.setWantedState(RobotStates.DRIVE)));
-```
-
-```xml
-<!-- auto: the same sequence. The node waits for SUCCESS or FAILURE, and the tree adds auto-only fail handling -->
-<Fallback>
-  <Timeout msec="3000"><SetWantedState state="SCORE"/></Timeout>
-  <FollowTrajectory trajectory="ToBackupSpot"/>
-</Fallback>
-```
-
-| API | What it does |
-|---|---|
-| `setWantedState(s)` / `getWantedState()` / `getSystemState()` | Same as `MwSubsystem` |
-| `handleStateTransition(wanted)` | The transition table: every condition lives here (guards, step states, decided values). No enter/exit actions. The default goes straight to `wanted` |
-| `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
-| `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |
-| `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
-| `bt.RobotStateNodes` | Behavior-tree nodes `SetWantedState` (requests the state and waits on `getStateResult()`) and `IsSystemState` |
-
-MW-Lib subsystems are not WPILib `Subsystem`s, so button commands have no requirements. Logged
-keys are `Robot/WantedState` and `Robot/State`.
-
-## Behavior-tree autos
-
-`com.marswars.bt` runs autos written as [BehaviorTree.CPP v4](https://www.behaviortree.dev/) XML
-files, which open in [Arbor](https://github.com/coalman321/Arbor) (our tree editor and live viewer) and Groot2. Each `<Name>.xml` file in a robot project's autos
-folder becomes an auto in the chooser, except library files (several trees and no
-`main_tree_to_execute`, such as a shared `common.xml`), which autos pull in with `<include>`. mainbot's `src/main/deploy/autos/README.md` is
-the guide to writing them.
-
-**Setting it up in a robot project:**
-
-```java
-BehaviorTreeFactory factory = new BehaviorTreeFactory();      // BT.CPP built-ins + MW-Lib nodes
-SwerveNodes.register(factory, SwerveSubsystem::getInstance);  // MW-Lib swerve nodes
-RobotStateNodes.register(factory, RobotContainer::getInstance, RobotStates.class); // SetWantedState
-
-// deploy/autos is an Arbor project: bt_project.json, nodes.xml and the trees/ folder
-AutoManager.getInstance().registerAutos(BehaviorTreeAuto.loadAll(
-        factory, Filesystem.getDeployDirectory().toPath().resolve("autos/trees")));
-BtLiveServer.start(BtLiveServer.Options.defaults());     // live view for Arbor (port 1670)
-BehaviorTreeFileLogger.enableDefault();                  // one .btlog (FileLogger2 format) per run
-```
-
-**What's included:**
-
-| Piece | What it is |
-|---|---|
-| `bt.core`, `bt.control`, `bt.decorator`, `bt.action` | The engine, with BT.CPP v4 node semantics and all BT.CPP built-ins except scripting |
-| `bt.xml` | BT.CPP v4 XML parser and writer: both node forms, `SubTree` port passing, `<include>`, `<TreeNodesModel>` |
-| `ParallelDeadline` | MW-Lib control node: runs children together until the first one finishes, then halts the rest |
-| `bt.RobotStateNodes` | `SetWantedState` and `IsSystemState` for the robot's super state machine. Autos use the same robot states and sequences as teleop |
-| `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
-| `auto.BehaviorTreeAuto` | An `Auto` loaded from XML. It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
-| Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
-| `bt.monitor` | Logs `BehaviorTree/<auto>/{Status,Structure,Xml,Result}` through `MwLog`. `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
-| `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
-
-**Node palette.** MW-Lib's shared nodes are generated from their registrations
-(`MwLibNodes.nodeSpecXml()`), so there is no file in this repo to keep in sync. A robot's palette (the
-editor's `nodes.xml`) is MW-Lib's section with the robot's own nodes appended, from
-`factory.writeTreeNodesModelXml(false)`; the robot regenerates it with `./gradlew test -PupdateNodeSpec`
-in its own project.
-
-Generic nodes any robot could use belong in MW-Lib, registered with `registerLibraryNode`. Robot
-projects register only their own.
+- `com.marswars.util` - General utilities, including `RobotIdentity`
+- `com.marswars.subsystem` - Subsystem state machines and the robot super state machine (see [State machines](docs/state-machines.md))
+- `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](docs/behavior-tree-autos.md))
+- `com.marswars.auto` - `Auto`, `AutoManager` and `BehaviorTreeAuto`
 
 ## Dependencies
 
@@ -288,7 +126,7 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ### Subsystems
 - `MwSubsystem` - Base subsystem class (a state machine) with logging integration
-- `MwSuperStateMachine` - The robot's super state machine; `RobotContainer` extends it (see [State machines](#state-machines))
+- `MwSuperStateMachine` - The robot's super state machine; `RobotContainer` extends it (see [State machines](docs/state-machines.md))
 - `SubsystemManager` - Centralized subsystem management
 
 ### Mechanisms
