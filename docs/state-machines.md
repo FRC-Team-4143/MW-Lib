@@ -3,7 +3,7 @@
 Every MW-Lib subsystem is a state machine (`MwSubsystem`). The robot as a whole is one more state
 machine on top of them: the **super state machine**. A robot's `RobotContainer` extends
 `MwSuperStateMachine<RobotStates, RobotConstants>`, which coordinates the subsystems. It is written
-like a big subsystem: a states enum, a constants class (`CONSTANTS`), `system_state_`,
+like a big subsystem: a constants class (`CONSTANTS`) holding the states enum, `system_state_`,
 `handleStateTransition` and `updateLogic`. Each loop:
 
 1. **`RobotContainer` (super state machine).** It moves to the wanted robot state through
@@ -20,6 +20,12 @@ lives in one place, the super state machine, and teleop and autos share it. A sc
 written once, as a robot state, and both teleop and autos use it.
 
 ```java
+// The robot's states live in RobotConstants, the way a subsystem's states live in its
+// *Constants class. A new robot can start with just DRIVE.
+public class RobotConstants extends MwConstants {
+    public enum RobotStates { IDLE, DRIVE, AIM, SPIN_UP, SCORE }
+}
+
 public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
     public RobotContainer() {
         super(RobotStates.DRIVE, new RobotConstants(), BuildConstants.class);
@@ -96,7 +102,7 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 | API | What it does |
 |---|---|
 | `setWantedState(s)` / `getWantedState()` / `getSystemState()` / `system_state_` | Same as `MwSubsystem` |
-| `CONSTANTS` | The robot's constants class (`extends MwConstants`), like a subsystem's. Keep the robot identity in it as `static` members (`RobotConstants.ROBOT`): subsystems read it while `RobotContainer` is still being constructed |
+| `CONSTANTS` | The robot's constants class (`extends MwConstants`), like a subsystem's. It holds the `RobotStates` enum. Keep the robot identity in it as `static` members (`RobotConstants.ROBOT`): subsystems read it while `RobotContainer` is still being constructed |
 | `handleStateTransition(wanted)` | The transition table: every condition lives here (guards, step states, decided values). No enter/exit actions. The default goes straight to `wanted` |
 | `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
 | `bt.RobotStateNodes` | Behavior-tree nodes `SetWantedState` (an instant request: calls `setWantedState` and succeeds) and `IsSystemState` (the robot is in a state; retry it to wait) |

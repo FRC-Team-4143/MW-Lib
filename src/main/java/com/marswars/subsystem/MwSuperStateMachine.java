@@ -18,7 +18,14 @@ import java.util.List;
  * files: anything that involves more than one subsystem lives in one place, here, and teleop and
  * autos share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
  *
+ * <p>The robot's states are an enum in its constants class, the way a subsystem's states live in
+ * its {@code *Constants} class:
+ *
  * <pre>{@code
+ * public class RobotConstants extends MwConstants {
+ *     public enum RobotStates { IDLE, DRIVE, SHOOT }
+ * }
+ *
  * public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
  *     public RobotContainer() {
  *         super(RobotStates.IDLE, new RobotConstants(), BuildConstants.class);
