@@ -3,6 +3,7 @@ package com.marswars.bt;
 import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.subsystem.MwSuperStateMachine;
+
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -33,6 +34,10 @@ import java.util.function.Supplier;
  *
  * The state enum is the robot's own, so these nodes are listed with the robot's nodes in node-spec
  * files, not in MW-Lib's bundled spec. The supplier is only called while a tree runs.
+ *
+ * <p>There are no nodes for subsystem state machines on purpose: the super state machine requests
+ * every subsystem's state each loop, so a tree talking to a subsystem directly would fight it. Add
+ * a robot state instead.
  */
 public final class RobotStateNodes {
     private RobotStateNodes() {}
