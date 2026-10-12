@@ -5,7 +5,10 @@ import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.TreeNode;
 import com.marswars.bt.xml.BtcppTreeXml;
 import com.marswars.logging.MwLog;
+
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -29,18 +32,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Records each behavior-tree run to a {@code .btlog} file in BehaviorTree.CPP's {@code
- * FileLogger2} format, which Arbor and Groot2 replay.
+ * Records each behavior-tree run to a {@code .btlog} file in BehaviorTree.CPP's {@code FileLogger2}
+ * format, which Arbor and Groot2 replay.
  *
  * <p>File layout, all integers little-endian:
  *
  * <ol>
  *   <li>{@code "BTCPP4-FileLogger2"}, then one protocol byte {@code 1}
- *   <li>int32 length, then the tree XML as written by BT.CPP's {@code WriteTreeToXML} with
- *       metadata ({@code _uid}, {@code _fullpath}; see {@link BtcppTreeXml})
+ *   <li>int32 length, then the tree XML as written by BT.CPP's {@code WriteTreeToXML} with metadata
+ *       ({@code _uid}, {@code _fullpath}; see {@link BtcppTreeXml})
  *   <li>uint64 start time, in microseconds since the Unix epoch (wall clock)
- *   <li>one 9-byte record per status transition: 6-byte microseconds since the start, uint16
- *       node uid, uint8 status (0 IDLE, 1 RUNNING, 2 SUCCESS, 3 FAILURE, 4 SKIPPED)
+ *   <li>one 9-byte record per status transition: 6-byte microseconds since the start, uint16 node
+ *       uid, uint8 status (0 IDLE, 1 RUNNING, 2 SUCCESS, 3 FAILURE, 4 SKIPPED)
  * </ol>
  *
  * <p>Record times come from the tree clock ({@code MwLog.timestampSeconds()} by default), so they
@@ -57,6 +60,11 @@ public final class BehaviorTreeFileLogger {
     public static final long FLUSH_PERIOD_MS = 50;
 
     private static final AtomicReference<BehaviorTreeFileLogger> ACTIVE = new AtomicReference<>();
+
+    /** Where a file that can't be written is reported; replaceable for tests. */
+    static java.util.function.Consumer<String> error_log_ =
+            s -> DriverStation.reportError(s, false);
+
     private static final DateTimeFormatter FILE_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").withZone(ZoneId.systemDefault());
 
@@ -95,9 +103,17 @@ public final class BehaviorTreeFileLogger {
         ACTIVE.set(null);
     }
 
-    /** Next to the AdvantageKit logs: {@code /U/logs/bt} on the robot, {@code logs/bt} in sim. */
+    /**
+     * Next to the AdvantageKit logs: {@code /U/logs/bt} on the robot ({@code /home/lvuser/logs/bt}
+     * when no USB stick is mounted at {@code /U}), {@code logs/bt} in sim.
+     */
     public static Path defaultDirectory() {
-        return RobotBase.isReal() ? Path.of("/U/logs/bt") : Path.of("logs", "bt");
+        if (!RobotBase.isReal()) {
+            return Path.of("logs", "bt");
+        }
+        return Files.isDirectory(Path.of("/U"))
+                ? Path.of("/U/logs/bt")
+                : Path.of("/home/lvuser/logs/bt");
     }
 
     public BehaviorTreeFileLogger(Path dir, String fileSuffix) {
@@ -176,6 +192,7 @@ public final class BehaviorTreeFileLogger {
                 out_.flush();
             } catch (IOException e) {
                 error_ = e;
+                error_log_.accept("[BehaviorTree] cannot write run log " + file_ + ": " + e);
             }
         }
 

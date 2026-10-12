@@ -1,12 +1,9 @@
 package com.marswars.bt;
 
 import com.marswars.bt.core.BehaviorTreeFactory;
-import com.marswars.bt.core.NodeKind;
-import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.PortInfo;
-import com.marswars.bt.core.StatefulActionNode;
 import com.marswars.subsystem.MwSuperStateMachine;
-import com.marswars.subsystem.MwSuperStateMachine.StateResult;
+
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -15,12 +12,21 @@ import java.util.function.Supplier;
  * RobotContainer}), so autos use the same robot states (and scoring sequences) as teleop:
  *
  * <ul>
- *   <li>{@code SetWantedState}: calls {@code setWantedState(state)} on the robot, then stays
- *       RUNNING until {@link MwSuperStateMachine#getStateResult()} is SUCCESS (the robot is in the
- *       state) or FAILURE (the state machine gave up, or something else asked for another state).
- *       Wrap it in {@code Timeout}, {@code Fallback} or {@code Retry} for auto-only fail handling.
+ *   <li>{@code SetWantedState}: calls {@code setWantedState(state)} on the robot and succeeds at
+ *       once. A request is instant, like a button press; the state stays wanted until something
+ *       asks for another one.
  *   <li>condition {@code IsSystemState}: the robot is in a state
  * </ul>
+ *
+ * To wait until the robot reaches a state, retry the condition (add a {@code Timeout} around it so
+ * it can't wait forever):
+ *
+ * <pre>{@code
+ * <SetWantedState state="SCORE"/>
+ * <Timeout msec="3000">
+ *   <RetryUntilSuccessful num_attempts="-1"><IsSystemState state="SCORE"/></RetryUntilSuccessful>
+ * </Timeout>
+ * }</pre>
  *
  * <pre>{@code
  * RobotStateNodes.register(factory, RobotContainer::getInstance, RobotStates.class);
@@ -28,6 +34,10 @@ import java.util.function.Supplier;
  *
  * The state enum is the robot's own, so these nodes are listed with the robot's nodes in node-spec
  * files, not in MW-Lib's bundled spec. The supplier is only called while a tree runs.
+ *
+ * <p>There are no nodes for subsystem state machines on purpose: the super state machine requests
+ * every subsystem's state each loop, so a tree talking to a subsystem directly would fight it. Add
+ * a robot state instead.
  */
 public final class RobotStateNodes {
     private RobotStateNodes() {}
@@ -36,40 +46,11 @@ public final class RobotStateNodes {
             BehaviorTreeFactory factory,
             Supplier<? extends MwSuperStateMachine<S, ?>> robot,
             Class<S> state_class) {
-        factory.registerNodeType(
+        factory.registerSetState(
                 "SetWantedState",
-                NodeKind.ACTION,
-                "Request a robot state and wait until the robot is in it (SUCCESS) or the state"
-                        + " fails (FAILURE)",
-                List.of(PortInfo.enumInput("state", state_class, null, "Robot state to request")),
-                (name, cfg) ->
-                        new StatefulActionNode(name, cfg) {
-                            private S state_;
-
-                            @Override
-                            protected NodeStatus onStart() {
-                                state_ = getEnum("state", state_class);
-                                robot.get().setWantedState(state_);
-                                return onRunning();
-                            }
-
-                            @Override
-                            protected NodeStatus onRunning() {
-                                MwSuperStateMachine<S, ?> sm = robot.get();
-                                if (sm.getWantedState() != state_) {
-                                    return NodeStatus.FAILURE; // someone asked for another state
-                                }
-                                StateResult result = sm.getStateResult();
-                                return switch (result) {
-                                    case SUCCESS -> NodeStatus.SUCCESS;
-                                    case FAILURE -> NodeStatus.FAILURE;
-                                    case RUNNING -> NodeStatus.RUNNING;
-                                };
-                            }
-
-                            @Override
-                            protected void onHalted() {}
-                        });
+                "Request a robot state (instant: succeeds at once)",
+                state_class,
+                s -> robot.get().setWantedState(s));
         factory.registerSimpleCondition(
                 "IsSystemState",
                 "The robot is in the given state",

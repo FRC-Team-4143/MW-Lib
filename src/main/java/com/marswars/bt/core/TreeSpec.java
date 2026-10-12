@@ -13,9 +13,24 @@ import java.util.Map;
  * @param trees tree ID to root node, in document order
  * @param models node models declared in the file (informational)
  * @param warnings non-fatal issues found while parsing
+ * @param mainTreeDeclared true when the document named its main tree with {@code
+ *     main_tree_to_execute}; a file without it is a library of subtrees, not an auto
  */
 public record TreeSpec(
-        String mainTreeId, Map<String, NodeSpec> trees, List<NodeModel> models, List<String> warnings) {
+        String mainTreeId,
+        Map<String, NodeSpec> trees,
+        List<NodeModel> models,
+        List<String> warnings,
+        boolean mainTreeDeclared) {
+
+    /** A spec whose main tree is given explicitly (built in code or registered). */
+    public TreeSpec(
+            String mainTreeId,
+            Map<String, NodeSpec> trees,
+            List<NodeModel> models,
+            List<String> warnings) {
+        this(mainTreeId, trees, models, warnings, true);
+    }
 
     public TreeSpec {
         trees = Collections.unmodifiableMap(new LinkedHashMap<>(trees));

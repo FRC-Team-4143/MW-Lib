@@ -10,14 +10,16 @@ import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.BtException;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.PortType;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Autos that must not load. Every file in {@code broken-autos/} is one auto with one defect (plus a
@@ -75,6 +77,7 @@ class BrokenAutosTest {
     private Map<String, BehaviorTreeAuto> load() throws URISyntaxException {
         Map<String, BehaviorTreeAuto> byName = new LinkedHashMap<>();
         for (BehaviorTreeAuto auto : BehaviorTreeAuto.loadAll(factory, dir())) {
+            auto.reload(); // what AutoManager's boot check does (without the paths)
             byName.put(auto.getName(), auto);
         }
         return byName;
@@ -83,8 +86,10 @@ class BrokenAutosTest {
     @Test
     void everyFixtureIsListedAndExactlyTheControlLoads() throws Exception {
         Map<String, BehaviorTreeAuto> autos = load();
-        // a broken file must still show up, so the chooser (and an Elastic alert) can say so
-        assertEquals(EXPECTED.size() + 1, autos.size(), "every fixture is listed: " + autos.keySet());
+        // every file becomes an auto; AutoManager leaves the broken ones out of the chooser
+        // and raises an alert naming them
+        assertEquals(
+                EXPECTED.size() + 1, autos.size(), "every fixture is listed: " + autos.keySet());
         assertTrue(autos.get("Good").isLoaded(), autos.get("Good").getError());
         assertEquals("", autos.get("Good").getError());
         for (String name : EXPECTED.keySet()) {
@@ -99,7 +104,9 @@ class BrokenAutosTest {
                 (name, fragment) -> {
                     String error = autos.get(name).getError();
                     assertFalse(error.isEmpty(), name + " has no error text");
-                    assertTrue(error.contains(fragment), name + ": expected '" + fragment + "' in: " + error);
+                    assertTrue(
+                            error.contains(fragment),
+                            name + ": expected '" + fragment + "' in: " + error);
                 });
     }
 

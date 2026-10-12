@@ -10,6 +10,7 @@ import com.marswars.bt.core.SimpleConditionNode;
 import com.marswars.bt.core.StatefulActionNode;
 import com.marswars.swerve_lib.MwSwerveSubsystem;
 import com.marswars.swerve_lib.SwerveStates;
+
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -46,7 +47,7 @@ public final class SwerveNodes {
                 NodeKind.ACTION,
                 "Wait until the running trajectory passes a Choreo event marker (use next to a"
                         + " FollowTrajectory in a ParallelDeadline)",
-                List.of(PortInfo.input("event", PortType.STRING, "Choreo event marker name")),
+                List.of(PortInfo.event("event", "Choreo event marker name")),
                 (name, cfg) ->
                         new StatefulActionNode(name, cfg) {
                             @Override
@@ -94,7 +95,7 @@ public final class SwerveNodes {
                 factory,
                 "HasChoreoEventPassed",
                 "The running trajectory passed a Choreo event marker",
-                List.of(PortInfo.input("event", PortType.STRING, "Choreo event marker name")),
+                List.of(PortInfo.event("event", "Choreo event marker name")),
                 n -> swerve.get().hasChoreoEventBeenPassed(n.getString("event")));
         condition(
                 factory,

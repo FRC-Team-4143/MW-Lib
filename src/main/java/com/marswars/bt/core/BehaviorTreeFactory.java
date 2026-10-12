@@ -30,7 +30,9 @@ import com.marswars.bt.xml.BtXmlException;
 import com.marswars.bt.xml.BtXmlParser;
 import com.marswars.bt.xml.BtXmlWriter;
 import com.marswars.logging.MwLog;
+
 import edu.wpi.first.wpilibj2.command.Command;
+
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -245,7 +247,8 @@ public final class BehaviorTreeFactory {
     public String writeTreeNodesModelXml(boolean includeBuiltins) {
         return includeBuiltins
                 ? writeTreeNodesModelXml(java.util.EnumSet.allOf(NodeOrigin.class))
-                : writeTreeNodesModelXml(java.util.EnumSet.complementOf(java.util.EnumSet.of(NodeOrigin.BTCPP)));
+                : writeTreeNodesModelXml(
+                        java.util.EnumSet.complementOf(java.util.EnumSet.of(NodeOrigin.BTCPP)));
     }
 
     /** Node-spec document with the models of the given origins, grouped by origin. */
@@ -263,7 +266,11 @@ public final class BehaviorTreeFactory {
 
     /** Registers an MW-Lib shared node (written to node-spec files under the MW-Lib section). */
     public void registerLibraryNode(
-            String id, NodeKind kind, String description, List<PortInfo> ports, NodeBuilder builder) {
+            String id,
+            NodeKind kind,
+            String description,
+            List<PortInfo> ports,
+            NodeBuilder builder) {
         registerNodeType(new NodeModel(id, kind, ports, description, NodeOrigin.MWLIB), builder);
     }
 
@@ -405,7 +412,9 @@ public final class BehaviorTreeFactory {
                 throw error(
                         spec,
                         null,
-                        "BT.CPP node '" + spec.id() + "' is not supported by MW-Lib (no scripting)");
+                        "BT.CPP node '"
+                                + spec.id()
+                                + "' is not supported by MW-Lib (no scripting)");
             }
             throw error(spec, null, "unknown node ID '" + spec.id() + "' (not registered)");
         }
@@ -432,7 +441,11 @@ public final class BehaviorTreeFactory {
             throw error(
                     spec,
                     path,
-                    "builder for '" + spec.id() + "' made a " + node.kind() + ", model says "
+                    "builder for '"
+                            + spec.id()
+                            + "' made a "
+                            + node.kind()
+                            + ", model says "
                             + model.kind());
         }
 
@@ -463,6 +476,36 @@ public final class BehaviorTreeFactory {
         final String instance_name = spec.name() != null ? spec.name() : sid;
         final String path = prefix + instance_name + (instance_name.equals(sid) ? "::" + uid : "");
 
+        // A subtree with declared ports (<TreeNodesModel><SubTree ID=...>) only accepts those
+        // ports,
+        // so a typo is a load error instead of silently using the port's default.
+        Optional<NodeModel> tree_model = ctx.treeModel(sid);
+        if (tree_model.isPresent()) {
+            NodeModel m = tree_model.get();
+            for (Map.Entry<String, String> attr : spec.attributes().entrySet()) {
+                if ("_autoremap".equals(attr.getKey())) {
+                    continue;
+                }
+                PortInfo port =
+                        m.port(attr.getKey())
+                                .orElseThrow(
+                                        () ->
+                                                error(
+                                                        spec,
+                                                        path,
+                                                        "unknown port '"
+                                                                + attr.getKey()
+                                                                + "' for SubTree '"
+                                                                + sid
+                                                                + "' (ports: "
+                                                                + portNames(m)
+                                                                + ")"));
+                if (!PortValues.isPointer(attr.getValue())) {
+                    checkLiteral(spec, path, port, attr.getValue());
+                }
+            }
+        }
+
         Blackboard child_bb = Blackboard.createChild(bb);
         for (Map.Entry<String, String> attr : spec.attributes().entrySet()) {
             String key = attr.getKey();
@@ -483,8 +526,7 @@ public final class BehaviorTreeFactory {
                 .ifPresent(m -> applyPortDefaults(m, child_bb, spec.attributes().keySet()));
 
         NodeModel model = registry_.get(NodeSpec.SUBTREE).model();
-        NodeConfig cfg =
-                new NodeConfig(bb, spec.attributes(), Map.of(), clock_, path, model);
+        NodeConfig cfg = new NodeConfig(bb, spec.attributes(), Map.of(), clock_, path, model);
         SubTreeNode node = new SubTreeNode(instance_name, cfg, sid);
         ctx.subtrees.add(new BehaviorTree.Subtree(path, sid, child_bb));
 
@@ -543,53 +585,118 @@ public final class BehaviorTreeFactory {
      * Literal values given to ports of {@code type} in the main tree, in document order and without
      * duplicates (for example every trajectory name an auto uses, so it can load them before it
      * runs). SubTrees are expanded in place; a {@code {key}} inside a SubTree resolves to a literal
-     * its {@code <SubTree>} element passes for that key. Pointers with no literal are skipped.
+     * its {@code <SubTree>} element passes for that key, or to the default of that subtree port.
+     * Pointers with no literal are skipped (see {@link #unresolvedPortValues}).
      */
     public List<String> literalPortValues(TreeSpec spec, PortType type) {
         Set<String> values = new LinkedHashSet<>();
-        if (spec.mainTreeId() != null && spec.trees().containsKey(spec.mainTreeId())) {
-            collectLiterals(spec.mainTree(), spec, type, Map.of(), new ArrayDeque<>(), values);
-        }
+        walkLiterals(spec, type, values, new ArrayList<>());
         return List.copyOf(values);
+    }
+
+    /**
+     * Ports of {@code type} whose value is a {@code {key}} that no literal stands behind: a tree
+     * parameter (tunable at run time), a value some node writes, or a root key. A caller that must
+     * know every value before the tree runs (an auto preloading its trajectories) treats these as
+     * errors. Each entry reads like {@code "FollowTrajectory port 'trajectory' reads {path} (in
+     * Main/Leg)"}.
+     */
+    public List<String> unresolvedPortValues(TreeSpec spec, PortType type) {
+        List<String> unresolved = new ArrayList<>();
+        walkLiterals(spec, type, new LinkedHashSet<>(), unresolved);
+        return List.copyOf(new LinkedHashSet<>(unresolved));
+    }
+
+    private void walkLiterals(
+            TreeSpec spec, PortType type, Set<String> out, List<String> unresolved) {
+        if (spec.mainTreeId() != null && spec.trees().containsKey(spec.mainTreeId())) {
+            Deque<String> stack = new ArrayDeque<>();
+            stack.push(spec.mainTreeId());
+            collectLiterals(
+                    spec.mainTree(),
+                    new BuildContext(spec),
+                    type,
+                    Map.of(),
+                    stack,
+                    out,
+                    unresolved);
+        }
     }
 
     private void collectLiterals(
             NodeSpec node,
-            TreeSpec spec,
+            BuildContext ctx,
             PortType type,
             Map<String, String> literals,
             Deque<String> stack,
-            Set<String> out) {
+            Set<String> out,
+            List<String> unresolved) {
         if (node.isSubTree()) {
-            NodeSpec target = spec.trees().get(node.subtreeId());
-            if (target == null || stack.contains(node.subtreeId())) {
+            String sid = node.subtreeId();
+            NodeSpec target = ctx.lookupTree(sid);
+            if (target == null || stack.contains(sid)) {
                 return;
             }
+            // Fixed defaults of the subtree's declared ports, overridden by what the caller passes.
             Map<String, String> inner = new HashMap<>();
-            node.attributes().forEach((port, raw) -> {
-                String value = literal(raw, port, literals);
-                if (value != null && !port.startsWith("_")) {
-                    inner.put(port, value);
-                }
-            });
-            stack.push(node.subtreeId());
-            collectLiterals(target, spec, type, inner, stack, out);
+            ctx.treeModel(sid)
+                    .ifPresent(
+                            m -> {
+                                for (PortInfo port : m.ports()) {
+                                    if (port.defaultValue() != null) {
+                                        inner.put(port.name(), port.defaultValue());
+                                    }
+                                }
+                            });
+            node.attributes()
+                    .forEach(
+                            (port, raw) -> {
+                                if (port.startsWith("_")) {
+                                    return;
+                                }
+                                String value = literal(raw, port, literals);
+                                if (value != null) {
+                                    inner.put(port, value);
+                                } else {
+                                    inner.remove(
+                                            port); // a pointer with no literal behind it hides the
+                                    // default
+                                }
+                            });
+            stack.push(sid);
+            collectLiterals(target, ctx, type, inner, stack, out, unresolved);
             stack.pop();
             return;
         }
-        getNodeModel(node.id()).ifPresent(model -> {
-            for (PortInfo port : model.ports()) {
-                if (port.type() == type) {
-                    String raw = node.attributes().getOrDefault(port.name(), port.defaultValue());
-                    String value = literal(raw, port.name(), literals);
-                    if (value != null && !value.isBlank()) {
-                        out.add(value.trim());
-                    }
-                }
-            }
-        });
+        getNodeModel(node.id())
+                .ifPresent(
+                        model -> {
+                            for (PortInfo port : model.ports()) {
+                                if (port.type() == type) {
+                                    String raw =
+                                            node.attributes()
+                                                    .getOrDefault(port.name(), port.defaultValue());
+                                    String value = literal(raw, port.name(), literals);
+                                    if (value != null && !value.isBlank()) {
+                                        out.add(value.trim());
+                                    } else if (raw != null && PortValues.isPointer(raw)) {
+                                        List<String> trees = new ArrayList<>(stack);
+                                        java.util.Collections.reverse(trees);
+                                        unresolved.add(
+                                                (node.name() != null ? node.name() : node.id())
+                                                        + " port '"
+                                                        + port.name()
+                                                        + "' reads "
+                                                        + raw
+                                                        + " (in "
+                                                        + String.join("/", trees)
+                                                        + ")");
+                                    }
+                                }
+                            }
+                        });
         for (NodeSpec child : node.children()) {
-            collectLiterals(child, spec, type, literals, stack, out);
+            collectLiterals(child, ctx, type, literals, stack, out, unresolved);
         }
     }
 
@@ -612,7 +719,8 @@ public final class BehaviorTreeFactory {
             return; // recursion is reported by build()
         }
         stack.push(treeId);
-        // Writes anywhere in the tree count everywhere in it (a Repeat reads on its second pass what
+        // Writes anywhere in the tree count everywhere in it (a Repeat reads on its second pass
+        // what
         // a later sibling wrote on its first), so collect them before checking the reads.
         Set<String> scope = new HashSet<>(known);
         collectWrites(body, ctx, scope);
@@ -620,8 +728,11 @@ public final class BehaviorTreeFactory {
         stack.pop();
     }
 
-    /** Keys this tree body writes: output/inout pointer ports, and SubTree output ports mapped
-     * onto a key of this tree. */
+    /**
+     * Keys this tree body writes: output/inout ports (a {@code {key}} pointer, or a plain key as
+     * BT.CPP's {@code SetBlackboard output_key="x"} uses), and SubTree output ports mapped onto a
+     * key of this tree.
+     */
     private void collectWrites(NodeSpec node, BuildContext ctx, Set<String> out) {
         if (node.isSubTree()) {
             Optional<NodeModel> model = ctx.treeModel(node.subtreeId());
@@ -642,7 +753,8 @@ public final class BehaviorTreeFactory {
         Registration reg = registry_.get(node.id());
         if (reg != null) {
             for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
-                if (!PortValues.isPointer(attr.getValue())) {
+                String value = attr.getValue();
+                if (value == null || value.isBlank()) {
                     continue;
                 }
                 reg.model()
@@ -651,8 +763,9 @@ public final class BehaviorTreeFactory {
                         .ifPresent(
                                 port ->
                                         out.add(
-                                                PortValues.pointerKey(
-                                                        attr.getValue(), port.name())));
+                                                PortValues.isPointer(value)
+                                                        ? PortValues.pointerKey(value, port.name())
+                                                        : value.trim()));
             }
         }
         for (NodeSpec child : node.children()) {
@@ -677,8 +790,9 @@ public final class BehaviorTreeFactory {
                 String key = attr.getKey();
                 String value = attr.getValue();
                 if ("_autoremap".equals(key)) {
-                    autoremap = Boolean.TRUE.equals(
-                            PortValues.parseLiteral(value, Boolean.class, "_autoremap"));
+                    autoremap =
+                            Boolean.TRUE.equals(
+                                    PortValues.parseLiteral(value, Boolean.class, "_autoremap"));
                     continue;
                 }
                 child_known.add(key);
@@ -721,7 +835,11 @@ public final class BehaviorTreeFactory {
                         .ifPresent(
                                 port ->
                                         requireKnown(
-                                                node, port.name(), attr.getValue(), known, rootKnown));
+                                                node,
+                                                port.name(),
+                                                attr.getValue(),
+                                                known,
+                                                rootKnown));
             }
         }
         for (NodeSpec child : node.children()) {
@@ -751,7 +869,8 @@ public final class BehaviorTreeFactory {
     }
 
     /** Sets each defaulted port of {@code model} not in {@code given} and not already present. */
-    private static void applyPortDefaults(NodeModel model, Blackboard bb, java.util.Set<String> given) {
+    private static void applyPortDefaults(
+            NodeModel model, Blackboard bb, java.util.Set<String> given) {
         for (PortInfo port : model.ports()) {
             if (port.defaultValue() != null
                     && !given.contains(port.name())
@@ -833,10 +952,12 @@ public final class BehaviorTreeFactory {
             int success = literalInt(inputs, ParallelNode.SUCCESS_COUNT, -1);
             int failure = literalInt(inputs, ParallelNode.FAILURE_COUNT, 1);
             if (threshold(success, children) > children) {
-                throw error(spec, path, "success_count " + success + " > " + children + " children");
+                throw error(
+                        spec, path, "success_count " + success + " > " + children + " children");
             }
             if (threshold(failure, children) > children) {
-                throw error(spec, path, "failure_count " + failure + " > " + children + " children");
+                throw error(
+                        spec, path, "failure_count " + failure + " > " + children + " children");
             }
         }
     }
@@ -888,7 +1009,8 @@ public final class BehaviorTreeFactory {
 
     // ------------------------------------------------------------------ built-ins
 
-    private void builtin(String id, NodeKind kind, String desc, List<PortInfo> ports, NodeBuilder b) {
+    private void builtin(
+            String id, NodeKind kind, String desc, List<PortInfo> ports, NodeBuilder b) {
         registerNodeType(new NodeModel(id, kind, ports, desc, NodeOrigin.BTCPP), b);
     }
 
@@ -897,90 +1019,198 @@ public final class BehaviorTreeFactory {
         final NodeKind DECORATOR = NodeKind.DECORATOR;
         final NodeKind ACTION = NodeKind.ACTION;
 
-        builtin(NodeSpec.SUBTREE, NodeKind.SUBTREE, "Instance of another BehaviorTree", List.of(),
+        builtin(
+                NodeSpec.SUBTREE,
+                NodeKind.SUBTREE,
+                "Instance of another BehaviorTree",
+                List.of(),
                 (n, c) -> {
                     throw new BtException("SubTree nodes are created from <SubTree ID=...>");
                 });
 
-        builtin("Sequence", CONTROL, "Tick children in order; fail on the first failure",
-                List.of(), SequenceNode::new);
-        builtin("ReactiveSequence", CONTROL,
-                "Sequence that re-checks earlier children every tick", List.of(),
+        builtin(
+                "Sequence",
+                CONTROL,
+                "Tick children in order; fail on the first failure",
+                List.of(),
+                SequenceNode::new);
+        builtin(
+                "ReactiveSequence",
+                CONTROL,
+                "Sequence that re-checks earlier children every tick",
+                List.of(),
                 ReactiveSequenceNode::new);
-        builtin("SequenceWithMemory", CONTROL,
-                "Sequence that resumes at the failed child instead of restarting", List.of(),
+        builtin(
+                "SequenceWithMemory",
+                CONTROL,
+                "Sequence that resumes at the failed child instead of restarting",
+                List.of(),
                 SequenceWithMemoryNode::new);
-        builtin("Fallback", CONTROL, "Try children in order until one succeeds", List.of(),
+        builtin(
+                "Fallback",
+                CONTROL,
+                "Try children in order until one succeeds",
+                List.of(),
                 FallbackNode::new);
-        builtin("ReactiveFallback", CONTROL,
-                "Fallback that re-checks earlier children every tick", List.of(),
+        builtin(
+                "ReactiveFallback",
+                CONTROL,
+                "Fallback that re-checks earlier children every tick",
+                List.of(),
                 ReactiveFallbackNode::new);
-        builtin("Parallel", CONTROL, "Tick all children; succeed/fail on thresholds",
+        builtin(
+                "Parallel",
+                CONTROL,
+                "Tick all children; succeed/fail on thresholds",
                 List.of(
-                        PortInfo.input(ParallelNode.SUCCESS_COUNT, PortType.INT, "-1",
+                        PortInfo.input(
+                                ParallelNode.SUCCESS_COUNT,
+                                PortType.INT,
+                                "-1",
                                 "Successes needed to succeed (-1 = all)"),
-                        PortInfo.input(ParallelNode.FAILURE_COUNT, PortType.INT, "1",
+                        PortInfo.input(
+                                ParallelNode.FAILURE_COUNT,
+                                PortType.INT,
+                                "1",
                                 "Failures needed to fail")),
                 ParallelNode::new);
-        builtin("ParallelAll", CONTROL, "Run all children to completion",
-                List.of(PortInfo.input(ParallelAllNode.MAX_FAILURES, PortType.INT, "1",
-                        "Failures that make the node fail")),
+        builtin(
+                "ParallelAll",
+                CONTROL,
+                "Run all children to completion",
+                List.of(
+                        PortInfo.input(
+                                ParallelAllNode.MAX_FAILURES,
+                                PortType.INT,
+                                "1",
+                                "Failures that make the node fail")),
                 ParallelAllNode::new);
-        registerLibraryNode("ParallelDeadline", CONTROL,
+        registerLibraryNode(
+                "ParallelDeadline",
+                CONTROL,
                 "Run all children until the first one finishes, then halt the rest and return its"
                         + " result",
-                List.of(), ParallelDeadlineNode::new);
-        builtin("IfThenElse", CONTROL, "if child0 then child1 else child2", List.of(),
+                List.of(),
+                ParallelDeadlineNode::new);
+        builtin(
+                "IfThenElse",
+                CONTROL,
+                "if child0 then child1 else child2",
+                List.of(),
                 IfThenElseNode::new);
-        builtin("WhileDoElse", CONTROL,
-                "Reactive if: re-checks child0 every tick, halting the other branch", List.of(),
+        builtin(
+                "WhileDoElse",
+                CONTROL,
+                "Reactive if: re-checks child0 every tick, halting the other branch",
+                List.of(),
                 WhileDoElseNode::new);
 
         builtin("Inverter", DECORATOR, "Swap SUCCESS and FAILURE", List.of(), InverterNode::new);
-        builtin("ForceSuccess", DECORATOR, "SUCCESS once the child completes", List.of(),
+        builtin(
+                "ForceSuccess",
+                DECORATOR,
+                "SUCCESS once the child completes",
+                List.of(),
                 ForceSuccessNode::new);
-        builtin("ForceFailure", DECORATOR, "FAILURE once the child completes", List.of(),
+        builtin(
+                "ForceFailure",
+                DECORATOR,
+                "FAILURE once the child completes",
+                List.of(),
                 ForceFailureNode::new);
-        builtin("Repeat", DECORATOR, "Repeat the child num_cycles times (-1 = forever)",
-                List.of(PortInfo.input(RepeatNode.NUM_CYCLES, PortType.INT,
-                        "Repeat a successful child up to N times. Use -1 for infinite loops")),
+        builtin(
+                "Repeat",
+                DECORATOR,
+                "Repeat the child num_cycles times (-1 = forever)",
+                List.of(
+                        PortInfo.input(
+                                RepeatNode.NUM_CYCLES,
+                                PortType.INT,
+                                "Repeat a successful child up to N times. Use -1 for infinite"
+                                    + " loops")),
                 RepeatNode::new);
-        builtin("RetryUntilSuccessful", DECORATOR, "Retry a failing child (-1 = forever)",
-                List.of(PortInfo.input(RetryNode.NUM_ATTEMPTS, PortType.INT,
-                        "Execute again a failing child up to N times. Use -1 for infinite loops")),
+        builtin(
+                "RetryUntilSuccessful",
+                DECORATOR,
+                "Retry a failing child (-1 = forever)",
+                List.of(
+                        PortInfo.input(
+                                RetryNode.NUM_ATTEMPTS,
+                                PortType.INT,
+                                "Execute again a failing child up to N times. Use -1 for infinite"
+                                    + " loops")),
                 RetryNode::new);
-        builtin("KeepRunningUntilFailure", DECORATOR,
-                "Restart the child on success; RUNNING until it fails", List.of(),
+        builtin(
+                "KeepRunningUntilFailure",
+                DECORATOR,
+                "Restart the child on success; RUNNING until it fails",
+                List.of(),
                 KeepRunningUntilFailureNode::new);
-        builtin("Timeout", DECORATOR, "Halt the child and fail after msec",
-                List.of(PortInfo.input(TimeoutNode.MSEC, PortType.INT,
-                        "After a certain amount of time, halt() the child if it is still running.")),
+        builtin(
+                "Timeout",
+                DECORATOR,
+                "Halt the child and fail after msec",
+                List.of(
+                        PortInfo.input(
+                                TimeoutNode.MSEC,
+                                PortType.INT,
+                                "After a certain amount of time, halt() the child if it is still"
+                                    + " running.")),
                 TimeoutNode::new);
-        builtin("Delay", DECORATOR, "Wait delay_msec before ticking the child",
-                List.of(PortInfo.input(DelayNode.DELAY_MSEC, PortType.INT,
-                        "Tick the child after a few milliseconds")),
+        builtin(
+                "Delay",
+                DECORATOR,
+                "Wait delay_msec before ticking the child",
+                List.of(
+                        PortInfo.input(
+                                DelayNode.DELAY_MSEC,
+                                PortType.INT,
+                                "Tick the child after a few milliseconds")),
                 DelayNode::new);
-        builtin("RunOnce", DECORATOR, "Run the child only once",
-                List.of(PortInfo.input(RunOnceNode.THEN_SKIP, PortType.BOOLEAN, "true",
-                        "If true, skip after the first execution, otherwise return the same "
-                                + "NodeStatus returned once by the child.")),
+        builtin(
+                "RunOnce",
+                DECORATOR,
+                "Run the child only once",
+                List.of(
+                        PortInfo.input(
+                                RunOnceNode.THEN_SKIP,
+                                PortType.BOOLEAN,
+                                "true",
+                                "If true, skip after the first execution, otherwise return the same"
+                                    + " NodeStatus returned once by the child.")),
                 RunOnceNode::new);
 
         builtin("AlwaysSuccess", ACTION, "Return SUCCESS", List.of(), AlwaysSuccessNode::new);
         builtin("AlwaysFailure", ACTION, "Return FAILURE", List.of(), AlwaysFailureNode::new);
-        builtin("Sleep", ACTION, "Wait msec milliseconds",
+        builtin(
+                "Sleep",
+                ACTION,
+                "Wait msec milliseconds",
                 List.of(PortInfo.input(SleepNode.MSEC, PortType.INT, "Milliseconds to wait")),
                 SleepNode::new);
-        builtin("SetBlackboard", ACTION, "Write a value into the blackboard",
+        builtin(
+                "SetBlackboard",
+                ACTION,
+                "Write a value into the blackboard",
                 List.of(
-                        PortInfo.input(SetBlackboardNode.VALUE, PortType.STRING,
+                        PortInfo.input(
+                                SetBlackboardNode.VALUE,
+                                PortType.STRING,
                                 "Value to write (literal or {key})"),
-                        PortInfo.inout(SetBlackboardNode.OUTPUT_KEY, PortType.STRING,
+                        PortInfo.inout(
+                                SetBlackboardNode.OUTPUT_KEY,
+                                PortType.STRING,
                                 "Name of the blackboard entry where the value should be written")),
                 SetBlackboardNode::new);
-        builtin("UnsetBlackboard", ACTION, "Remove a blackboard entry",
-                List.of(PortInfo.input(UnsetBlackboardNode.KEY, PortType.STRING,
-                        "Key of the entry to remove")),
+        builtin(
+                "UnsetBlackboard",
+                ACTION,
+                "Remove a blackboard entry",
+                List.of(
+                        PortInfo.input(
+                                UnsetBlackboardNode.KEY,
+                                PortType.STRING,
+                                "Key of the entry to remove")),
                 UnsetBlackboardNode::new);
     }
 }

@@ -19,7 +19,7 @@ public class UnsetBlackboardNode extends SyncActionNode {
         if (PortValues.isPointer(key)) {
             key = PortValues.pointerKey(key);
         }
-        blackboard().set(key, null);
+        blackboard().unset(key);
         return NodeStatus.SUCCESS;
     }
 }

@@ -7,7 +7,9 @@ import java.util.Locale;
 public final class PortValues {
     private PortValues() {}
 
-    /** True when {@code raw} is a blackboard pointer such as {@code {target}} or {@code {@root}}. */
+    /**
+     * True when {@code raw} is a blackboard pointer such as {@code {target}} or {@code {@root}}.
+     */
     public static boolean isPointer(String raw) {
         return raw != null && raw.length() >= 3 && raw.startsWith("{") && raw.endsWith("}");
     }
@@ -17,13 +19,19 @@ public final class PortValues {
         return raw.substring(1, raw.length() - 1);
     }
 
-    /** Like {@link #pointerKey(String)}, resolving the {@code {=}} shorthand to {@code portName}. */
+    /**
+     * Like {@link #pointerKey(String)}, resolving the {@code {=}} shorthand to {@code portName}.
+     */
     public static String pointerKey(String raw, String portName) {
         String key = pointerKey(raw);
         return "=".equals(key) ? portName : key;
     }
 
-    /** Converts a blackboard value to the requested wrapper/enum type, parsing strings. */
+    /**
+     * Converts a blackboard value to the requested wrapper/enum type, parsing strings. {@code
+     * context} (a port or key name) is only used in error messages, inserted verbatim; callers pass
+     * an existing string so a successful read allocates nothing.
+     */
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<T> type, String context) {
         if (value == null) {

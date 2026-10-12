@@ -89,7 +89,7 @@ public final class Blackboard {
     /** Resolved value converted to {@code type} (strings are parsed), or {@code null}. */
     public <T> T get(String key, Class<T> type) {
         Object value = get(key);
-        return value == null ? null : PortValues.convert(value, type, "blackboard entry '" + key + "'");
+        return value == null ? null : PortValues.convert(value, type, key);
     }
 
     public Optional<Object> getOptional(String key) {
@@ -110,7 +110,9 @@ public final class Blackboard {
         return autoremap_ && parent_ != null && parent_.contains(key);
     }
 
-    /** Writes through remappings/autoremap when the key lives in a parent; otherwise stores locally. */
+    /**
+     * Writes through remappings/autoremap when the key lives in a parent; otherwise stores locally.
+     */
     public synchronized void set(String key, Object value) {
         if (isRootKey(key)) {
             root().set(key.substring(1), value);
@@ -126,6 +128,29 @@ public final class Blackboard {
             return;
         }
         storage_.put(key, value);
+    }
+
+    /**
+     * Removes an entry, following the same routing as {@link #set}: a root key, a remapped key or
+     * (under autoremap) a key that only the parent has is removed where it lives.
+     */
+    public synchronized void unset(String key) {
+        if (isRootKey(key)) {
+            root().unset(key.substring(1));
+            return;
+        }
+        String external = remapping_.get(key);
+        if (external != null && parent_ != null) {
+            parent_.unset(external);
+            return;
+        }
+        if (storage_.containsKey(key)) {
+            storage_.remove(key);
+            return;
+        }
+        if (autoremap_ && parent_ != null) {
+            parent_.unset(key);
+        }
     }
 
     /** Stores locally, shadowing any parent entry (used for literal SubTree port values). */

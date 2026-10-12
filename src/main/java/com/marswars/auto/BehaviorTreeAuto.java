@@ -13,10 +13,12 @@ import com.marswars.bt.monitor.BehaviorTreeMonitor;
 import com.marswars.bt.monitor.BehaviorTreeRunner;
 import com.marswars.bt.monitor.NetworkParameterStore;
 import com.marswars.bt.xml.BtXmlParser;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DataLogManager;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,14 +36,15 @@ import java.util.function.Supplier;
  * deploy/autos/trees/<Name>.xml}). It is an {@link AutoRoutine}, not a WPILib command: a {@link
  * BehaviorTreeRunner} ticks the tree straight from the robot loop.
  *
- * <p>The tree work is the BT library's: {@link BehaviorTreeFactory#checkTree} parses and checks
- * the XML, {@link BehaviorTreeFactory#literalPortValues} finds the trajectories it names, the
- * {@link ParameterStore} holds its tunable values ({@code /Tuning/Autos/<auto>/<port>}) and a
- * {@link BehaviorTreeRunner} runs it. This class adds the auto parts: loading the paths ({@link
+ * <p>The tree work is the BT library's: {@link BehaviorTreeFactory#checkTree} parses and checks the
+ * XML, {@link BehaviorTreeFactory#literalPortValues} finds the trajectories it names, the {@link
+ * ParameterStore} holds its tunable values ({@code /Tuning/Autos/<auto>/<port>}) and a {@link
+ * BehaviorTreeRunner} runs it. This class adds the auto parts: loading the paths ({@link
  * AutoTrajectories}) and reloading off the robot thread.
  *
- * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the
- * trees as they are now.
+ * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the trees
+ * as they are now. Constructing an auto reads nothing; the {@link AutoManager} checks every auto in
+ * the background at boot ({@link #prepare}) and lists only those that load.
  *
  * <p>Nodes get trajectories through the root blackboard entry {@code @trajectories}:
  *
@@ -49,12 +52,14 @@ import java.util.function.Supplier;
  * ChoreoTrajectory traj = BehaviorTreeAuto.trajectories(node).apply(node.getString("trajectory"));
  * }</pre>
  *
- * <p>A file that fails to load keeps the last good version (if any), raises an {@link Alert} and
- * logs {@code BehaviorTree/<name>/Error}.
+ * <p>A load that fails (bad XML, a missing path, an unknown event) unloads the auto: it raises an
+ * {@link Alert}, logs {@code BehaviorTree/<name>/Error}, and does nothing when started. There is no
+ * fallback to an earlier version, so it can never run old paths for the wrong alliance.
  */
 public class BehaviorTreeAuto implements AutoRoutine {
     /** Root blackboard key of the {@code Function<String, ChoreoTrajectory>} resolver. */
     public static final String TRAJECTORIES_KEY = "trajectories";
+
     /** Root blackboard key holding this auto's name. */
     public static final String AUTO_NAME_KEY = "auto";
 
@@ -80,7 +85,7 @@ public class BehaviorTreeAuto implements AutoRoutine {
             List<String> trajectoryNames,
             Map<String, ChoreoTrajectory> trajectories) {}
 
-    private Load loaded_ = null; // the last good load
+    private Load loaded_ = null; // the current load; null until loaded, or after a failed load
     private String error_ = "";
     private Alert alert_ = null;
 
@@ -89,7 +94,9 @@ public class BehaviorTreeAuto implements AutoRoutine {
         this(factory, xmlFile, defaultParameters());
     }
 
-    /** Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store. */
+    /**
+     * Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store.
+     */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile, ParameterStore parameters) {
         this(
                 factory,
@@ -125,7 +132,6 @@ public class BehaviorTreeAuto implements AutoRoutine {
         parameters_ = Objects.requireNonNull(parameters, "parameters");
         monitor_ = new BehaviorTreeMonitor(name);
         runner_ = new BehaviorTreeRunner(name, this::buildTree, monitor_);
-        reload();
     }
 
     /** One auto per auto file in {@code dir} (see {@link #listAutos}), by file name. */
@@ -142,9 +148,14 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return autos;
     }
 
-    /** The auto files in {@code dir}: its {@code *.xml} files except library files. */
+    /**
+     * The auto files in {@code dir}: its {@code *.xml} files except library files (those without
+     * {@code main_tree_to_execute}, see {@link BtXmlParser#isLibraryFile}).
+     */
     public static List<Path> listAutos(Path dir) {
-        return BtXmlParser.listXml(dir).stream().filter(f -> !BtXmlParser.isLibraryFile(f)).toList();
+        return BtXmlParser.listXml(dir).stream()
+                .filter(f -> !BtXmlParser.isLibraryFile(f))
+                .toList();
     }
 
     /** The {@code @trajectories} resolver from a node's blackboard. */
@@ -161,12 +172,34 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return (Function<String, ChoreoTrajectory>) resolver;
     }
 
+    /**
+     * Event names the tree uses ({@link PortType#EVENT} ports, such as {@code WaitForChoreoEvent
+     * event}) that are not a marker on any of {@code paths}. Such a node would wait forever.
+     */
+    public static List<String> missingEvents(
+            BehaviorTreeFactory factory, TreeSpec spec, Map<String, ChoreoTrajectory> paths) {
+        java.util.Set<String> markers = markers(paths);
+        return factory.literalPortValues(spec, PortType.EVENT).stream()
+                .filter(e -> !markers.contains(e))
+                .toList();
+    }
+
+    private static java.util.Set<String> markers(Map<String, ChoreoTrajectory> paths) {
+        java.util.Set<String> markers = new java.util.TreeSet<>();
+        for (ChoreoTrajectory t : paths.values()) {
+            markers.addAll(t.getEventTimestampMap().keySet());
+        }
+        return markers;
+    }
+
     @Override
     public String getName() {
         return name_;
     }
 
-    /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
+    /**
+     * Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}).
+     */
     public String parameterKey(String port) {
         return parameterPrefix() + port;
     }
@@ -194,18 +227,36 @@ public class BehaviorTreeAuto implements AutoRoutine {
         try {
             xml = xml_source_.get();
             TreeSpec spec = factory_.checkTree(xml, base_dir_, newRoot());
+            List<String> unresolved = factory_.unresolvedPortValues(spec, PortType.TRAJECTORY);
+            if (!unresolved.isEmpty()) {
+                throw new BtException(
+                        "trajectory ports must name a path (it is loaded before the auto runs): "
+                                + String.join("; ", unresolved));
+            }
             List<String> names = factory_.literalPortValues(spec, PortType.TRAJECTORY);
             Map<String, ChoreoTrajectory> paths =
                     is_red_alliance == null ? null : AutoTrajectories.load(names, is_red_alliance);
+            if (paths != null) {
+                List<String> missing = missingEvents(factory_, spec, paths);
+                if (!missing.isEmpty()) {
+                    throw new BtException(
+                            "no path of this auto has the event marker(s) "
+                                    + missing
+                                    + "; markers on its paths: "
+                                    + markers(paths));
+                }
+            }
             return new Load(xml, spec, "", names, paths);
         } catch (RuntimeException e) {
             return new Load(xml, null, e.getMessage(), List.of(), null);
         }
     }
 
-    /** Puts a load in use on the robot thread, or keeps the last good one if it failed. */
+    /** Puts a load in use on the robot thread; a failed load unloads the auto. */
     private synchronized boolean use(Load load) {
         if (load.spec() == null) {
+            loaded_ = null;
+            paths_.registerOnly(List.of());
             setError(load.error());
             return false;
         }
@@ -228,7 +279,10 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return root;
     }
 
-    /** Builds a fresh tree for one run from the last good load, with the current tunable values. */
+    /**
+     * Builds a fresh tree for one run from the current load, with the current tunable values.
+     * Throws when the auto is not loaded.
+     */
     public synchronized BehaviorTree buildTree() {
         if (loaded_ == null) {
             throw new BtException(error_.isEmpty() ? "no tree loaded" : error_);
@@ -266,6 +320,13 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return error_;
     }
 
+    @Override
+    public String getLoadError() {
+        return getError();
+    }
+
+    /** True once a load succeeded and no later load failed. */
+    @Override
     public synchronized boolean isLoaded() {
         return loaded_ != null;
     }

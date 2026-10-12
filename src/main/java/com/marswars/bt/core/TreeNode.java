@@ -1,6 +1,8 @@
 package com.marswars.bt.core;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -25,6 +27,10 @@ public abstract class TreeNode {
     private NodeStatus status_ = NodeStatus.IDLE;
     private int uid_ = 0;
     private StatusListener listener_ = null;
+    // Port reads happen every tick: cache parsed literals and resolved pointer keys per port (the
+    // config is immutable, so neither ever changes). Trees tick on one thread.
+    private Map<String, Object> literal_cache_ = null;
+    private Map<String, String> pointer_keys_ = null;
 
     protected TreeNode(String name, NodeConfig config) {
         config_ = config;
@@ -63,7 +69,9 @@ public abstract class TreeNode {
     /** The node's own logic; called by {@link #executeTick()}. */
     protected abstract NodeStatus tick();
 
-    /** Hook for subclasses that forbid some results (sync actions and conditions reject RUNNING). */
+    /**
+     * Hook for subclasses that forbid some results (sync actions and conditions reject RUNNING).
+     */
     protected void validateTickResult(NodeStatus result) {}
 
     /** Node category. */
@@ -176,41 +184,77 @@ public abstract class TreeNode {
 
     /** Raw attribute string of an input port, falling back to the model default. */
     public final Optional<String> getRawInput(String port) {
+        return Optional.ofNullable(rawInput(port));
+    }
+
+    private String rawInput(String port) {
         String raw = config_.inputPorts().get(port);
         if (raw == null && config_.model() != null) {
             raw = config_.model().port(port).map(PortInfo::defaultValue).orElse(null);
         }
-        return Optional.ofNullable(raw);
+        return raw;
     }
 
     /**
      * Typed value of an input port: a {@code {key}} pointer is resolved through the blackboard, a
-     * literal is parsed. Empty when the port is unset and has no default, or the key is absent.
+     * literal is parsed (once; later reads reuse the parsed value). Empty when the port is unset
+     * and has no default, or the key is absent.
      */
     public final <T> Optional<T> getInput(String port, Class<T> type) {
-        Optional<String> raw = getRawInput(port);
-        if (raw.isEmpty()) {
-            return Optional.empty();
+        return Optional.ofNullable(input(port, type));
+    }
+
+    /**
+     * {@link #getInput} without the Optional: null when missing. Allocation-free on a cache hit.
+     */
+    private <T> T input(String port, Class<T> type) {
+        String raw = rawInput(port);
+        if (raw == null) {
+            return null;
         }
-        String context = "port '" + port + "' of [" + getPath() + "]";
-        if (PortValues.isPointer(raw.get())) {
-            Object value = blackboard().get(PortValues.pointerKey(raw.get(), port));
-            return Optional.ofNullable(PortValues.convert(value, type, context));
+        try {
+            if (PortValues.isPointer(raw)) {
+                Object value = blackboard().get(pointerKey(port, raw));
+                return PortValues.convert(value, type, port);
+            }
+            return literal(port, raw, type);
+        } catch (BtException e) {
+            throw new BtException("[" + getPath() + "] " + e.getMessage(), e);
         }
-        return Optional.of(PortValues.parseLiteral(raw.get(), type, context));
+    }
+
+    private String pointerKey(String port, String raw) {
+        if (pointer_keys_ == null) {
+            pointer_keys_ = new HashMap<>();
+        }
+        String key = pointer_keys_.get(port);
+        if (key == null) {
+            key = PortValues.pointerKey(raw, port);
+            pointer_keys_.put(port, key);
+        }
+        return key;
+    }
+
+    private <T> T literal(String port, String raw, Class<T> type) {
+        if (literal_cache_ == null) {
+            literal_cache_ = new HashMap<>();
+        }
+        Object cached = literal_cache_.get(port);
+        if (cached != null && type.isInstance(cached)) {
+            return type.cast(cached);
+        }
+        T parsed = PortValues.parseLiteral(raw, type, port);
+        literal_cache_.put(port, parsed);
+        return parsed;
     }
 
     /** Like {@link #getInput} but throws when the value is missing. */
     public final <T> T getInputOrThrow(String port, Class<T> type) {
-        return getInput(port, type)
-                .orElseThrow(
-                        () ->
-                                new BtException(
-                                        "Missing input port '"
-                                                + port
-                                                + "' on ["
-                                                + getPath()
-                                                + "]"));
+        T value = input(port, type);
+        if (value == null) {
+            throw new BtException("Missing input port '" + port + "' on [" + getPath() + "]");
+        }
+        return value;
     }
 
     public final double getDouble(String port) {
@@ -218,7 +262,8 @@ public abstract class TreeNode {
     }
 
     public final double getDouble(String port, double fallback) {
-        return getInput(port, Double.class).orElse(fallback);
+        Double v = input(port, Double.class);
+        return v == null ? fallback : v;
     }
 
     public final int getInt(String port) {
@@ -226,7 +271,8 @@ public abstract class TreeNode {
     }
 
     public final int getInt(String port, int fallback) {
-        return getInput(port, Integer.class).orElse(fallback);
+        Integer v = input(port, Integer.class);
+        return v == null ? fallback : v;
     }
 
     public final boolean getBoolean(String port) {
@@ -234,7 +280,8 @@ public abstract class TreeNode {
     }
 
     public final boolean getBoolean(String port, boolean fallback) {
-        return getInput(port, Boolean.class).orElse(fallback);
+        Boolean v = input(port, Boolean.class);
+        return v == null ? fallback : v;
     }
 
     public final String getString(String port) {
@@ -242,7 +289,8 @@ public abstract class TreeNode {
     }
 
     public final String getString(String port, String fallback) {
-        return getInput(port, String.class).orElse(fallback);
+        String v = input(port, String.class);
+        return v == null ? fallback : v;
     }
 
     public final <E extends Enum<E>> E getEnum(String port, Class<E> type) {
@@ -250,12 +298,13 @@ public abstract class TreeNode {
     }
 
     public final <E extends Enum<E>> E getEnum(String port, Class<E> type, E fallback) {
-        return getInput(port, type).orElse(fallback);
+        E v = input(port, type);
+        return v == null ? fallback : v;
     }
 
     /**
-     * Writes an output port. The port's attribute names the blackboard entry: {@code {key}}, a plain
-     * {@code key}, or {@code {=}} (same name as the port), as in BT.CPP.
+     * Writes an output port. The port's attribute names the blackboard entry: {@code {key}}, a
+     * plain {@code key}, or {@code {=}} (same name as the port), as in BT.CPP.
      */
     public final void setOutput(String port, Object value) {
         String raw = config_.outputPorts().get(port);

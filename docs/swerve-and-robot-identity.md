@@ -11,8 +11,10 @@ import com.marswars.util.RobotIdentity;
 // Resolve which robot the code is running on (burned "RobotName" preference,
 // or SimBot/ROBOT_NAME env var in simulation), mapped onto the project's own enum
 // ("BetaBot" -> BETA_BOT); constants variants switch on it. It lives in the robot's
-// RobotConstants as statics, because subsystems need it before RobotContainer exists.
+// RobotConstants as statics, because subsystems need it before RobotContainer exists. The
+// robot's states live here too (a new robot starts with just DRIVE).
 public class RobotConstants extends MwConstants {
+    public enum RobotStates { DRIVE }
     public enum Robot { ALPHA_BOT, BETA_BOT, SIM_BOT }
     public static final Robot ROBOT = RobotIdentity.getInstance().getRobot(Robot.class);
 }

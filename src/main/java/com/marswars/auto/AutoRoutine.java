@@ -7,9 +7,9 @@ import edu.wpi.first.wpilibj2.command.Command;
  * One autonomous routine, as the {@link AutoManager} runs it: chosen on the dashboard, prepared
  * while the robot is disabled, then started in autonomous and stepped every robot loop. It has
  * nothing to do with WPILib commands, so a behavior tree ({@link BehaviorTreeAuto}) runs straight
- * from the robot loop. A command-based auto is just another implementation: {@link Auto} (a
- * {@code SequentialCommandGroup}) is one, and {@link #of(String, Command)} wraps any command; those
- * are run by the {@code CommandScheduler} as before.
+ * from the robot loop. A command-based auto is just another implementation: {@link Auto} (a {@code
+ * SequentialCommandGroup}) is one, and {@link #of(String, Command)} wraps any command; those are
+ * run by the {@code CommandScheduler} as before.
  */
 public interface AutoRoutine {
     /** Name in the chooser and the logs. */
@@ -19,10 +19,24 @@ public interface AutoRoutine {
      * Gets ready to run on this alliance: reads files, loads and flips paths. {@link AutoManager}
      * calls it on a background thread, so it only computes; it must not change robot state,
      * NetworkTables-backed objects or logs. It returns the step that puts the result in use (swap
-     * in the paths, publish errors, log inputs), which {@link AutoManager} runs on the robot thread.
+     * in the paths, publish errors, log inputs), which {@link AutoManager} runs on the robot
+     * thread.
      */
     default Runnable prepare(boolean is_red_alliance) {
         return () -> {};
+    }
+
+    /**
+     * False when the last {@link #prepare} failed (a broken file, a missing path): the routine has
+     * nothing to run. {@link AutoManager} leaves such a routine out of the chooser at boot.
+     */
+    default boolean isLoaded() {
+        return true;
+    }
+
+    /** Why the last {@link #prepare} failed, or empty. */
+    default String getLoadError() {
+        return "";
     }
 
     /** Where the robot starts (the first path's first pose), or {@link Pose2d#kZero}. */

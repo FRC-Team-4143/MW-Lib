@@ -5,14 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.wpi.first.wpilibj2.command.Commands;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /** The background half runs off this thread; the step it returns runs on the caller's thread. */
 class AutoPreparerTest {
@@ -52,7 +54,10 @@ class AutoPreparerTest {
                 String loader = Thread.currentThread().getName();
                 return () ->
                         events.add(
-                                name + " loaded on " + loader + ", used on "
+                                name
+                                        + " loaded on "
+                                        + loader
+                                        + ", used on "
                                         + Thread.currentThread().getName());
             }
 
@@ -127,7 +132,8 @@ class AutoPreparerTest {
         String log = events.get(0);
         assertTrue(log.contains("Preparing auto Throws failed") && log.contains("no path"), log);
 
-        preparer.prepareNow(broken, false);
+        preparer.submit(broken, false);
+        preparer.await();
         assertTrue(preparer.isPrepared(broken, false));
         assertFalse(preparer.isPrepared(throwing, false));
     }

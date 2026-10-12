@@ -1,6 +1,7 @@
 package com.marswars.auto;
 
 import edu.wpi.first.wpilibj.DataLogManager;
+
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -66,22 +67,11 @@ final class AutoPreparer {
         }
     }
 
-    /** Waits for the preparation in flight, if any, and puts it in use. */
+    /** Waits for the preparation in flight, if any, and puts it in use (tests only). */
     void await() {
         if (job_ != null) {
             finishJob();
         }
-    }
-
-    /** Prepares {@code auto} on this thread. */
-    void prepareNow(AutoRoutine auto, boolean red) {
-        Runnable step = () -> {};
-        try {
-            step = auto.prepare(red);
-        } catch (RuntimeException e) {
-            message_log_.accept("Preparing auto " + auto.getName() + " failed: " + e);
-        }
-        use(auto, red, step);
     }
 
     private void finishJob() {
@@ -93,7 +83,8 @@ final class AutoPreparer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
-            message_log_.accept("Preparing auto " + job.auto().getName() + " failed: " + e.getCause());
+            message_log_.accept(
+                    "Preparing auto " + job.auto().getName() + " failed: " + e.getCause());
         }
         use(job.auto(), job.red(), step);
     }

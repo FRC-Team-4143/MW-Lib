@@ -8,6 +8,14 @@ import com.marswars.bt.core.PortDirection;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.TreeSpec;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -21,26 +29,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.Locator;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * Parses BehaviorTree.CPP v4 XML into a {@link TreeSpec}.
  *
  * <p>Supported: {@code <root BTCPP_format="4" main_tree_to_execute>}, any number of {@code
- * <BehaviorTree ID>}, nodes written as {@code <Id .../>} or {@code <Action|Condition|Control|Decorator
- * ID="Id" .../>}, {@code <SubTree ID>} with port remapping and {@code _autoremap}, {@code
- * <TreeNodesModel>}, and {@code <include path>}. Groot2 metadata ({@code _uid}, {@code _fullpath},
- * {@code _description}) is ignored. BT.CPP scripting (pre/post-condition attributes such as {@code
- * _skipIf}) is rejected, since MW-Lib has no script interpreter.
+ * <BehaviorTree ID>}, nodes written as {@code <Id .../>} or {@code
+ * <Action|Condition|Control|Decorator ID="Id" .../>}, {@code <SubTree ID>} with port remapping and
+ * {@code _autoremap}, {@code <TreeNodesModel>}, and {@code <include path>}. Groot2 metadata ({@code
+ * _uid}, {@code _fullpath}, {@code _description}) is ignored. BT.CPP scripting (pre/post-condition
+ * attributes such as {@code _skipIf}) is rejected, since MW-Lib has no script interpreter.
  */
 public final class BtXmlParser {
     /** Pre/post-condition attributes that need the BT.CPP scripting language. */
@@ -56,7 +59,8 @@ public final class BtXmlParser {
                     "_post");
 
     /** Editor/Groot2 bookkeeping attributes that carry no behavior. */
-    public static final Set<String> IGNORED_ATTRIBUTES = Set.of("_uid", "_fullpath", "_description");
+    public static final Set<String> IGNORED_ATTRIBUTES =
+            Set.of("_uid", "_fullpath", "_description");
 
     /** Deprecated BT.CPP v3 names still accepted, mapped to their v4 names. */
     public static final Map<String, String> DEPRECATED_ALIASES =
@@ -92,13 +96,13 @@ public final class BtXmlParser {
     }
 
     /**
-     * True for a library file: one that parses but names no tree to run (no {@code
-     * main_tree_to_execute}), such as a {@code common.xml} of shared subtrees. A file that doesn't
-     * parse is not a library file, so callers still see it and its error.
+     * True for a library file: one that parses but has no {@code main_tree_to_execute}, such as a
+     * {@code common.xml} of shared subtrees. An auto must name its main tree, even when it has only
+     * one. A file that doesn't parse is not a library file, so callers still see it and its error.
      */
     public static boolean isLibraryFile(Path file) {
         try {
-            return parse(file).mainTreeId().isEmpty();
+            return !parse(file).mainTreeDeclared();
         } catch (RuntimeException e) {
             return false;
         }
@@ -337,7 +341,9 @@ public final class BtXmlParser {
         private void startNode(String tag, Attributes attrs) {
             if (node_stack_.isEmpty() && current_tree_root_ != null) {
                 throw error(
-                        "<BehaviorTree ID=\"" + current_tree_id_ + "\"> must have exactly one root node");
+                        "<BehaviorTree ID=\""
+                                + current_tree_id_
+                                + "\"> must have exactly one root node");
             }
             String id = tag;
             String subtree_id = null;
@@ -499,7 +505,12 @@ public final class BtXmlParser {
             }
             if (NodeKind.fromXmlTag(tag).isPresent()) {
                 models_.add(
-                        new NodeModel(model_.id, model_.kind, model_.ports, model_.description, NodeOrigin.FILE));
+                        new NodeModel(
+                                model_.id,
+                                model_.kind,
+                                model_.ports,
+                                model_.description,
+                                NodeOrigin.FILE));
                 model_ = null;
             }
         }
@@ -518,7 +529,8 @@ public final class BtXmlParser {
                 throw new BtXmlException(
                         "main_tree_to_execute=\"" + main + "\" is not a defined <BehaviorTree>", 0);
             }
-            return new TreeSpec(main, trees_, models_, warnings_);
+            boolean declared = main_tree_attr_ != null && !main_tree_attr_.isBlank();
+            return new TreeSpec(main, trees_, models_, warnings_, declared);
         }
     }
 
@@ -534,6 +546,7 @@ public final class BtXmlParser {
             case "bool" -> PortType.BOOLEAN;
             case "std::string", "string", "BT::StringView" -> PortType.STRING;
             case "trajectory" -> PortType.TRAJECTORY;
+            case "event" -> PortType.EVENT;
             case "" -> PortType.ANY;
             default -> PortType.ANY; // custom C++/Java types keep their name via PortInfo.typeName
         };

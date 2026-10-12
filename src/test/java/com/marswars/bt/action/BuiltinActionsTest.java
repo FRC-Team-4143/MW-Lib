@@ -1,13 +1,17 @@
 package com.marswars.bt.action;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.marswars.bt.support.BtTestBase;
+
 import edu.wpi.first.wpilibj2.command.Command;
+
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
 
 class BuiltinActionsTest extends BtTestBase {
 
@@ -46,6 +50,20 @@ class BuiltinActionsTest extends BtTestBase {
         assertEquals("42", bb.get("copy"));
         new UnsetBlackboardNode("c", cfg(Map.of("key", "copy"))).executeTick();
         assertEquals(null, bb.get("copy"));
+        assertFalse(bb.contains("copy"), "unset removes the entry, it does not store null");
+        assertFalse(bb.localKeys().contains("copy"));
+    }
+
+    @Test
+    void unsetUnderAutoremapRemovesTheParentEntry() {
+        bb.set("shared", "x");
+        com.marswars.bt.core.Blackboard child = com.marswars.bt.core.Blackboard.createChild(bb);
+        child.enableAutoRemapping(true);
+        child.unset("shared");
+        assertFalse(bb.contains("shared"));
+        child.set("shared", "y"); // now local to the child, not routed to the parent
+        assertFalse(bb.contains("shared"));
+        assertEquals("y", child.get("shared"));
     }
 
     @Test
