@@ -37,8 +37,10 @@ public void teleopInit()     { AutoManager.getInstance().stop(); }
 Preparing the selected auto (re-reading its XML, loading and alliance-flipping its Choreo paths)
 happens on a background `auto-loader` thread whenever the selection or alliance changes, so file I/O
 never stretches a robot loop. The result is swapped in on the robot thread. The XML is always read
-from disk, in log replay too, so replaying a log runs the trees as they are now: change a tree (or
-the robot code) and replay the same inputs to see what it would have done.
+from disk, in log replay too, so a replay runs the trees in your checkout, like the rest of the robot
+code. The selection is a logged input (`LoggedDashboardChooser`), so a replay runs the auto that was
+chosen in the match. The exact tree that ran is in the match's `.btlog` header, next to every status
+transition, so a tree edited or copied to the robot after the fact is still recoverable from there.
 
 **Command-based autos still work.** `Auto` (a `SequentialCommandGroup`) is an `AutoRoutine` that runs
 through the scheduler, and any command can be added with

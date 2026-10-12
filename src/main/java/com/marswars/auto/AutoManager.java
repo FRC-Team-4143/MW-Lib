@@ -4,20 +4,21 @@ import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
  * Chooses, prepares and runs the autonomous routine.
  *
  * <ul>
  *   <li><b>Choosing:</b> every registered {@link AutoRoutine} is an option in the dashboard "Auto
- *       Chooser"; "Selected Auto Path" previews its paths.
+ *       Chooser"; "Selected Auto Path" previews its paths. The selection is a logged input
+ *       ({@code LoggedDashboardChooser}), so log replay runs the auto that ran in the match.
  *   <li><b>Preparing:</b> when the selection or the alliance changes, the selected routine's
  *       {@link AutoRoutine#prepare} (reading files, loading and flipping paths) runs on a background
  *       thread and the step it returns runs on the robot thread ({@link AutoPreparer}).
@@ -42,7 +43,9 @@ public class AutoManager {
     return instance_;
   }
 
-  private final SendableChooser<AutoRoutine> auto_chooser_ = new SendableChooser<>();
+  private final LoggedDashboardChooser<AutoRoutine> auto_chooser_ =
+      new LoggedDashboardChooser<>("Auto Chooser");
+  private final AutoRoutine do_nothing_ = AutoRoutine.none("Do_Nothing");
   private final Field2d auto_display = new Field2d();
   private final Set<String> registered_names_ = new HashSet<>();
   private final AutoPreparer preparer_ =
@@ -53,15 +56,10 @@ public class AutoManager {
   private AutoRoutine running_ = null;
 
   private AutoManager() {
-    AutoRoutine do_nothing = AutoRoutine.none("Do_Nothing");
-    auto_chooser_.setDefaultOption(do_nothing.getName(), do_nothing);
-    registered_names_.add(do_nothing.getName());
-
-    // A flag rather than work in the callback: changing SmartDashboard's map while updateValues()
-    // iterates it throws ConcurrentModificationException.
+    auto_chooser_.addDefaultOption(do_nothing_.getName(), do_nothing_);
+    registered_names_.add(do_nothing_.getName());
+    // A flag, not work: the callback runs inside the logger's periodic, so keep it trivial.
     auto_chooser_.onChange(auto -> pending_auto_update_ = true);
-
-    SmartDashboard.putData("Auto Chooser", auto_chooser_);
     SmartDashboard.putData("Selected Auto Path", auto_display);
   }
 
@@ -96,9 +94,14 @@ public class AutoManager {
     pending_auto_update_ = true;
   }
 
-  /** The routine selected on the dashboard. */
+  /** The routine selected on the dashboard (in replay, the one the log says was selected). */
   public AutoRoutine getSelectedAuto() {
-    return auto_chooser_.getSelected();
+    AutoRoutine selected = auto_chooser_.get();
+    if (selected == null) { // a logged name no auto has any more (renamed since the match)
+      DataLogManager.log("Selected auto is not registered; running " + do_nothing_.getName());
+      return do_nothing_;
+    }
+    return selected;
   }
 
   /** The routine running now, if any. */
