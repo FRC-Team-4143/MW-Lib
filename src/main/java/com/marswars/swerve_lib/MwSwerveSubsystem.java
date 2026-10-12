@@ -51,7 +51,7 @@ import java.util.function.Supplier;
  * @param <C> the robot's swerve constants type
  */
 public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
-        extends MwSubsystem<SwerveStates, C> {
+        extends MwSubsystem<SwerveStates, C> implements SwerveFollower {
 
     // External inputs
     private final Supplier<Pose2d> pose_supplier_;
@@ -898,6 +898,18 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
     public boolean isAtDesiredRotation(double tolerance) {
         return Math.abs(field_centric_rotation_lock_request_.HeadingController.getPositionError())
                 < tolerance;
+    }
+
+    /**
+     * True while following a Choreo path with its timer paused. The timer stops whenever the robot
+     * lags the current sample by more than {@code CHOREO_LOOK_AHEAD} (pushed, blocked, bumped) and
+     * restarts once it catches up, so a long pause means the robot is stuck.
+     *
+     * @return true in a Choreo state with the path timer stopped
+     */
+    @Override
+    public boolean isChoreoTimerPaused() {
+        return isChoreoState(system_state_) && !choreo_timer_.isRunning();
     }
 
     /**

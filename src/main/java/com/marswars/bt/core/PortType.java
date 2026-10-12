@@ -12,6 +12,8 @@ public enum PortType {
     STRING("std::string", String.class),
     ENUM("enum", String.class),
     TRAJECTORY("trajectory", String.class),
+    /** Names a Choreo event marker; autos check every literal against their paths' markers. */
+    EVENT("event", String.class),
     ANY("", Object.class);
 
     private final String xml_type_;

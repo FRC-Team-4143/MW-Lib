@@ -164,6 +164,26 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return (Function<String, ChoreoTrajectory>) resolver;
     }
 
+    /**
+     * Event names the tree uses ({@link PortType#EVENT} ports, such as {@code WaitForChoreoEvent
+     * event}) that are not a marker on any of {@code paths}. Such a node would wait forever.
+     */
+    public static List<String> missingEvents(
+            BehaviorTreeFactory factory, TreeSpec spec, Map<String, ChoreoTrajectory> paths) {
+        java.util.Set<String> markers = markers(paths);
+        return factory.literalPortValues(spec, PortType.EVENT).stream()
+                .filter(e -> !markers.contains(e))
+                .toList();
+    }
+
+    private static java.util.Set<String> markers(Map<String, ChoreoTrajectory> paths) {
+        java.util.Set<String> markers = new java.util.TreeSet<>();
+        for (ChoreoTrajectory t : paths.values()) {
+            markers.addAll(t.getEventTimestampMap().keySet());
+        }
+        return markers;
+    }
+
     @Override
     public String getName() {
         return name_;
@@ -206,6 +226,16 @@ public class BehaviorTreeAuto implements AutoRoutine {
             List<String> names = factory_.literalPortValues(spec, PortType.TRAJECTORY);
             Map<String, ChoreoTrajectory> paths =
                     is_red_alliance == null ? null : AutoTrajectories.load(names, is_red_alliance);
+            if (paths != null) {
+                List<String> missing = missingEvents(factory_, spec, paths);
+                if (!missing.isEmpty()) {
+                    throw new BtException(
+                            "no path of this auto has the event marker(s) "
+                                    + missing
+                                    + "; markers on its paths: "
+                                    + markers(paths));
+                }
+            }
             return new Load(xml, spec, "", names, paths);
         } catch (RuntimeException e) {
             return new Load(xml, null, e.getMessage(), List.of(), null);

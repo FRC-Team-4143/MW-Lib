@@ -535,6 +535,7 @@ public final class BtXmlParser {
             case "bool" -> PortType.BOOLEAN;
             case "std::string", "string", "BT::StringView" -> PortType.STRING;
             case "trajectory" -> PortType.TRAJECTORY;
+            case "event" -> PortType.EVENT;
             case "" -> PortType.ANY;
             default -> PortType.ANY; // custom C++/Java types keep their name via PortInfo.typeName
         };

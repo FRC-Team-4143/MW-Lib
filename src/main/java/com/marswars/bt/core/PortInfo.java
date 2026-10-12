@@ -102,6 +102,15 @@ public record PortInfo(
                 name, PortDirection.INPUT, PortType.TRAJECTORY, null, description, List.of(), null);
     }
 
+    /**
+     * Input port naming a Choreo event marker; an auto checks that every literal value is a marker
+     * on one of its paths.
+     */
+    public static PortInfo event(String name, String description) {
+        return new PortInfo(
+                name, PortDirection.INPUT, PortType.EVENT, null, description, List.of(), null);
+    }
+
     /** A port that must be present in the XML: not an output, and without a default. */
     public boolean required() {
         return direction != PortDirection.OUTPUT && defaultValue == null;

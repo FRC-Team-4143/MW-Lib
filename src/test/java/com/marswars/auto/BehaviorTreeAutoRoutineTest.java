@@ -61,6 +61,18 @@ class BehaviorTreeAutoRoutineTest {
                             }
                         });
         factory.registerInstantAction("Follow", "", List.of(PortInfo.trajectory("trajectory", "path")), n -> {});
+        factory.registerInstantAction("WaitEvent", "", List.of(PortInfo.event("event", "")), n -> {});
+    }
+
+    /** A three-sample swerve path with one event marker. */
+    static choreo.trajectory.Trajectory<?> pathWithEvent(String name, String event) {
+        var samples =
+                List.of(
+                        new choreo.trajectory.SwerveSample(0, 1, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new choreo.trajectory.SwerveSample(1, 2, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new choreo.trajectory.SwerveSample(2, 3, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]));
+        return new choreo.trajectory.Trajectory<>(
+                name, samples, List.of(), List.of(new choreo.trajectory.EventMarker(1.0, event)));
     }
 
     @AfterEach
@@ -129,6 +141,20 @@ class BehaviorTreeAutoRoutineTest {
         auto.start();
         auto.periodic();
         assertEquals(List.of("good"), ran, "the last good tree still runs");
+    }
+
+    @Test
+    void anEventNoPathHasIsALoadError() {
+        AutoTrajectories.loader_ = name -> Optional.of(pathWithEvent(name, "Intake Out"));
+        BehaviorTreeAuto auto =
+                auto("<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake Out\"/></Sequence>");
+        auto.prepare(false).run();
+        assertEquals("", auto.getError());
+
+        xml.set(doc("<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake Ou\"/></Sequence>"));
+        auto.prepare(false).run();
+        assertTrue(auto.getError().contains("[Intake Ou]"), auto.getError());
+        assertTrue(auto.getError().contains("[Intake Out]"), "lists the markers there are");
     }
 
     @Test

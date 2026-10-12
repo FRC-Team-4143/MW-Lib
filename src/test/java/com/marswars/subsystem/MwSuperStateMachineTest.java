@@ -8,7 +8,6 @@ import com.marswars.bt.RobotStateNodes;
 import com.marswars.bt.core.BehaviorTree;
 import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.NodeStatus;
-import com.marswars.subsystem.MwSuperStateMachine.StateResult;
 import edu.wpi.first.hal.HAL;
 import java.util.ArrayList;
 import java.util.List;
@@ -127,19 +126,8 @@ class MwSuperStateMachineTest {
         assertEquals(List.of(ShooterStates.SHOOT, ShooterStates.SHOOT), robot.shooter.updates);
     }
 
-    @Test
-    void resultIsSuccessOnceInWantedState() {
-        robot.setWantedState(RobotStates.SHOOT);
-        assertEquals(StateResult.RUNNING, robot.getStateResult());
-
-        robot.doControlLoop();
-        assertEquals(StateResult.SUCCESS, robot.getStateResult());
-    }
-
     /** A scoring sequence: wanting SCORE walks AIM, then SHOOT, then lands in SCORE. */
     static class SequenceContainer extends TestContainer {
-        boolean piece_missing = false;
-
         @Override
         protected void handleStateTransition(RobotStates wanted) {
             if (wanted != RobotStates.SCORE) {
@@ -150,42 +138,23 @@ class MwSuperStateMachineTest {
                 case AIM -> system_state_ = RobotStates.SHOOT;
                 case SHOOT -> system_state_ = RobotStates.SCORE;
                 case SCORE -> {}
-                default -> {
-                    if (piece_missing) {
-                        failWantedState();
-                    } else {
-                        system_state_ = RobotStates.AIM;
-                    }
-                }
+                default -> system_state_ = RobotStates.AIM;
             }
         }
     }
 
     @Test
-    void sequenceReportsRunningUntilItFinishes() {
+    void sequenceWalksItsStepStates() {
         SequenceContainer seq = new SequenceContainer();
         seq.setWantedState(RobotStates.SCORE);
 
         seq.doControlLoop();
         assertEquals(RobotStates.AIM, seq.getSystemState());
-        assertEquals(StateResult.RUNNING, seq.getStateResult());
         seq.doControlLoop();
-        assertEquals(StateResult.RUNNING, seq.getStateResult());
+        assertEquals(RobotStates.SHOOT, seq.getSystemState());
         seq.doControlLoop();
         assertEquals(RobotStates.SCORE, seq.getSystemState());
-        assertEquals(StateResult.SUCCESS, seq.getStateResult());
-    }
-
-    @Test
-    void failureLastsUntilTheNextRequest() {
-        SequenceContainer seq = new SequenceContainer();
-        seq.piece_missing = true;
-        seq.setWantedState(RobotStates.SCORE);
-        seq.doControlLoop();
-        assertEquals(StateResult.FAILURE, seq.getStateResult());
-
-        seq.setWantedState(RobotStates.DRIVE);
-        assertEquals(StateResult.RUNNING, seq.getStateResult());
+        assertEquals(RobotStates.SCORE, seq.getWantedState());
     }
 
     @Test
@@ -233,7 +202,8 @@ class MwSuperStateMachineTest {
                                 + "<IsSystemState state=\"SHOOT\"/>"
                                 + "</Sequence></BehaviorTree></root>");
 
-        assertEquals(NodeStatus.RUNNING, tree.tickOnce()); // requested, not there yet
+        // the request is instant; the robot isn't in the state until its next loop
+        assertEquals(NodeStatus.FAILURE, tree.tickOnce());
         assertEquals(RobotStates.SHOOT, robot.getWantedState());
 
         robot.doControlLoop();
@@ -241,24 +211,30 @@ class MwSuperStateMachineTest {
     }
 
     @Test
-    void behaviorTreeNodeFailsWhenTheStateFails() {
+    void setWantedStateSucceedsAtOnceAndATreeWaitsWithIsSystemState() {
         SequenceContainer seq = new SequenceContainer();
-        seq.piece_missing = true;
         BehaviorTreeFactory factory = new BehaviorTreeFactory(() -> 0.0);
         RobotStateNodes.register(factory, () -> seq, RobotStates.class);
         BehaviorTree tree =
                 factory.createTreeFromText(
-                        "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">"
+                        "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\"><Sequence>"
                                 + "<SetWantedState state=\"SCORE\"/>"
-                                + "</BehaviorTree></root>");
+                                + "<RetryUntilSuccessful num_attempts=\"-1\">"
+                                + "<IsSystemState state=\"SCORE\"/></RetryUntilSuccessful>"
+                                + "</Sequence></BehaviorTree></root>");
 
         assertEquals(NodeStatus.RUNNING, tree.tickOnce());
-        seq.doControlLoop();
-        assertEquals(NodeStatus.FAILURE, tree.tickOnce());
+        assertEquals(RobotStates.SCORE, seq.getWantedState());
+        seq.doControlLoop(); // AIM
+        assertEquals(NodeStatus.RUNNING, tree.tickOnce());
+        seq.doControlLoop(); // SHOOT
+        assertEquals(NodeStatus.RUNNING, tree.tickOnce());
+        seq.doControlLoop(); // SCORE
+        assertEquals(NodeStatus.SUCCESS, tree.tickOnce());
     }
 
     @Test
-    void behaviorTreeNodeFailsWhenAnotherStateIsWanted() {
+    void haltingATreeLeavesTheRequestedState() {
         BehaviorTreeFactory factory = new BehaviorTreeFactory(() -> 0.0);
         RobotStateNodes.register(factory, () -> robot, RobotStates.class);
         BehaviorTree tree =
@@ -266,9 +242,8 @@ class MwSuperStateMachineTest {
                         "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">"
                                 + "<SetWantedState state=\"SHOOT\"/>"
                                 + "</BehaviorTree></root>");
-
-        assertEquals(NodeStatus.RUNNING, tree.tickOnce());
-        robot.setWantedState(RobotStates.DRIVE);
-        assertEquals(NodeStatus.FAILURE, tree.tickOnce());
+        assertEquals(NodeStatus.SUCCESS, tree.tickOnce());
+        tree.haltTree();
+        assertEquals(RobotStates.SHOOT, robot.getWantedState(), "a request has nothing to undo");
     }
 }

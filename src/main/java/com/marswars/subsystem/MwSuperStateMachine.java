@@ -16,7 +16,7 @@ import java.util.List;
  * <p>Buttons and autos never talk to subsystems directly; they call {@link #setWantedState} on
  * the robot, the same way the robot calls it on subsystems. That replaces per-subsystem command
  * files: anything that involves more than one subsystem lives in one place, here, and teleop and
- * autos share it. Autos wait on {@link #getStateResult()} to know when a state finished or failed.
+ * autos share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
  *
  * <pre>{@code
  * public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
@@ -56,7 +56,6 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
     protected final C CONSTANTS;
     private S wanted_state_;
     private final S default_state_;
-    private boolean wanted_failed_ = false;
 
     /**
      * @param default_state the state at startup and after {@link #reset()}
@@ -129,7 +128,6 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
     public void reset() {
         system_state_ = default_state_;
         wanted_state_ = default_state_;
-        wanted_failed_ = false;
         super.reset();
     }
 
@@ -140,7 +138,6 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
      */
     public void setWantedState(S wanted) {
         wanted_state_ = wanted;
-        wanted_failed_ = false;
     }
 
     /**
@@ -162,33 +159,6 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
     }
 
     /**
-     * How the wanted state is going, for autos that wait on it (the {@code SetWantedState}
-     * behavior-tree node): {@link StateResult#FAILURE} after {@link #failWantedState()}, {@link
-     * StateResult#SUCCESS} once the robot is in the wanted state, otherwise {@link
-     * StateResult#RUNNING}.
-     *
-     * <p>A multi-step sequence (aim, spin up, feed) is a wanted state whose transition walks the
-     * robot through step states first; it reports SUCCESS when it reaches the wanted state itself.
-     *
-     * @return the result of the most recent request
-     */
-    public StateResult getStateResult() {
-        if (wanted_failed_) {
-            return StateResult.FAILURE;
-        }
-        return system_state_ == wanted_state_ ? StateResult.SUCCESS : StateResult.RUNNING;
-    }
-
-    /**
-     * Call from {@link #handleStateTransition} or {@link #updateLogic} when the wanted state cannot
-     * be reached (a timeout, a missing game piece). {@link #getStateResult()} reports FAILURE until
-     * the next {@link #setWantedState}. What the robot does next is up to the caller.
-     */
-    protected void failWantedState() {
-        wanted_failed_ = true;
-    }
-
-    /**
      * @param state the state to check
      * @return true if the robot is currently in {@code state}
      */
@@ -202,12 +172,5 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
      */
     public Trigger inState(S state) {
         return new Trigger(() -> isIn(state));
-    }
-
-    /** Result of a wanted state, see {@link #getStateResult()}. */
-    public enum StateResult {
-        RUNNING,
-        SUCCESS,
-        FAILURE
     }
 }

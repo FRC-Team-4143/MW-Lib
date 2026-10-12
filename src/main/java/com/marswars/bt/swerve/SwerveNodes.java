@@ -8,13 +8,14 @@ import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.SimpleActionNode;
 import com.marswars.bt.core.SimpleConditionNode;
 import com.marswars.bt.core.StatefulActionNode;
-import com.marswars.swerve_lib.MwSwerveSubsystem;
+import com.marswars.swerve_lib.SwerveFollower;
 import com.marswars.swerve_lib.SwerveStates;
 import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * MW-Lib's shared swerve nodes for any robot built on {@link MwSwerveSubsystem}:
+ * MW-Lib's shared swerve nodes for any drivetrain that is a {@link SwerveFollower} (every {@code
+ * MwSwerveSubsystem} is one):
  *
  * <ul>
  *   <li>{@code FollowTrajectory}: drive a Choreo path (see {@link FollowTrajectoryNode})
@@ -34,7 +35,7 @@ public final class SwerveNodes {
     private SwerveNodes() {}
 
     public static void register(
-            BehaviorTreeFactory factory, Supplier<? extends MwSwerveSubsystem<?>> swerve) {
+            BehaviorTreeFactory factory, Supplier<? extends SwerveFollower> swerve) {
         factory.registerLibraryNode(
                 FollowTrajectoryNode.ID,
                 NodeKind.ACTION,
@@ -46,7 +47,7 @@ public final class SwerveNodes {
                 NodeKind.ACTION,
                 "Wait until the running trajectory passes a Choreo event marker (use next to a"
                         + " FollowTrajectory in a ParallelDeadline)",
-                List.of(PortInfo.input("event", PortType.STRING, "Choreo event marker name")),
+                List.of(PortInfo.event("event", "Choreo event marker name")),
                 (name, cfg) ->
                         new StatefulActionNode(name, cfg) {
                             @Override
@@ -94,7 +95,7 @@ public final class SwerveNodes {
                 factory,
                 "HasChoreoEventPassed",
                 "The running trajectory passed a Choreo event marker",
-                List.of(PortInfo.input("event", PortType.STRING, "Choreo event marker name")),
+                List.of(PortInfo.event("event", "Choreo event marker name")),
                 n -> swerve.get().hasChoreoEventBeenPassed(n.getString("event")));
         condition(
                 factory,
