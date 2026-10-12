@@ -23,7 +23,11 @@ public final class PortValues {
         return "=".equals(key) ? portName : key;
     }
 
-    /** Converts a blackboard value to the requested wrapper/enum type, parsing strings. */
+    /**
+     * Converts a blackboard value to the requested wrapper/enum type, parsing strings. {@code
+     * context} (a port or key name) is only used in error messages, inserted verbatim; callers pass
+     * an existing string so a successful read allocates nothing.
+     */
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<T> type, String context) {
         if (value == null) {

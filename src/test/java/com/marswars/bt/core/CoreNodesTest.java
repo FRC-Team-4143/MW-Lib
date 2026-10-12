@@ -2,7 +2,9 @@ package com.marswars.bt.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.marswars.bt.control.SequenceNode;
 import com.marswars.bt.decorator.InverterNode;
@@ -78,6 +80,37 @@ class CoreNodesTest extends BtTestBase {
         assertEquals(7, node.getInt("count"));
         node.executeTick();
         assertEquals(14, bb.get("result"));
+    }
+
+    @Test
+    void literalPortsAreParsedOnceAndCached() {
+        SimpleActionNode node =
+                new SimpleActionNode("x", cfg(Map.of("speed", "1.5")), n -> NodeStatus.SUCCESS);
+        Double first = node.getInput("speed", Double.class).get();
+        assertSame(first, node.getInput("speed", Double.class).get(), "parsed once, then reused");
+        // the same port read as another type is still right
+        assertEquals("1.5", node.getString("speed"));
+        assertEquals(1.5, node.getDouble("speed"));
+    }
+
+    @Test
+    void pointerPortsAreNotCached() {
+        SimpleActionNode node =
+                new SimpleActionNode("x", cfg(Map.of("count", "{n}")), n -> NodeStatus.SUCCESS);
+        bb.set("n", 7);
+        assertEquals(7, node.getInt("count"));
+        bb.set("n", 8);
+        assertEquals(8, node.getInt("count"));
+    }
+
+    @Test
+    void portErrorsNameTheNode() {
+        SimpleActionNode node =
+                new SimpleActionNode(
+                        "x", cfg(Map.of("n", "x")).withPath("Main/Delay"), n -> NodeStatus.SUCCESS);
+        BtException e = assertThrows(BtException.class, () -> node.getInt("n"));
+        assertTrue(e.getMessage().startsWith("[Main/Delay]"), e.getMessage());
+        assertTrue(e.getMessage().contains("'x' as Integer"), e.getMessage());
     }
 
     @Test

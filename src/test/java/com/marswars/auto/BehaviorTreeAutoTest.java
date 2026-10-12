@@ -67,6 +67,42 @@ class BehaviorTreeAutoTest {
     }
 
     @Test
+    void subtreePortDefaultsNameTrajectoriesAndPointersAreReported() {
+        String xml =
+                doc(
+                        "<Sequence><SubTree ID=\"Leg\"/><SubTree ID=\"Leg\" path=\"P2\"/>"
+                                + "<Follow trajectory=\"{tunable}\"/></Sequence>",
+                        "<BehaviorTree ID=\"Leg\"><Follow trajectory=\"{path}\"/></BehaviorTree>"
+                                + "<TreeNodesModel>"
+                                + "<SubTree ID=\"Leg\"><input_port name=\"path\" default=\"Home\"/></SubTree>"
+                                + "<SubTree ID=\"Main\"><input_port name=\"tunable\" default=\"P9\"/></SubTree>"
+                                + "</TreeNodesModel>");
+        var spec = BtXmlParser.parse(xml);
+        assertEquals(List.of("Home", "P2"), factory.literalPortValues(spec, PortType.TRAJECTORY));
+        assertEquals(
+                List.of("Follow port 'trajectory' reads {tunable} (in Main)"),
+                factory.unresolvedPortValues(spec, PortType.TRAJECTORY),
+                "a tree parameter can change at run time, so it can't be preloaded");
+    }
+
+    @Test
+    void aTrajectoryFromATunableIsALoadError(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("Tuned.xml");
+        Files.writeString(
+                file,
+                "<root BTCPP_format=\"4\" main_tree_to_execute=\"Tuned\">"
+                        + "<BehaviorTree ID=\"Tuned\"><Follow trajectory=\"{which}\"/></BehaviorTree>"
+                        + "<TreeNodesModel><SubTree ID=\"Tuned\">"
+                        + "<input_port name=\"which\" type=\"std::string\" default=\"P1\"/>"
+                        + "</SubTree></TreeNodesModel></root>");
+        BehaviorTreeAuto auto =
+                new BehaviorTreeAuto(factory, file, new com.marswars.bt.core.ParameterStore.InMemory());
+        auto.reload();
+        assertFalse(auto.isLoaded());
+        assertTrue(auto.getError().contains("reads {which}"), auto.getError());
+    }
+
+    @Test
     void listXmlSortsAndFilters(@TempDir Path dir) throws Exception {
         Files.writeString(dir.resolve("b.xml"), "x");
         Files.writeString(dir.resolve("a.xml"), "x");
@@ -84,6 +120,10 @@ class BehaviorTreeAutoTest {
                 dir.resolve("common.xml"),
                 "<root BTCPP_format=\"4\"><BehaviorTree ID=\"A\"><AlwaysSuccess/></BehaviorTree>"
                         + "<BehaviorTree ID=\"B\"><AlwaysSuccess/></BehaviorTree></root>");
+        // one tree but no main_tree_to_execute: still a library, an auto must name its main tree
+        Files.writeString(
+                dir.resolve("single.xml"),
+                "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Only\"><AlwaysSuccess/></BehaviorTree></root>");
         Files.writeString(dir.resolve("Broken.xml"), "<root BTCPP_format=\"4\"><BehaviorTree");
         assertEquals(
                 List.of(dir.resolve("Auto.xml"), dir.resolve("Broken.xml")),

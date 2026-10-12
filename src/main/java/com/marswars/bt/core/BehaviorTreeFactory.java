@@ -463,6 +463,35 @@ public final class BehaviorTreeFactory {
         final String instance_name = spec.name() != null ? spec.name() : sid;
         final String path = prefix + instance_name + (instance_name.equals(sid) ? "::" + uid : "");
 
+        // A subtree with declared ports (<TreeNodesModel><SubTree ID=...>) only accepts those ports,
+        // so a typo is a load error instead of silently using the port's default.
+        Optional<NodeModel> tree_model = ctx.treeModel(sid);
+        if (tree_model.isPresent()) {
+            NodeModel m = tree_model.get();
+            for (Map.Entry<String, String> attr : spec.attributes().entrySet()) {
+                if ("_autoremap".equals(attr.getKey())) {
+                    continue;
+                }
+                PortInfo port =
+                        m.port(attr.getKey())
+                                .orElseThrow(
+                                        () ->
+                                                error(
+                                                        spec,
+                                                        path,
+                                                        "unknown port '"
+                                                                + attr.getKey()
+                                                                + "' for SubTree '"
+                                                                + sid
+                                                                + "' (ports: "
+                                                                + portNames(m)
+                                                                + ")"));
+                if (!PortValues.isPointer(attr.getValue())) {
+                    checkLiteral(spec, path, port, attr.getValue());
+                }
+            }
+        }
+
         Blackboard child_bb = Blackboard.createChild(bb);
         for (Map.Entry<String, String> attr : spec.attributes().entrySet()) {
             String key = attr.getKey();
@@ -543,37 +572,75 @@ public final class BehaviorTreeFactory {
      * Literal values given to ports of {@code type} in the main tree, in document order and without
      * duplicates (for example every trajectory name an auto uses, so it can load them before it
      * runs). SubTrees are expanded in place; a {@code {key}} inside a SubTree resolves to a literal
-     * its {@code <SubTree>} element passes for that key. Pointers with no literal are skipped.
+     * its {@code <SubTree>} element passes for that key, or to the default of that subtree port.
+     * Pointers with no literal are skipped (see {@link #unresolvedPortValues}).
      */
     public List<String> literalPortValues(TreeSpec spec, PortType type) {
         Set<String> values = new LinkedHashSet<>();
-        if (spec.mainTreeId() != null && spec.trees().containsKey(spec.mainTreeId())) {
-            collectLiterals(spec.mainTree(), spec, type, Map.of(), new ArrayDeque<>(), values);
-        }
+        walkLiterals(spec, type, values, new ArrayList<>());
         return List.copyOf(values);
+    }
+
+    /**
+     * Ports of {@code type} whose value is a {@code {key}} that no literal stands behind: a tree
+     * parameter (tunable at run time), a value some node writes, or a root key. A caller that must
+     * know every value before the tree runs (an auto preloading its trajectories) treats these as
+     * errors. Each entry reads like {@code "FollowTrajectory port 'trajectory' reads {path} (in
+     * Main/Leg)"}.
+     */
+    public List<String> unresolvedPortValues(TreeSpec spec, PortType type) {
+        List<String> unresolved = new ArrayList<>();
+        walkLiterals(spec, type, new LinkedHashSet<>(), unresolved);
+        return List.copyOf(new LinkedHashSet<>(unresolved));
+    }
+
+    private void walkLiterals(TreeSpec spec, PortType type, Set<String> out, List<String> unresolved) {
+        if (spec.mainTreeId() != null && spec.trees().containsKey(spec.mainTreeId())) {
+            Deque<String> stack = new ArrayDeque<>();
+            stack.push(spec.mainTreeId());
+            collectLiterals(
+                    spec.mainTree(), new BuildContext(spec), type, Map.of(), stack, out, unresolved);
+        }
     }
 
     private void collectLiterals(
             NodeSpec node,
-            TreeSpec spec,
+            BuildContext ctx,
             PortType type,
             Map<String, String> literals,
             Deque<String> stack,
-            Set<String> out) {
+            Set<String> out,
+            List<String> unresolved) {
         if (node.isSubTree()) {
-            NodeSpec target = spec.trees().get(node.subtreeId());
-            if (target == null || stack.contains(node.subtreeId())) {
+            String sid = node.subtreeId();
+            NodeSpec target = ctx.lookupTree(sid);
+            if (target == null || stack.contains(sid)) {
                 return;
             }
+            // Fixed defaults of the subtree's declared ports, overridden by what the caller passes.
             Map<String, String> inner = new HashMap<>();
+            ctx.treeModel(sid)
+                    .ifPresent(
+                            m -> {
+                                for (PortInfo port : m.ports()) {
+                                    if (port.defaultValue() != null) {
+                                        inner.put(port.name(), port.defaultValue());
+                                    }
+                                }
+                            });
             node.attributes().forEach((port, raw) -> {
+                if (port.startsWith("_")) {
+                    return;
+                }
                 String value = literal(raw, port, literals);
-                if (value != null && !port.startsWith("_")) {
+                if (value != null) {
                     inner.put(port, value);
+                } else {
+                    inner.remove(port); // a pointer with no literal behind it hides the default
                 }
             });
-            stack.push(node.subtreeId());
-            collectLiterals(target, spec, type, inner, stack, out);
+            stack.push(sid);
+            collectLiterals(target, ctx, type, inner, stack, out, unresolved);
             stack.pop();
             return;
         }
@@ -584,12 +651,24 @@ public final class BehaviorTreeFactory {
                     String value = literal(raw, port.name(), literals);
                     if (value != null && !value.isBlank()) {
                         out.add(value.trim());
+                    } else if (raw != null && PortValues.isPointer(raw)) {
+                        List<String> trees = new ArrayList<>(stack);
+                        java.util.Collections.reverse(trees);
+                        unresolved.add(
+                                (node.name() != null ? node.name() : node.id())
+                                        + " port '"
+                                        + port.name()
+                                        + "' reads "
+                                        + raw
+                                        + " (in "
+                                        + String.join("/", trees)
+                                        + ")");
                     }
                 }
             }
         });
         for (NodeSpec child : node.children()) {
-            collectLiterals(child, spec, type, literals, stack, out);
+            collectLiterals(child, ctx, type, literals, stack, out, unresolved);
         }
     }
 
@@ -620,8 +699,9 @@ public final class BehaviorTreeFactory {
         stack.pop();
     }
 
-    /** Keys this tree body writes: output/inout pointer ports, and SubTree output ports mapped
-     * onto a key of this tree. */
+    /** Keys this tree body writes: output/inout ports (a {@code {key}} pointer, or a plain key as
+     * BT.CPP's {@code SetBlackboard output_key="x"} uses), and SubTree output ports mapped onto a
+     * key of this tree. */
     private void collectWrites(NodeSpec node, BuildContext ctx, Set<String> out) {
         if (node.isSubTree()) {
             Optional<NodeModel> model = ctx.treeModel(node.subtreeId());
@@ -642,7 +722,8 @@ public final class BehaviorTreeFactory {
         Registration reg = registry_.get(node.id());
         if (reg != null) {
             for (Map.Entry<String, String> attr : node.attributes().entrySet()) {
-                if (!PortValues.isPointer(attr.getValue())) {
+                String value = attr.getValue();
+                if (value == null || value.isBlank()) {
                     continue;
                 }
                 reg.model()
@@ -651,8 +732,9 @@ public final class BehaviorTreeFactory {
                         .ifPresent(
                                 port ->
                                         out.add(
-                                                PortValues.pointerKey(
-                                                        attr.getValue(), port.name())));
+                                                PortValues.isPointer(value)
+                                                        ? PortValues.pointerKey(value, port.name())
+                                                        : value.trim()));
             }
         }
         for (NodeSpec child : node.children()) {

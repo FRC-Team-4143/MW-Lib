@@ -123,6 +123,17 @@ class BehaviorTreeFactoryTest {
                 "<root BTCPP_format=\"4\" main_tree_to_execute=\"A\">"
                         + "<BehaviorTree ID=\"A\"><SubTree ID=\"B\"/></BehaviorTree>"
                         + "<BehaviorTree ID=\"B\"><SubTree ID=\"A\"/></BehaviorTree></root>");
+        // a subtree with declared ports only takes those ports, with valid literals
+        String modeled = "<BehaviorTree ID=\"Sub\"><RecordInput value=\"{wait}\"/></BehaviorTree>"
+                + "<TreeNodesModel><SubTree ID=\"Sub\">"
+                + "<input_port name=\"wait\" type=\"int\" default=\"5\"/>"
+                + "</SubTree></TreeNodesModel></root>";
+        String call = "<root BTCPP_format=\"4\" main_tree_to_execute=\"Main\"><BehaviorTree ID=\"Main\">";
+        assertError(
+                "unknown port 'wiat' for SubTree 'Sub' (ports: wait)",
+                call + "<SubTree ID=\"Sub\" wiat=\"3\"/></BehaviorTree>" + modeled);
+        assertError("as Integer", call + "<SubTree ID=\"Sub\" wait=\"abc\"/></BehaviorTree>" + modeled);
+        factory.createTreeFromText(call + "<SubTree ID=\"Sub\" wait=\"3\"/></BehaviorTree>" + modeled);
         assertError(
                 "main_tree_to_execute is not set",
                 "<root BTCPP_format=\"4\"><BehaviorTree ID=\"A\"><AlwaysSuccess/></BehaviorTree>"
@@ -158,6 +169,9 @@ class BehaviorTreeFactoryTest {
         checkFlow(main.apply("<RecordInput value=\"{p}\"/>"));
         checkFlow(main.apply(
                 "<Sequence><SetBlackboard output_key=\"{x}\" value=\"1\"/><RecordInput value=\"{x}\"/></Sequence>"));
+        // BT.CPP's own spelling: a plain key, not a pointer
+        checkFlow(main.apply(
+                "<Sequence><SetBlackboard output_key=\"x\" value=\"1\"/><RecordInput value=\"{x}\"/></Sequence>"));
         checkFlow(main.apply(
                 "<Sequence><SubTree ID=\"Sub\" v=\"{p}\" result=\"{r}\"/><RecordInput value=\"{r}\"/></Sequence>"));
         checkFlow(main.apply("<SubTree ID=\"Sub\" v=\"literal\"/>"));

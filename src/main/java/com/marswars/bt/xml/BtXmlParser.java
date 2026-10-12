@@ -92,13 +92,13 @@ public final class BtXmlParser {
     }
 
     /**
-     * True for a library file: one that parses but names no tree to run (no {@code
-     * main_tree_to_execute}), such as a {@code common.xml} of shared subtrees. A file that doesn't
-     * parse is not a library file, so callers still see it and its error.
+     * True for a library file: one that parses but has no {@code main_tree_to_execute}, such as a
+     * {@code common.xml} of shared subtrees. An auto must name its main tree, even when it has only
+     * one. A file that doesn't parse is not a library file, so callers still see it and its error.
      */
     public static boolean isLibraryFile(Path file) {
         try {
-            return parse(file).mainTreeId().isEmpty();
+            return !parse(file).mainTreeDeclared();
         } catch (RuntimeException e) {
             return false;
         }
@@ -518,7 +518,8 @@ public final class BtXmlParser {
                 throw new BtXmlException(
                         "main_tree_to_execute=\"" + main + "\" is not a defined <BehaviorTree>", 0);
             }
-            return new TreeSpec(main, trees_, models_, warnings_);
+            boolean declared = main_tree_attr_ != null && !main_tree_attr_.isBlank();
+            return new TreeSpec(main, trees_, models_, warnings_, declared);
         }
     }
 

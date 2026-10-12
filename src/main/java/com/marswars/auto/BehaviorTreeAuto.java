@@ -142,7 +142,10 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return autos;
     }
 
-    /** The auto files in {@code dir}: its {@code *.xml} files except library files. */
+    /**
+     * The auto files in {@code dir}: its {@code *.xml} files except library files (those without
+     * {@code main_tree_to_execute}, see {@link BtXmlParser#isLibraryFile}).
+     */
     public static List<Path> listAutos(Path dir) {
         return BtXmlParser.listXml(dir).stream().filter(f -> !BtXmlParser.isLibraryFile(f)).toList();
     }
@@ -194,6 +197,12 @@ public class BehaviorTreeAuto implements AutoRoutine {
         try {
             xml = xml_source_.get();
             TreeSpec spec = factory_.checkTree(xml, base_dir_, newRoot());
+            List<String> unresolved = factory_.unresolvedPortValues(spec, PortType.TRAJECTORY);
+            if (!unresolved.isEmpty()) {
+                throw new BtException(
+                        "trajectory ports must name a path (it is loaded before the auto runs): "
+                                + String.join("; ", unresolved));
+            }
             List<String> names = factory_.literalPortValues(spec, PortType.TRAJECTORY);
             Map<String, ChoreoTrajectory> paths =
                     is_red_alliance == null ? null : AutoTrajectories.load(names, is_red_alliance);
