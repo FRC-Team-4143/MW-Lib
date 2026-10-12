@@ -25,7 +25,10 @@ public record TreeSpec(
 
     /** A spec whose main tree is given explicitly (built in code or registered). */
     public TreeSpec(
-            String mainTreeId, Map<String, NodeSpec> trees, List<NodeModel> models, List<String> warnings) {
+            String mainTreeId,
+            Map<String, NodeSpec> trees,
+            List<NodeModel> models,
+            List<String> warnings) {
         this(mainTreeId, trees, models, warnings, true);
     }
 

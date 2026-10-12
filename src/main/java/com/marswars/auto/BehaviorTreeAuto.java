@@ -13,10 +13,12 @@ import com.marswars.bt.monitor.BehaviorTreeMonitor;
 import com.marswars.bt.monitor.BehaviorTreeRunner;
 import com.marswars.bt.monitor.NetworkParameterStore;
 import com.marswars.bt.xml.BtXmlParser;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DataLogManager;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,15 +36,15 @@ import java.util.function.Supplier;
  * deploy/autos/trees/<Name>.xml}). It is an {@link AutoRoutine}, not a WPILib command: a {@link
  * BehaviorTreeRunner} ticks the tree straight from the robot loop.
  *
- * <p>The tree work is the BT library's: {@link BehaviorTreeFactory#checkTree} parses and checks
- * the XML, {@link BehaviorTreeFactory#literalPortValues} finds the trajectories it names, the
- * {@link ParameterStore} holds its tunable values ({@code /Tuning/Autos/<auto>/<port>}) and a
- * {@link BehaviorTreeRunner} runs it. This class adds the auto parts: loading the paths ({@link
+ * <p>The tree work is the BT library's: {@link BehaviorTreeFactory#checkTree} parses and checks the
+ * XML, {@link BehaviorTreeFactory#literalPortValues} finds the trajectories it names, the {@link
+ * ParameterStore} holds its tunable values ({@code /Tuning/Autos/<auto>/<port>}) and a {@link
+ * BehaviorTreeRunner} runs it. This class adds the auto parts: loading the paths ({@link
  * AutoTrajectories}) and reloading off the robot thread.
  *
- * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the
- * trees as they are now. Constructing an auto reads nothing; the {@link AutoManager} checks every
- * auto in the background at boot ({@link #prepare}) and lists only those that load.
+ * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the trees
+ * as they are now. Constructing an auto reads nothing; the {@link AutoManager} checks every auto in
+ * the background at boot ({@link #prepare}) and lists only those that load.
  *
  * <p>Nodes get trajectories through the root blackboard entry {@code @trajectories}:
  *
@@ -57,6 +59,7 @@ import java.util.function.Supplier;
 public class BehaviorTreeAuto implements AutoRoutine {
     /** Root blackboard key of the {@code Function<String, ChoreoTrajectory>} resolver. */
     public static final String TRAJECTORIES_KEY = "trajectories";
+
     /** Root blackboard key holding this auto's name. */
     public static final String AUTO_NAME_KEY = "auto";
 
@@ -91,7 +94,9 @@ public class BehaviorTreeAuto implements AutoRoutine {
         this(factory, xmlFile, defaultParameters());
     }
 
-    /** Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store. */
+    /**
+     * Like {@link #BehaviorTreeAuto(BehaviorTreeFactory, Path)} with an explicit parameter store.
+     */
     public BehaviorTreeAuto(BehaviorTreeFactory factory, Path xmlFile, ParameterStore parameters) {
         this(
                 factory,
@@ -148,7 +153,9 @@ public class BehaviorTreeAuto implements AutoRoutine {
      * {@code main_tree_to_execute}, see {@link BtXmlParser#isLibraryFile}).
      */
     public static List<Path> listAutos(Path dir) {
-        return BtXmlParser.listXml(dir).stream().filter(f -> !BtXmlParser.isLibraryFile(f)).toList();
+        return BtXmlParser.listXml(dir).stream()
+                .filter(f -> !BtXmlParser.isLibraryFile(f))
+                .toList();
     }
 
     /** The {@code @trajectories} resolver from a node's blackboard. */
@@ -190,7 +197,9 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return name_;
     }
 
-    /** Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}). */
+    /**
+     * Store key of a tree parameter: {@code Autos/<auto>/<port>} (dashboard {@code /Tuning/...}).
+     */
     public String parameterKey(String port) {
         return parameterPrefix() + port;
     }

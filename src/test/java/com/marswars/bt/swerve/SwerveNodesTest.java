@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import choreo.trajectory.EventMarker;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
+
 import com.marswars.auto.BehaviorTreeAuto;
 import com.marswars.auto.ChoreoTrajectory;
 import com.marswars.bt.core.BehaviorTree;
@@ -19,21 +20,24 @@ import com.marswars.swerve_lib.MwSwerveConstants;
 import com.marswars.swerve_lib.MwSwerveSubsystem;
 import com.marswars.swerve_lib.SwerveDriveConfig;
 import com.marswars.swerve_lib.SwerveDriverInputs;
+import com.marswars.swerve_lib.SwerveStates;
 import com.marswars.swerve_lib.module.ModuleType;
+
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import com.marswars.swerve_lib.SwerveStates;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /** The MW-Lib swerve nodes against a simulated swerve whose answers the test sets. */
 class SwerveNodesTest {
@@ -149,9 +153,12 @@ class SwerveNodesTest {
     static Trajectory<SwerveSample> swerveTraj() {
         var samples =
                 List.of(
-                        new SwerveSample(0, 1, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
-                        new SwerveSample(1, 2, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
-                        new SwerveSample(2, 3, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]));
+                        new SwerveSample(
+                                0, 1, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new SwerveSample(
+                                1, 2, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new SwerveSample(
+                                2, 3, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]));
         return new Trajectory<>("P1", samples, List.of(), List.of(new EventMarker(1.0, "mid")));
     }
 

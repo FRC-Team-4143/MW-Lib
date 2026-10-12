@@ -1,7 +1,9 @@
 package com.marswars.auto;
 
 import choreo.trajectory.Trajectory;
+
 import edu.wpi.first.math.geometry.Pose2d;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,7 +44,9 @@ public final class AutoTrajectories {
     private final Map<String, ChoreoTrajectory> map_ =
             Collections.synchronizedMap(new LinkedHashMap<>());
 
-    /** The live name-to-trajectory map (null until loaded); {@link Auto} exposes it to subclasses. */
+    /**
+     * The live name-to-trajectory map (null until loaded); {@link Auto} exposes it to subclasses.
+     */
     Map<String, ChoreoTrajectory> map() {
         return map_;
     }
@@ -75,7 +79,8 @@ public final class AutoTrajectories {
      *
      * @throws IllegalStateException naming every trajectory that has no {@code .traj} file
      */
-    public static Map<String, ChoreoTrajectory> load(Collection<String> names, boolean is_red_alliance) {
+    public static Map<String, ChoreoTrajectory> load(
+            Collection<String> names, boolean is_red_alliance) {
         Map<String, ChoreoTrajectory> loaded = new LinkedHashMap<>();
         List<String> missing = new ArrayList<>();
         for (String name : names) {
@@ -87,7 +92,8 @@ public final class AutoTrajectories {
             }
         }
         if (!missing.isEmpty()) {
-            throw new IllegalStateException("no Choreo trajectory (deploy/choreo/<name>.traj) for " + missing);
+            throw new IllegalStateException(
+                    "no Choreo trajectory (deploy/choreo/<name>.traj) for " + missing);
         }
         return loaded;
     }

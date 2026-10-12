@@ -9,6 +9,11 @@ import com.marswars.bt.core.NodeSpec;
 import com.marswars.bt.core.TreeSpec;
 import com.marswars.bt.support.FakeClock;
 import com.marswars.bt.xml.BtXmlParser;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -17,9 +22,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class BehaviorTreeFileLoggerTest {
     static final String XML =
@@ -92,20 +94,27 @@ class BehaviorTreeFileLoggerTest {
 
         BtLog log = BtLog.read(file);
         assertEquals(1, log.protocol());
-        assertTrue(log.startUsec() >= before - 1_000_000 && log.startUsec() <= before + 60_000_000L);
+        assertTrue(
+                log.startUsec() >= before - 1_000_000 && log.startUsec() <= before + 60_000_000L);
 
         // Embedded XML: BT.CPP WriteTreeToXML with metadata; parses as BT.CPP v4.
         assertTrue(log.xml().contains("<BehaviorTree ID=\"Demo\" _fullpath=\"\">"), log.xml());
         assertTrue(log.xml().contains("<Sequence name=\"root\" _uid=\"1\">"));
         assertTrue(log.xml().contains("<AlwaysSuccess name=\"AlwaysSuccess\" _uid=\"2\"/>"));
-        assertTrue(log.xml().contains(
-                "<SubTree ID=\"Wait\" _fullpath=\"Wait::3\" _uid=\"3\" ms=\"{wait_msec}\"/>"));
+        assertTrue(
+                log.xml()
+                        .contains(
+                                "<SubTree ID=\"Wait\" _fullpath=\"Wait::3\" _uid=\"3\""
+                                    + " ms=\"{wait_msec}\"/>"));
         assertTrue(log.xml().contains("<BehaviorTree ID=\"Wait\" _fullpath=\"Wait::3\">"));
         assertTrue(log.xml().contains("<Sleep name=\"Sleep\" _uid=\"4\" msec=\"{ms}\"/>"));
         assertTrue(log.xml().contains("<Control ID=\"Sequence\"/>"), "built-in models included");
-        TreeSpec spec = BtXmlParser.parse(log.xml().replace(
-                "<root BTCPP_format=\"4\">",
-                "<root BTCPP_format=\"4\" main_tree_to_execute=\"Demo\">"));
+        TreeSpec spec =
+                BtXmlParser.parse(
+                        log.xml()
+                                .replace(
+                                        "<root BTCPP_format=\"4\">",
+                                        "<root BTCPP_format=\"4\" main_tree_to_execute=\"Demo\">"));
         NodeSpec root = spec.mainTree();
         assertEquals("root", root.name());
 

@@ -110,7 +110,9 @@ public final class Blackboard {
         return autoremap_ && parent_ != null && parent_.contains(key);
     }
 
-    /** Writes through remappings/autoremap when the key lives in a parent; otherwise stores locally. */
+    /**
+     * Writes through remappings/autoremap when the key lives in a parent; otherwise stores locally.
+     */
     public synchronized void set(String key, Object value) {
         if (isRootKey(key)) {
             root().set(key.substring(1), value);

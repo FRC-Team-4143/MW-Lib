@@ -8,12 +8,15 @@ import com.marswars.bt.RobotStateNodes;
 import com.marswars.bt.core.BehaviorTree;
 import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.NodeStatus;
+
 import edu.wpi.first.hal.HAL;
-import java.util.ArrayList;
-import java.util.List;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 class MwSuperStateMachineTest {
     enum RobotStates {
@@ -73,7 +76,9 @@ class MwSuperStateMachineTest {
         @Override
         protected void updateLogic(double timestamp) {
             shooter.setWantedState(
-                    getSystemState() == RobotStates.SHOOT ? ShooterStates.SHOOT : ShooterStates.IDLE);
+                    getSystemState() == RobotStates.SHOOT
+                            ? ShooterStates.SHOOT
+                            : ShooterStates.IDLE);
         }
 
         @Override

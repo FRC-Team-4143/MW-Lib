@@ -10,14 +10,16 @@ import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.BtException;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.PortType;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Autos that must not load. Every file in {@code broken-autos/} is one auto with one defect (plus a
@@ -86,7 +88,8 @@ class BrokenAutosTest {
         Map<String, BehaviorTreeAuto> autos = load();
         // every file becomes an auto; AutoManager leaves the broken ones out of the chooser
         // and raises an alert naming them
-        assertEquals(EXPECTED.size() + 1, autos.size(), "every fixture is listed: " + autos.keySet());
+        assertEquals(
+                EXPECTED.size() + 1, autos.size(), "every fixture is listed: " + autos.keySet());
         assertTrue(autos.get("Good").isLoaded(), autos.get("Good").getError());
         assertEquals("", autos.get("Good").getError());
         for (String name : EXPECTED.keySet()) {
@@ -101,7 +104,9 @@ class BrokenAutosTest {
                 (name, fragment) -> {
                     String error = autos.get(name).getError();
                     assertFalse(error.isEmpty(), name + " has no error text");
-                    assertTrue(error.contains(fragment), name + ": expected '" + fragment + "' in: " + error);
+                    assertTrue(
+                            error.contains(fragment),
+                            name + ": expected '" + fragment + "' in: " + error);
                 });
     }
 

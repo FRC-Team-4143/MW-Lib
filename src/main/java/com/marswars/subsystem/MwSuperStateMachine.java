@@ -1,7 +1,9 @@
 package com.marswars.subsystem;
 
 import com.marswars.logging.MwLog;
+
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
 import java.util.List;
 
 /**
@@ -13,10 +15,10 @@ import java.util.List;
  * then updates every registered subsystem, so the subsystem states requested here take effect in
  * the same loop.
  *
- * <p>Buttons and autos never talk to subsystems directly; they call {@link #setWantedState} on
- * the robot, the same way the robot calls it on subsystems. That replaces per-subsystem command
- * files: anything that involves more than one subsystem lives in one place, here, and teleop and
- * autos share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
+ * <p>Buttons and autos never talk to subsystems directly; they call {@link #setWantedState} on the
+ * robot, the same way the robot calls it on subsystems. That replaces per-subsystem command files:
+ * anything that involves more than one subsystem lives in one place, here, and teleop and autos
+ * share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
  *
  * <p>The robot's states are an enum in its constants class, the way a subsystem's states live in
  * its {@code *Constants} class:
@@ -59,8 +61,10 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
 
     // state info
     protected S system_state_;
+
     /** The robot's own constants, like a subsystem's {@code CONSTANTS}. */
     protected final C CONSTANTS;
+
     private S wanted_state_;
     private final S default_state_;
 
@@ -80,7 +84,10 @@ public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstan
      * @param disabled_subsystems names of subsystems that should not be registered
      */
     public MwSuperStateMachine(
-            S default_state, C constants, Object build_constants, List<String> disabled_subsystems) {
+            S default_state,
+            C constants,
+            Object build_constants,
+            List<String> disabled_subsystems) {
         this(default_state, constants, build_constants, disabled_subsystems, true);
     }
 

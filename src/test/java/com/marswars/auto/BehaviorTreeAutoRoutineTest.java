@@ -10,14 +10,17 @@ import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.ParameterStore;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.StatefulActionNode;
+
 import edu.wpi.first.wpilibj2.command.Commands;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /** A behavior-tree auto as an AutoRoutine: run from the robot loop, prepared in two halves. */
 class BehaviorTreeAutoRoutineTest {
@@ -60,17 +63,22 @@ class BehaviorTreeAutoRoutineTest {
                                 ran.add("halted " + cfg.inputPorts().get("id"));
                             }
                         });
-        factory.registerInstantAction("Follow", "", List.of(PortInfo.trajectory("trajectory", "path")), n -> {});
-        factory.registerInstantAction("WaitEvent", "", List.of(PortInfo.event("event", "")), n -> {});
+        factory.registerInstantAction(
+                "Follow", "", List.of(PortInfo.trajectory("trajectory", "path")), n -> {});
+        factory.registerInstantAction(
+                "WaitEvent", "", List.of(PortInfo.event("event", "")), n -> {});
     }
 
     /** A three-sample swerve path with one event marker. */
     static choreo.trajectory.Trajectory<?> pathWithEvent(String name, String event) {
         var samples =
                 List.of(
-                        new choreo.trajectory.SwerveSample(0, 1, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
-                        new choreo.trajectory.SwerveSample(1, 2, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
-                        new choreo.trajectory.SwerveSample(2, 3, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]));
+                        new choreo.trajectory.SwerveSample(
+                                0, 1, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new choreo.trajectory.SwerveSample(
+                                1, 2, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]),
+                        new choreo.trajectory.SwerveSample(
+                                2, 3, 1, 0, 1, 0, 0, 0, 0, 0, new double[4], new double[4]));
         return new choreo.trajectory.Trajectory<>(
                 name, samples, List.of(), List.of(new choreo.trajectory.EventMarker(1.0, event)));
     }
@@ -84,7 +92,8 @@ class BehaviorTreeAutoRoutineTest {
     BehaviorTreeAuto auto(String body) {
         xml.set(doc(body));
         BehaviorTreeAuto auto =
-                new BehaviorTreeAuto(factory, "Demo", xml::get, null, new ParameterStore.InMemory());
+                new BehaviorTreeAuto(
+                        factory, "Demo", xml::get, null, new ParameterStore.InMemory());
         auto.reload(); // constructing reads nothing; AutoManager's boot check is the first load
         return auto;
     }
@@ -163,11 +172,16 @@ class BehaviorTreeAutoRoutineTest {
     void anEventNoPathHasIsALoadError() {
         AutoTrajectories.loader_ = name -> Optional.of(pathWithEvent(name, "Intake Out"));
         BehaviorTreeAuto auto =
-                auto("<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake Out\"/></Sequence>");
+                auto(
+                        "<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake"
+                            + " Out\"/></Sequence>");
         auto.prepare(false).run();
         assertEquals("", auto.getError());
 
-        xml.set(doc("<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake Ou\"/></Sequence>"));
+        xml.set(
+                doc(
+                        "<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake"
+                            + " Ou\"/></Sequence>"));
         auto.prepare(false).run();
         assertTrue(auto.getError().contains("[Intake Ou]"), auto.getError());
         assertFalse(auto.isLoaded());

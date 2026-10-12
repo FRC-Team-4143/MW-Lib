@@ -69,7 +69,9 @@ public abstract class TreeNode {
     /** The node's own logic; called by {@link #executeTick()}. */
     protected abstract NodeStatus tick();
 
-    /** Hook for subclasses that forbid some results (sync actions and conditions reject RUNNING). */
+    /**
+     * Hook for subclasses that forbid some results (sync actions and conditions reject RUNNING).
+     */
     protected void validateTickResult(NodeStatus result) {}
 
     /** Node category. */
@@ -202,7 +204,9 @@ public abstract class TreeNode {
         return Optional.ofNullable(input(port, type));
     }
 
-    /** {@link #getInput} without the Optional: null when missing. Allocation-free on a cache hit. */
+    /**
+     * {@link #getInput} without the Optional: null when missing. Allocation-free on a cache hit.
+     */
     private <T> T input(String port, Class<T> type) {
         String raw = rawInput(port);
         if (raw == null) {
@@ -299,8 +303,8 @@ public abstract class TreeNode {
     }
 
     /**
-     * Writes an output port. The port's attribute names the blackboard entry: {@code {key}}, a plain
-     * {@code key}, or {@code {=}} (same name as the port), as in BT.CPP.
+     * Writes an output port. The port's attribute names the blackboard entry: {@code {key}}, a
+     * plain {@code key}, or {@code {=}} (same name as the port), as in BT.CPP.
      */
     public final void setOutput(String port, Object value) {
         String raw = config_.outputPorts().get(port);

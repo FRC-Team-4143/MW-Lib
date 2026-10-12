@@ -10,10 +10,12 @@ import com.marswars.bt.control.SequenceNode;
 import com.marswars.bt.decorator.InverterNode;
 import com.marswars.bt.support.BtTestBase;
 import com.marswars.bt.support.ScriptedAction;
+
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
 
 class CoreNodesTest extends BtTestBase {
 
@@ -65,8 +67,7 @@ class CoreNodesTest extends BtTestBase {
                         NodeOrigin.ROBOT);
         bb.set("n", 7);
         NodeConfig c =
-                cfg().withModel(model)
-                        .withPorts(Map.of("count", "{n}"), Map.of("out", "{result}"));
+                cfg().withModel(model).withPorts(Map.of("count", "{n}"), Map.of("out", "{result}"));
         SimpleActionNode node =
                 new SimpleActionNode(
                         null,

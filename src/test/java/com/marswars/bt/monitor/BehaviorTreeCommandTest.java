@@ -12,12 +12,14 @@ import com.marswars.bt.core.NodeKind;
 import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.support.FakeClock;
 import com.marswars.bt.support.ScriptedAction;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 class BehaviorTreeCommandTest {
     final FakeClock clock = new FakeClock();
@@ -51,7 +53,9 @@ class BehaviorTreeCommandTest {
 
     BehaviorTreeCommand command(String body) {
         String xml =
-                "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">" + body + "</BehaviorTree></root>";
+                "<root BTCPP_format=\"4\"><BehaviorTree ID=\"Main\">"
+                        + body
+                        + "</BehaviorTree></root>";
         return new BehaviorTreeCommand(
                 "Test",
                 () -> factory.createTreeFromText(xml),
@@ -60,7 +64,8 @@ class BehaviorTreeCommandTest {
 
     @Test
     void runsToCompletionAndRebuildsEachRun() {
-        BehaviorTreeCommand cmd = command("<Sequence><Sleep msec=\"500\"/><AlwaysSuccess/></Sequence>");
+        BehaviorTreeCommand cmd =
+                command("<Sequence><Sleep msec=\"500\"/><AlwaysSuccess/></Sequence>");
         cmd.initialize();
         BehaviorTree first = cmd.getTree();
         cmd.execute();
@@ -138,7 +143,11 @@ class BehaviorTreeCommandTest {
         cmd.end(true); // must not throw out of disabledInit / teleopInit
         assertTrue(writes.contains("BehaviorTree/Test/Result=INTERRUPTED"), writes.toString());
         assertTrue(
-                writes.stream().anyMatch(w -> w.contains("exception while halting") && w.contains("motor gone")),
+                writes.stream()
+                        .anyMatch(
+                                w ->
+                                        w.contains("exception while halting")
+                                                && w.contains("motor gone")),
                 writes.toString());
     }
 

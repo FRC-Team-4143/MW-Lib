@@ -52,7 +52,8 @@ public record PortInfo(
         return new PortInfo(name, PortDirection.INPUT, type, null, description, List.of(), null);
     }
 
-    public static PortInfo input(String name, PortType type, String defaultValue, String description) {
+    public static PortInfo input(
+            String name, PortType type, String defaultValue, String description) {
         return new PortInfo(
                 name, PortDirection.INPUT, type, defaultValue, description, List.of(), null);
     }

@@ -8,6 +8,7 @@ import static edu.wpi.first.units.Units.Seconds;
 
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
+
 import com.ctre.phoenix6.swerve.utility.PhoenixPIDController;
 import com.marswars.auto.ChoreoEventTracker;
 import com.marswars.auto.ChoreoTrajectory;
@@ -19,6 +20,7 @@ import com.marswars.swerve_lib.module.Module.DriveControlMode;
 import com.marswars.swerve_lib.module.Module.SteerControlMode;
 import com.marswars.util.DynamicSlewRateLimiter;
 import com.marswars.util.TunablePid;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -34,6 +36,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +47,8 @@ import java.util.function.Supplier;
  * following, tractor beam, brake and tuning states on top of {@link SwerveMech}.
  *
  * <p>Robots extend this with their own {@code SwerveSubsystem} (keeping the class name so the
- * logging keys stay {@code Subsystem/Swerve/...}), supply the robot pose and driver inputs, and
- * own the singleton. Holding the driver POV forces the matching crawl state; override {@link
+ * logging keys stay {@code Subsystem/Swerve/...}), supply the robot pose and driver inputs, and own
+ * the singleton. Holding the driver POV forces the matching crawl state; override {@link
  * #remapWantedState(SwerveStates)} to change that policy.
  *
  * @param <C> the robot's swerve constants type
@@ -249,8 +252,8 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
             case FIELD_CENTRIC_ROTATION_LOCK, CRAWL_FIELD_CENTRIC_ROTATION_LOCK ->
                     SwerveStates.CRAWL_FIELD_CENTRIC_ROTATION_LOCK;
             case ROBOT_CENTRIC_ROTATION_LOCK,
-                    CHASSIS_SPEEDS_ROTATION_LOCK,
-                    CRAWL_ROBOT_CENTRIC_ROTATION_LOCK ->
+                            CHASSIS_SPEEDS_ROTATION_LOCK,
+                            CRAWL_ROBOT_CENTRIC_ROTATION_LOCK ->
                     SwerveStates.CRAWL_ROBOT_CENTRIC_ROTATION_LOCK;
             case FIELD_CENTRIC, CRAWL_FIELD_CENTRIC -> SwerveStates.CRAWL_FIELD_CENTRIC;
             default -> SwerveStates.CRAWL_ROBOT_CENTRIC;

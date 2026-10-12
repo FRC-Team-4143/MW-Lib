@@ -3,7 +3,9 @@ package com.marswars.bt.monitor;
 import com.marswars.bt.core.BehaviorTree;
 import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.debug.BtLiveServer;
+
 import edu.wpi.first.wpilibj.DataLogManager;
+
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -31,7 +33,8 @@ public final class BehaviorTreeRunner {
     private NodeStatus last_status_ = NodeStatus.IDLE;
     private boolean running_ = false;
 
-    public BehaviorTreeRunner(String name, Supplier<BehaviorTree> supplier, BehaviorTreeMonitor monitor) {
+    public BehaviorTreeRunner(
+            String name, Supplier<BehaviorTree> supplier, BehaviorTreeMonitor monitor) {
         name_ = Objects.requireNonNull(name, "name");
         supplier_ = Objects.requireNonNull(supplier, "supplier");
         monitor_ = Objects.requireNonNull(monitor, "monitor");
@@ -41,7 +44,9 @@ public final class BehaviorTreeRunner {
         return name_;
     }
 
-    /** The tree of the current (or last) run, or null before the first run / after a build error. */
+    /**
+     * The tree of the current (or last) run, or null before the first run / after a build error.
+     */
     public BehaviorTree getTree() {
         return tree_;
     }
@@ -55,7 +60,9 @@ public final class BehaviorTreeRunner {
         return running_;
     }
 
-    /** Starts a run: a fresh tree, logging, live view and run log. Stops any run in progress first. */
+    /**
+     * Starts a run: a fresh tree, logging, live view and run log. Stops any run in progress first.
+     */
     public void start() {
         stop(true);
         last_status_ = NodeStatus.IDLE;
