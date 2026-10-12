@@ -51,7 +51,7 @@ import java.util.function.Supplier;
  * @param <C> the robot's swerve constants type
  */
 public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
-        extends MwSubsystem<SwerveStates, C> implements SwerveFollower {
+        extends MwSubsystem<SwerveStates, C> {
 
     // External inputs
     private final Supplier<Pose2d> pose_supplier_;
@@ -907,7 +907,6 @@ public abstract class MwSwerveSubsystem<C extends MwSwerveConstants>
      *
      * @return true in a Choreo state with the path timer stopped
      */
-    @Override
     public boolean isChoreoTimerPaused() {
         return isChoreoState(system_state_) && !choreo_timer_.isRunning();
     }

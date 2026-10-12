@@ -15,32 +15,80 @@ import com.marswars.bt.core.Blackboard;
 import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.support.FakeClock;
 import com.marswars.bt.xml.BtXmlParser;
-import com.marswars.swerve_lib.SwerveFollower;
+import com.marswars.swerve_lib.MwSwerveConstants;
+import com.marswars.swerve_lib.MwSwerveSubsystem;
+import com.marswars.swerve_lib.SwerveDriveConfig;
+import com.marswars.swerve_lib.SwerveDriverInputs;
+import com.marswars.swerve_lib.module.ModuleType;
+import edu.wpi.first.hal.HAL;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import com.marswars.swerve_lib.SwerveStates;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** The MW-Lib swerve nodes against a fake drivetrain. */
+/** The MW-Lib swerve nodes against a simulated swerve whose answers the test sets. */
 class SwerveNodesTest {
     static final NodeStatus R = NodeStatus.RUNNING;
     static final NodeStatus S = NodeStatus.SUCCESS;
     static final NodeStatus F = NodeStatus.FAILURE;
 
-    /** Records what the nodes ask for; tests set what it reports. */
-    static final class FakeSwerve implements SwerveFollower {
-        final List<SwerveStates> states = new ArrayList<>();
-        final Set<String> passed_events = new HashSet<>();
+    static final class FakeConstants extends MwSwerveConstants {
+        private final SwerveDriveConfig config =
+                SwerveDriveConfig.builder()
+                        .moduleType(ModuleType.getModuleType("MK4I-L2"))
+                        .wheelRadius(0.05)
+                        .speedAt12V(5.0)
+                        // CAN ids and analog ports apart from MwSwerveSubsystemTest's (same JVM)
+                        .frontLeft(41, 42, 4, new Translation2d(0.3, 0.3))
+                        .frontRight(43, 44, 5, new Translation2d(0.3, -0.3))
+                        .backLeft(45, 46, 6, new Translation2d(-0.3, 0.3))
+                        .backRight(47, 48, 7, new Translation2d(-0.3, -0.3))
+                        .build();
+
+        @Override
+        public SwerveDriveConfig getDriveConfig() {
+            return config;
+        }
+    }
+
+    /**
+     * A simulated swerve whose path-following answers are set by the test: the nodes' calls are
+     * recorded, and the conditions they read return the fields below.
+     */
+    static final class FakeSwerve extends MwSwerveSubsystem<FakeConstants> {
+        List<SwerveStates> states = new ArrayList<>();
+        Set<String> passed_events = new HashSet<>();
         ChoreoTrajectory trajectory = null;
         boolean at_setpoint = false;
         double time_on_path = 0.0;
         boolean stationary = false;
         boolean paused = false;
+
+        FakeSwerve() {
+            super(
+                    new FakeConstants(),
+                    () -> Pose2d.kZero,
+                    new SwerveDriverInputs(() -> 0.0, () -> 0.0, () -> 0.0, Optional::empty));
+        }
+
+        void clear() {
+            states.clear();
+            passed_events.clear();
+            trajectory = null;
+            at_setpoint = false;
+            time_on_path = 0.0;
+            stationary = false;
+            paused = false;
+        }
 
         @Override
         public void setDesiredChoreoTrajectory(ChoreoTrajectory t) {
@@ -49,7 +97,9 @@ class SwerveNodesTest {
 
         @Override
         public void setWantedState(SwerveStates state) {
-            states.add(state);
+            if (states != null) { // null while the superclass constructor runs
+                states.add(state);
+            }
         }
 
         @Override
@@ -82,8 +132,16 @@ class SwerveNodesTest {
         }
     }
 
+    /** One for the class: a swerve registers its devices with the shared odometry thread. */
+    static FakeSwerve swerve;
+
+    @BeforeAll
+    static void makeSwerve() {
+        assertTrue(HAL.initialize(500, 0));
+        swerve = new FakeSwerve();
+    }
+
     final FakeClock clock = new FakeClock();
-    final FakeSwerve swerve = new FakeSwerve();
     final List<String> messages = new ArrayList<>();
     final ChoreoTrajectory path = new ChoreoTrajectory(swerveTraj(), false);
     BehaviorTreeFactory factory;
@@ -99,6 +157,7 @@ class SwerveNodesTest {
 
     @BeforeEach
     void setUp() {
+        swerve.clear();
         FollowTrajectoryNode.message_log_ = messages::add;
         factory = new BehaviorTreeFactory(clock);
         SwerveNodes.register(factory, () -> swerve);

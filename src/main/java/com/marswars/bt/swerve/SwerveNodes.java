@@ -8,14 +8,13 @@ import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.SimpleActionNode;
 import com.marswars.bt.core.SimpleConditionNode;
 import com.marswars.bt.core.StatefulActionNode;
-import com.marswars.swerve_lib.SwerveFollower;
+import com.marswars.swerve_lib.MwSwerveSubsystem;
 import com.marswars.swerve_lib.SwerveStates;
 import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * MW-Lib's shared swerve nodes for any drivetrain that is a {@link SwerveFollower} (every {@code
- * MwSwerveSubsystem} is one):
+ * MW-Lib's shared swerve nodes for any robot built on {@link MwSwerveSubsystem}:
  *
  * <ul>
  *   <li>{@code FollowTrajectory}: drive a Choreo path (see {@link FollowTrajectoryNode})
@@ -35,7 +34,7 @@ public final class SwerveNodes {
     private SwerveNodes() {}
 
     public static void register(
-            BehaviorTreeFactory factory, Supplier<? extends SwerveFollower> swerve) {
+            BehaviorTreeFactory factory, Supplier<? extends MwSwerveSubsystem<?>> swerve) {
         factory.registerLibraryNode(
                 FollowTrajectoryNode.ID,
                 NodeKind.ACTION,

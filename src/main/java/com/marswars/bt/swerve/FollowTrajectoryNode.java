@@ -7,7 +7,7 @@ import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.PortInfo;
 import com.marswars.bt.core.PortType;
 import com.marswars.bt.core.StatefulActionNode;
-import com.marswars.swerve_lib.SwerveFollower;
+import com.marswars.swerve_lib.MwSwerveSubsystem;
 import com.marswars.swerve_lib.SwerveStates;
 import edu.wpi.first.wpilibj.DataLogManager;
 import java.util.List;
@@ -60,7 +60,7 @@ public class FollowTrajectoryNode extends StatefulActionNode {
                             "Fail once the path timer has been paused this long (the robot is stuck"
                                     + " behind the path); 0 never gives up"));
 
-    private final Supplier<? extends SwerveFollower> swerve_;
+    private final Supplier<? extends MwSwerveSubsystem<?>> swerve_;
     private String trajectory_name_ = "";
     private SwerveStates end_state_ = SwerveStates.IDLE;
     private double min_time_ = 0.0;
@@ -68,7 +68,7 @@ public class FollowTrajectoryNode extends StatefulActionNode {
     private double pause_start_ = Double.NaN;
 
     public FollowTrajectoryNode(
-            String name, NodeConfig config, Supplier<? extends SwerveFollower> swerve) {
+            String name, NodeConfig config, Supplier<? extends MwSwerveSubsystem<?>> swerve) {
         super(name, config);
         swerve_ = Objects.requireNonNull(swerve, "swerve");
     }
@@ -82,7 +82,7 @@ public class FollowTrajectoryNode extends StatefulActionNode {
         max_paused_ = getDouble(MAX_PAUSED_SEC);
         pause_start_ = Double.NaN;
 
-        SwerveFollower swerve = swerve_.get();
+        MwSwerveSubsystem<?> swerve = swerve_.get();
         swerve.setDesiredChoreoTrajectory(trajectory);
         swerve.setWantedState(getEnum("path_state", SwerveStates.class));
         return NodeStatus.RUNNING;
@@ -90,7 +90,7 @@ public class FollowTrajectoryNode extends StatefulActionNode {
 
     @Override
     protected NodeStatus onRunning() {
-        SwerveFollower swerve = swerve_.get();
+        MwSwerveSubsystem<?> swerve = swerve_.get();
         if (max_paused_ > 0.0) {
             if (!swerve.isChoreoTimerPaused()) {
                 pause_start_ = Double.NaN;
