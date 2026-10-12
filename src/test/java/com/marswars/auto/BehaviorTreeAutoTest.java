@@ -97,7 +97,7 @@ class BehaviorTreeAutoTest {
                         + "</SubTree></TreeNodesModel></root>");
         BehaviorTreeAuto auto =
                 new BehaviorTreeAuto(factory, file, new com.marswars.bt.core.ParameterStore.InMemory());
-        auto.reload();
+        assertFalse(auto.reload());
         assertFalse(auto.isLoaded());
         assertTrue(auto.getError().contains("reads {which}"), auto.getError());
     }
@@ -134,10 +134,12 @@ class BehaviorTreeAutoTest {
     }
 
     @Test
-    void loadsReloadsAndKeepsLastGoodTree(@TempDir Path dir) throws Exception {
+    void loadsReloadsAndUnloadsOnFailure(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("MyAuto.xml");
         Files.writeString(file, doc("<Follow trajectory=\"P1\"/>", ""));
         BehaviorTreeAuto auto = new BehaviorTreeAuto(factory, file);
+        assertFalse(auto.isLoaded(), "constructing reads nothing");
+        assertTrue(auto.reload());
 
         assertEquals("MyAuto", auto.getName());
         assertTrue(auto.isLoaded());
@@ -151,7 +153,9 @@ class BehaviorTreeAutoTest {
         Files.writeString(file, doc("<Follow trajectory=\"P9\" bogus=\"1\"/>", ""));
         assertFalse(auto.reload());
         assertTrue(auto.getError().contains("unknown port 'bogus'"), auto.getError());
-        assertEquals(List.of("P2", "P3"), auto.getTrajectoryNames(), "last good tree kept");
+        assertFalse(auto.isLoaded(), "a failed load unloads the auto");
+        assertEquals(List.of(), auto.getTrajectoryNames());
+        assertThrows(BtException.class, auto::buildTree);
 
         // A pointer nothing sets (a typo in a tunable's name) is a load error too, not a null
         // mid-auto; the auto's own seeded root keys ({@auto}) are fine.
@@ -173,6 +177,7 @@ class BehaviorTreeAutoTest {
         Files.writeString(dir.resolve("Broken.xml"), "<root BTCPP_format=\"4\"><BehaviorTree");
         List<BehaviorTreeAuto> autos = BehaviorTreeAuto.loadAll(factory, dir);
         assertEquals(List.of("Broken", "Good"), autos.stream().map(a -> a.getName()).toList());
+        autos.forEach(BehaviorTreeAuto::reload);
         BehaviorTreeAuto broken = autos.get(0);
         assertFalse(broken.isLoaded());
         assertFalse(broken.getError().isEmpty());
@@ -195,6 +200,7 @@ class BehaviorTreeAutoTest {
         com.marswars.bt.core.ParameterStore.InMemory store =
                 new com.marswars.bt.core.ParameterStore.InMemory();
         BehaviorTreeAuto auto = new BehaviorTreeAuto(factory, file, store);
+        auto.reload();
 
         assertEquals("Autos/Params/wait_msec", auto.parameterKey("wait_msec"));
         assertEquals(java.util.Map.of("Autos/Params/wait_msec", 3000), store.snapshot(),

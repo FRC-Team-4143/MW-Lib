@@ -83,7 +83,10 @@ class BehaviorTreeAutoRoutineTest {
 
     BehaviorTreeAuto auto(String body) {
         xml.set(doc(body));
-        return new BehaviorTreeAuto(factory, "Demo", xml::get, null, new ParameterStore.InMemory());
+        BehaviorTreeAuto auto =
+                new BehaviorTreeAuto(factory, "Demo", xml::get, null, new ParameterStore.InMemory());
+        auto.reload(); // constructing reads nothing; AutoManager's boot check is the first load
+        return auto;
     }
 
     @Test
@@ -131,16 +134,29 @@ class BehaviorTreeAutoRoutineTest {
     }
 
     @Test
-    void aMissingPathIsALoadErrorAndKeepsTheLastGoodTree() {
+    void aMissingPathIsALoadErrorAndUnloadsTheTree() {
         AutoTrajectories.loader_ = name -> Optional.empty();
         BehaviorTreeAuto auto = auto("<Step id=\"good\"/>");
         assertTrue(auto.isLoaded());
         xml.set(doc("<Follow trajectory=\"Nowhere\"/>"));
         auto.prepare(true).run();
         assertTrue(auto.getError().contains("Nowhere"), auto.getError());
+        assertFalse(auto.isLoaded(), "no fallback to an earlier tree or earlier paths");
+        assertEquals(List.of(), auto.getTrajectoryNames());
         auto.start();
+        assertFalse(auto.isRunning());
         auto.periodic();
-        assertEquals(List.of("good"), ran, "the last good tree still runs");
+        assertEquals(List.of(), ran, "nothing runs");
+    }
+
+    @Test
+    void aFixedFileLoadsAgain() {
+        BehaviorTreeAuto auto = auto("<NoSuchNode/>");
+        assertFalse(auto.isLoaded());
+        xml.set(doc("<Step id=\"fixed\"/>"));
+        auto.prepare(false).run();
+        assertTrue(auto.isLoaded(), auto.getError());
+        assertEquals("", auto.getError());
     }
 
     @Test
@@ -154,6 +170,7 @@ class BehaviorTreeAutoRoutineTest {
         xml.set(doc("<Sequence><Follow trajectory=\"P1\"/><WaitEvent event=\"Intake Ou\"/></Sequence>"));
         auto.prepare(false).run();
         assertTrue(auto.getError().contains("[Intake Ou]"), auto.getError());
+        assertFalse(auto.isLoaded());
         assertTrue(auto.getError().contains("[Intake Out]"), "lists the markers there are");
     }
 

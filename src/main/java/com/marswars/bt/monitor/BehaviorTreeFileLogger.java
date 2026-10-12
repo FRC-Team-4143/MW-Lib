@@ -5,6 +5,7 @@ import com.marswars.bt.core.NodeStatus;
 import com.marswars.bt.core.TreeNode;
 import com.marswars.bt.xml.BtcppTreeXml;
 import com.marswars.logging.MwLog;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -57,6 +58,9 @@ public final class BehaviorTreeFileLogger {
     public static final long FLUSH_PERIOD_MS = 50;
 
     private static final AtomicReference<BehaviorTreeFileLogger> ACTIVE = new AtomicReference<>();
+
+    /** Where a file that can't be written is reported; replaceable for tests. */
+    static java.util.function.Consumer<String> error_log_ = s -> DriverStation.reportError(s, false);
     private static final DateTimeFormatter FILE_TIME =
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").withZone(ZoneId.systemDefault());
 
@@ -95,9 +99,17 @@ public final class BehaviorTreeFileLogger {
         ACTIVE.set(null);
     }
 
-    /** Next to the AdvantageKit logs: {@code /U/logs/bt} on the robot, {@code logs/bt} in sim. */
+    /**
+     * Next to the AdvantageKit logs: {@code /U/logs/bt} on the robot ({@code /home/lvuser/logs/bt}
+     * when no USB stick is mounted at {@code /U}), {@code logs/bt} in sim.
+     */
     public static Path defaultDirectory() {
-        return RobotBase.isReal() ? Path.of("/U/logs/bt") : Path.of("logs", "bt");
+        if (!RobotBase.isReal()) {
+            return Path.of("logs", "bt");
+        }
+        return Files.isDirectory(Path.of("/U"))
+                ? Path.of("/U/logs/bt")
+                : Path.of("/home/lvuser/logs/bt");
     }
 
     public BehaviorTreeFileLogger(Path dir, String fileSuffix) {
@@ -176,6 +188,7 @@ public final class BehaviorTreeFileLogger {
                 out_.flush();
             } catch (IOException e) {
                 error_ = e;
+                error_log_.accept("[BehaviorTree] cannot write run log " + file_ + ": " + e);
             }
         }
 

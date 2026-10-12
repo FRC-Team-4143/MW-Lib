@@ -1,6 +1,7 @@
 package com.marswars.bt.monitor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.marswars.bt.core.BehaviorTreeFactory;
@@ -143,6 +144,29 @@ class BehaviorTreeFileLoggerTest {
         cmd.end(true);
         BehaviorTreeFileLogger.active().orElseThrow().lastWrite().get(5, TimeUnit.SECONDS);
         assertTrue(BtLog.read(file).records().size() > 4, "halt transitions appended at the end");
+    }
+
+    @Test
+    void aLogThatCannotBeWrittenIsReported(@TempDir Path dir) throws Exception {
+        List<String> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
+        var previous = BehaviorTreeFileLogger.error_log_;
+        BehaviorTreeFileLogger.error_log_ = errors::add;
+        try {
+            Path not_a_dir = Files.writeString(dir.resolve("bt"), "a file where the folder goes");
+            BehaviorTreeFileLogger.enable(not_a_dir);
+            BehaviorTreeCommand cmd = command();
+            cmd.initialize();
+            cmd.execute();
+            cmd.end(true);
+            var write = BehaviorTreeFileLogger.active().orElseThrow().lastWrite();
+            assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> write.get(5, TimeUnit.SECONDS));
+            assertEquals(1, errors.size(), errors.toString());
+            assertTrue(errors.get(0).contains("cannot write run log"), errors.get(0));
+        } finally {
+            BehaviorTreeFileLogger.error_log_ = previous;
+        }
     }
 
     @Test

@@ -109,6 +109,40 @@ class BehaviorTreeCommandTest {
     }
 
     @Test
+    void aNodeThatThrowsWhenHaltedStillEndsTheRun() {
+        factory.registerNodeType(
+                "BadHalt",
+                NodeKind.ACTION,
+                "",
+                List.of(),
+                (name, cfg) ->
+                        new com.marswars.bt.core.StatefulActionNode(name, cfg) {
+                            @Override
+                            protected NodeStatus onStart() {
+                                return NodeStatus.RUNNING;
+                            }
+
+                            @Override
+                            protected NodeStatus onRunning() {
+                                return NodeStatus.RUNNING;
+                            }
+
+                            @Override
+                            protected void onHalted() {
+                                throw new IllegalStateException("motor gone");
+                            }
+                        });
+        BehaviorTreeCommand cmd = command("<BadHalt/>");
+        cmd.initialize();
+        cmd.execute();
+        cmd.end(true); // must not throw out of disabledInit / teleopInit
+        assertTrue(writes.contains("BehaviorTree/Test/Result=INTERRUPTED"), writes.toString());
+        assertTrue(
+                writes.stream().anyMatch(w -> w.contains("exception while halting") && w.contains("motor gone")),
+                writes.toString());
+    }
+
+    @Test
     void tickExceptionFailsTheRun() {
         factory.registerSimpleAction(
                 "Boom",

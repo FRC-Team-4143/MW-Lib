@@ -19,9 +19,25 @@ import java.util.function.Supplier;
  * {@link #replaceWith} swaps the result in. Shared by {@link Auto} and {@link BehaviorTreeAuto}.
  */
 public final class AutoTrajectories {
+    /**
+     * Parsed (unflipped) trajectories by name. The boot check of every auto parses each {@code
+     * .traj} once; later alliance changes only flip. {@link #clearCache()} drops it after new files
+     * are copied to the robot.
+     */
+    private static final Map<String, Trajectory<?>> CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final choreo.Choreo.TrajectoryCache CHOREO_CACHE =
+            new choreo.Choreo.TrajectoryCache(CACHE);
+
     /** Reads one {@code deploy/choreo/<name>.traj}; replaceable so unit tests need no files. */
     static Function<String, Optional<Trajectory<?>>> loader_ =
-            name -> choreo.Choreo.loadTrajectory(name).map(t -> (Trajectory<?>) t);
+            name -> CHOREO_CACHE.loadTrajectory(name).map(t -> (Trajectory<?>) t);
+
+    /** Forgets every parsed trajectory, so the next load reads the files again. */
+    public static void clearCache() {
+        CACHE.clear();
+    }
 
     private final Map<String, ChoreoTrajectory> map_ =
             Collections.synchronizedMap(new LinkedHashMap<>());

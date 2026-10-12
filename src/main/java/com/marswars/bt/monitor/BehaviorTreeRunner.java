@@ -101,7 +101,12 @@ public final class BehaviorTreeRunner {
 
     private void finish(String result) {
         running_ = false;
-        tree_.haltTree();
+        try {
+            tree_.haltTree();
+        } catch (RuntimeException e) {
+            // a node's onHalted threw: still log the result and close the run log
+            reportError("exception while halting: " + e);
+        }
         monitor_.publishTransitions();
         monitor_.detach();
         monitor_.publishResult(result);

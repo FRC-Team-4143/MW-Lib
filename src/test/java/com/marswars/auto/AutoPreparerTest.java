@@ -127,7 +127,8 @@ class AutoPreparerTest {
         String log = events.get(0);
         assertTrue(log.contains("Preparing auto Throws failed") && log.contains("no path"), log);
 
-        preparer.prepareNow(broken, false);
+        preparer.submit(broken, false);
+        preparer.await();
         assertTrue(preparer.isPrepared(broken, false));
         assertFalse(preparer.isPrepared(throwing, false));
     }

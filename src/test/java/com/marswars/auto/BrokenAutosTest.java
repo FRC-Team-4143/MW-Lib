@@ -75,6 +75,7 @@ class BrokenAutosTest {
     private Map<String, BehaviorTreeAuto> load() throws URISyntaxException {
         Map<String, BehaviorTreeAuto> byName = new LinkedHashMap<>();
         for (BehaviorTreeAuto auto : BehaviorTreeAuto.loadAll(factory, dir())) {
+            auto.reload(); // what AutoManager's boot check does (without the paths)
             byName.put(auto.getName(), auto);
         }
         return byName;
@@ -83,7 +84,8 @@ class BrokenAutosTest {
     @Test
     void everyFixtureIsListedAndExactlyTheControlLoads() throws Exception {
         Map<String, BehaviorTreeAuto> autos = load();
-        // a broken file must still show up, so the chooser (and an Elastic alert) can say so
+        // every file becomes an auto; AutoManager leaves the broken ones out of the chooser
+        // and raises an alert naming them
         assertEquals(EXPECTED.size() + 1, autos.size(), "every fixture is listed: " + autos.keySet());
         assertTrue(autos.get("Good").isLoaded(), autos.get("Good").getError());
         assertEquals("", autos.get("Good").getError());

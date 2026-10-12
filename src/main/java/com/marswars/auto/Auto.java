@@ -1,6 +1,9 @@
 package com.marswars.auto;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import java.util.Map;
@@ -14,6 +17,8 @@ import java.util.function.Supplier;
  */
 public class Auto extends SequentialCommandGroup implements AutoRoutine {
   private final AutoTrajectories paths_ = new AutoTrajectories();
+  private volatile String load_error_ = "";
+  private Alert alert_ = null;
 
   /** Trajectory info for visualization / path following (null values until loaded). */
   protected final Map<String, ChoreoTrajectory> trajectories_ = paths_.map();
@@ -77,11 +82,51 @@ public class Auto extends SequentialCommandGroup implements AutoRoutine {
 
   // ------------------------------------------------------------------ AutoRoutine
 
-  /** Loads and flips the paths off the robot thread; the returned step swaps them in. */
+  /**
+   * Loads and flips the paths off the robot thread; the returned step swaps them in. If a path is
+   * missing, the step unloads every path instead (so the auto can't drive the previous alliance's
+   * paths), reports the error and marks the auto not loaded.
+   */
   @Override
   public Runnable prepare(boolean is_red_alliance) {
-    Map<String, ChoreoTrajectory> loaded = AutoTrajectories.load(paths_.names(), is_red_alliance);
-    return () -> paths_.replaceWith(loaded);
+    Map<String, ChoreoTrajectory> loaded;
+    try {
+      loaded = AutoTrajectories.load(paths_.names(), is_red_alliance);
+    } catch (RuntimeException e) {
+      String error = String.valueOf(e.getMessage());
+      return () -> {
+        paths_.registerOnly(paths_.names());
+        setLoadError(error);
+      };
+    }
+    return () -> {
+      paths_.replaceWith(loaded);
+      setLoadError("");
+    };
+  }
+
+  @Override
+  public boolean isLoaded() {
+    return load_error_.isEmpty();
+  }
+
+  @Override
+  public String getLoadError() {
+    return load_error_;
+  }
+
+  private void setLoadError(String error) {
+    load_error_ = error;
+    if (!error.isEmpty()) {
+      DataLogManager.log("Auto " + getName() + ": " + error);
+      if (alert_ == null) {
+        alert_ = new Alert("", AlertType.kError);
+      }
+    }
+    if (alert_ != null) {
+      alert_.setText("Auto " + getName() + ": " + error);
+      alert_.set(!error.isEmpty());
+    }
   }
 
   @Override

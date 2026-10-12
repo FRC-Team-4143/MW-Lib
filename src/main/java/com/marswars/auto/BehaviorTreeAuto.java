@@ -41,7 +41,8 @@ import java.util.function.Supplier;
  * AutoTrajectories}) and reloading off the robot thread.
  *
  * <p>The XML is read from disk on every load, in log replay too, so replaying a log runs the
- * trees as they are now.
+ * trees as they are now. Constructing an auto reads nothing; the {@link AutoManager} checks every
+ * auto in the background at boot ({@link #prepare}) and lists only those that load.
  *
  * <p>Nodes get trajectories through the root blackboard entry {@code @trajectories}:
  *
@@ -49,8 +50,9 @@ import java.util.function.Supplier;
  * ChoreoTrajectory traj = BehaviorTreeAuto.trajectories(node).apply(node.getString("trajectory"));
  * }</pre>
  *
- * <p>A file that fails to load keeps the last good version (if any), raises an {@link Alert} and
- * logs {@code BehaviorTree/<name>/Error}.
+ * <p>A load that fails (bad XML, a missing path, an unknown event) unloads the auto: it raises an
+ * {@link Alert}, logs {@code BehaviorTree/<name>/Error}, and does nothing when started. There is no
+ * fallback to an earlier version, so it can never run old paths for the wrong alliance.
  */
 public class BehaviorTreeAuto implements AutoRoutine {
     /** Root blackboard key of the {@code Function<String, ChoreoTrajectory>} resolver. */
@@ -80,7 +82,7 @@ public class BehaviorTreeAuto implements AutoRoutine {
             List<String> trajectoryNames,
             Map<String, ChoreoTrajectory> trajectories) {}
 
-    private Load loaded_ = null; // the last good load
+    private Load loaded_ = null; // the current load; null until loaded, or after a failed load
     private String error_ = "";
     private Alert alert_ = null;
 
@@ -125,7 +127,6 @@ public class BehaviorTreeAuto implements AutoRoutine {
         parameters_ = Objects.requireNonNull(parameters, "parameters");
         monitor_ = new BehaviorTreeMonitor(name);
         runner_ = new BehaviorTreeRunner(name, this::buildTree, monitor_);
-        reload();
     }
 
     /** One auto per auto file in {@code dir} (see {@link #listAutos}), by file name. */
@@ -242,9 +243,11 @@ public class BehaviorTreeAuto implements AutoRoutine {
         }
     }
 
-    /** Puts a load in use on the robot thread, or keeps the last good one if it failed. */
+    /** Puts a load in use on the robot thread; a failed load unloads the auto. */
     private synchronized boolean use(Load load) {
         if (load.spec() == null) {
+            loaded_ = null;
+            paths_.registerOnly(List.of());
             setError(load.error());
             return false;
         }
@@ -305,6 +308,13 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return error_;
     }
 
+    @Override
+    public String getLoadError() {
+        return getError();
+    }
+
+    /** True once a load succeeded and no later load failed. */
+    @Override
     public synchronized boolean isLoaded() {
         return loaded_ != null;
     }

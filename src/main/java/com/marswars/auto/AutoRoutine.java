@@ -25,6 +25,19 @@ public interface AutoRoutine {
         return () -> {};
     }
 
+    /**
+     * False when the last {@link #prepare} failed (a broken file, a missing path): the routine has
+     * nothing to run. {@link AutoManager} leaves such a routine out of the chooser at boot.
+     */
+    default boolean isLoaded() {
+        return true;
+    }
+
+    /** Why the last {@link #prepare} failed, or empty. */
+    default String getLoadError() {
+        return "";
+    }
+
     /** Where the robot starts (the first path's first pose), or {@link Pose2d#kZero}. */
     default Pose2d getStartPose() {
         return Pose2d.kZero;
