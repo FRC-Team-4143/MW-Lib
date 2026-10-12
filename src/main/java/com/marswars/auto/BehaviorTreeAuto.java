@@ -270,7 +270,10 @@ public class BehaviorTreeAuto implements AutoRoutine {
         return root;
     }
 
-    /** Builds a fresh tree for one run from the last good load, with the current tunable values. */
+    /**
+     * Builds a fresh tree for one run from the current load, with the current tunable values.
+     * Throws when the auto is not loaded.
+     */
     public synchronized BehaviorTree buildTree() {
         if (loaded_ == null) {
             throw new BtException(error_.isEmpty() ? "no tree loaded" : error_);

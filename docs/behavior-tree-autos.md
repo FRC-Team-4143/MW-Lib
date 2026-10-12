@@ -2,9 +2,10 @@
 
 `com.marswars.bt` runs autos written as [BehaviorTree.CPP v4](https://www.behaviortree.dev/) XML
 files, which open in [Arbor](https://github.com/coalman321/Arbor) (our tree editor and live viewer) and Groot2. Each `<Name>.xml` file in a robot project's autos
-folder becomes an auto in the chooser, except library files (several trees and no
-`main_tree_to_execute`, such as a shared `common.xml`), which autos pull in with `<include>`. mainbot's `src/main/deploy/autos/README.md` is
-the guide to writing them.
+folder becomes an auto, except library files: a file without `main_tree_to_execute` (such as a
+shared `common.xml`) is a library that autos pull in with `<include>`, so every auto names its main
+tree, even when it has only one. mainbot's `src/main/deploy/autos/README.md` is the guide to writing
+them.
 
 **Setting it up in a robot project:**
 
@@ -34,9 +35,23 @@ public void disabledInit()   { AutoManager.getInstance().stop(); }
 public void teleopInit()     { AutoManager.getInstance().stop(); }
 ```
 
-Preparing the selected auto (re-reading its XML, loading and alliance-flipping its Choreo paths)
-happens on a background `auto-loader` thread whenever the selection or alliance changes, so file I/O
-never stretches a robot loop. The result is swapped in on the robot thread. The XML is always read
+**Checking at boot.** `AutoManager` checks every registered auto once at boot, on a background
+`auto-loader` thread: the XML, every Choreo path file it names, and every event name it waits for
+(each must be a marker on one of the auto's paths). Each auto that loads is added to the chooser as
+soon as its check finishes. One that fails is left out of the chooser, raises its own alert
+(`BT auto <name>: <error>`) and a summary alert listing every auto left out, and logs
+`BehaviorTree/<auto>/Error`. Robot code never waits for this; the log says how long it took. Each
+`.traj` file is parsed once and cached, so later alliance changes only flip the paths
+(`AutoManager.requestReload()` clears the cache after copying new files to the robot).
+
+**Preparing.** Preparing the selected auto (re-reading its XML, loading and alliance-flipping its
+Choreo paths) happens on the same background thread whenever the selection or alliance changes, so
+file I/O never stretches a robot loop. The result is swapped in on the robot thread. Nothing is
+prepared in `autonomousInit`: the auto is ready before the match starts. If the selection changed a
+moment before enable, the auto starts as soon as its preparation lands. A file that breaks after
+boot (edited on the robot and re-selected) unloads its auto: it raises the alert and does nothing
+when started. There is no fallback to an earlier version, so it can never run old paths for the
+wrong alliance. The XML is always read
 from disk, in log replay too, so a replay runs the trees in your checkout, like the rest of the robot
 code. The selection is a logged input (`LoggedDashboardChooser`), so a replay runs the auto that was
 chosen in the match. The exact tree that ran is in the match's `.btlog` header, next to every status
@@ -54,12 +69,12 @@ tree can go inside a command composition with `behaviorTreeAuto.asCommand()`.
 | `bt.core`, `bt.control`, `bt.decorator`, `bt.action` | The engine, with BT.CPP v4 node semantics and all BT.CPP built-ins except scripting |
 | `bt.xml` | BT.CPP v4 XML parser and writer: both node forms, `SubTree` port passing, `<include>`, `<TreeNodesModel>` |
 | `ParallelDeadline` | MW-Lib control node: runs children together until the first one finishes, then halts the rest |
-| `bt.RobotStateNodes` | `SetWantedState` and `IsSystemState` for the robot's super state machine. Autos use the same robot states and sequences as teleop |
-| `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `MwSwerveSubsystem` |
-| `auto.BehaviorTreeAuto` | An `AutoRoutine` loaded from XML (`BehaviorTreeFactory.checkTree` checks it, `literalPortValues` finds its trajectories), ticked by a `BehaviorTreeRunner` (no command). It pre-loads and alliance-flips every trajectory the XML names, and re-reads the file when the auto is re-selected |
-| `auto.AutoRoutine`, `AutoManager` | The routine interface and the chooser that prepares routines in the background and runs them from `periodic()`. `Auto` and `AutoRoutine.of(name, command)` keep command-based autos |
+| `bt.RobotStateNodes` | `SetWantedState` (an instant request that succeeds at once) and `IsSystemState` (retry it to wait for a state) for the robot's super state machine. Autos use the same robot states and sequences as teleop |
+| `bt.swerve.SwerveNodes` | `FollowTrajectory`, `WaitForChoreoEvent`, `SetSwerveState` and Choreo/chassis conditions for any `SwerveFollower` (every `MwSwerveSubsystem`). `FollowTrajectory` fails when the path timer stays paused for `max_paused_sec` (default 3 s, `0` never gives up): the swerve pauses it while the robot lags the path, so a stuck robot doesn't stall the auto. Wrap it in `ForceSuccess` to carry on anyway |
+| `auto.BehaviorTreeAuto` | An `AutoRoutine` loaded from XML (`BehaviorTreeFactory.checkTree` checks it, `literalPortValues` finds its trajectories), ticked by a `BehaviorTreeRunner` (no command). It pre-loads and alliance-flips every trajectory the XML names, checks every event name against its paths' markers, and re-reads the file when the auto is re-selected. A `trajectory` port must name a path (a literal, or a subtree port with a literal or default), since every path is loaded before the auto runs |
+| `auto.AutoRoutine`, `AutoManager` | The routine interface and the chooser that checks every routine at boot, lists only those that load, prepares the selected one in the background and runs it from `periodic()`. `Auto` and `AutoRoutine.of(name, command)` keep command-based autos |
 | Tree parameters | Ports declared for a tree in `<TreeNodesModel>` become dashboard values at `/Tuning/Autos/<auto>/<port>`, read into the blackboard each run |
-| `bt.monitor` | Logs `BehaviorTree/{Active}` and `BehaviorTree/<auto>/{Transitions,Result,Error}` through `MwLog` (`Transitions` is each node's status change since the last tick as `"<node>: <STATE>"`; only what AdvantageScope can show, the tree's shape is Arbor's job). `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2 |
+| `bt.monitor` | Logs `BehaviorTree/{Active}` and `BehaviorTree/<auto>/{Transitions,Result,Error}` through `MwLog` (`Transitions` is each node's status change since the last tick as `"<node>: <STATE>"`; only what AdvantageScope can show, the tree's shape is Arbor's job). `BehaviorTreeFileLogger` writes a `.btlog` per run in BT.CPP's `FileLogger2` format, with every status transition, for replay in Arbor or Groot2. On the robot it writes to `/U/logs/bt`, or `/home/lvuser/logs/bt` without a USB stick; a file it can't write is reported to the Driver Station |
 | `bt.debug.BtLiveServer` | Streams the running tree over WebSocket using the btlive v1 protocol (default port 1670) |
 
 **Node palette.** MW-Lib's shared nodes are generated from their registrations

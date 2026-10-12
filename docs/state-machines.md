@@ -50,10 +50,7 @@ public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConsta
             }
             case IDLE, DRIVE, SCORE -> {
                 switch (wanted) {
-                    case SCORE -> {
-                        if (shooter.hasPiece()) system_state_ = RobotStates.AIM;
-                        else failWantedState(); // autos see FAILURE
-                    }
+                    case SCORE -> { if (shooter.hasPiece()) system_state_ = RobotStates.AIM; }
                     case DRIVE, IDLE -> system_state_ = wanted;
                     default -> {}
                 }
@@ -79,11 +76,21 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 ```
 
 ```xml
-<!-- auto: the same sequence. The node waits for SUCCESS or FAILURE, and the tree adds auto-only fail handling -->
-<Fallback>
-  <Timeout msec="3000"><SetWantedState state="SCORE"/></Timeout>
-  <FollowTrajectory trajectory="ToBackupSpot"/>
-</Fallback>
+<!-- auto: the same sequence. SetWantedState is an instant request, like the button press.
+     To wait until the robot gets there, retry IsSystemState; the Timeout and Fallback add
+     auto-only fail handling -->
+<Sequence>
+  <SetWantedState state="SCORE"/>
+  <Fallback>
+    <Timeout msec="3000">
+      <RetryUntilSuccessful num_attempts="-1"><IsSystemState state="SCORE"/></RetryUntilSuccessful>
+    </Timeout>
+    <Sequence>
+      <SetWantedState state="DRIVE"/>
+      <FollowTrajectory trajectory="ToBackupSpot"/>
+    </Sequence>
+  </Fallback>
+</Sequence>
 ```
 
 | API | What it does |
@@ -91,10 +98,8 @@ driver.rightBumper().whileTrue(Commands.startEnd(
 | `setWantedState(s)` / `getWantedState()` / `getSystemState()` / `system_state_` | Same as `MwSubsystem` |
 | `CONSTANTS` | The robot's constants class (`extends MwConstants`), like a subsystem's. Keep the robot identity in it as `static` members (`RobotConstants.ROBOT`): subsystems read it while `RobotContainer` is still being constructed |
 | `handleStateTransition(wanted)` | The transition table: every condition lives here (guards, step states, decided values). No enter/exit actions. The default goes straight to `wanted` |
-| `getStateResult()` | `SUCCESS` once the robot is in the wanted state, `FAILURE` after `failWantedState()`, otherwise `RUNNING` |
-| `failWantedState()` | Report that the wanted state can't be reached. Cleared by the next `setWantedState` |
 | `isIn(s)` / `inState(s)` | Is the robot in `s`. `inState` returns a `Trigger` |
-| `bt.RobotStateNodes` | Behavior-tree nodes `SetWantedState` (requests the state and waits on `getStateResult()`) and `IsSystemState` |
+| `bt.RobotStateNodes` | Behavior-tree nodes `SetWantedState` (an instant request: calls `setWantedState` and succeeds) and `IsSystemState` (the robot is in a state; retry it to wait) |
 
 MW-Lib subsystems are not WPILib `Subsystem`s, so button commands have no requirements. Logged
 keys are `Robot/WantedState` and `Robot/State`.
