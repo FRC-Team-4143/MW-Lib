@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+  <TreeNodesModel>
+    <Condition ID="IsBatteryOk">
+      <input_port name="min_percent" type="double" default="20">Battery level below which this returns FAILURE</input_port>
+      <description>SUCCESS while the battery is above min_percent</description>
+    </Condition>
+    <Condition ID="IsAtLocation">
+      <input_port name="location" type="std::string">Named location, e.g. "dock"</input_port>
+      <input_port name="tolerance" type="double" default="0.1">Position tolerance in meters</input_port>
+    </Condition>
+    <Action ID="MoveTo">
+      <input_port name="location" type="std::string">Named location to drive to</input_port>
+      <input_port name="speed" type="double" default="0.5">Maximum speed in m/s</input_port>
+      <description>Drives the base to a named location (async)</description>
+    </Action>
+    <Action ID="DetectObject">
+      <input_port name="object_type" type="std::string">Class to look for</input_port>
+      <output_port name="pose" type="geometry_msgs::msg::PoseStamped">Pose of the best detection</output_port>
+    </Action>
+    <Action ID="Pick">
+      <input_port name="pose" type="geometry_msgs::msg::PoseStamped">Grasp target</input_port>
+    </Action>
+    <Action ID="Place">
+      <input_port name="location" type="std::string">Named drop-off location</input_port>
+    </Action>
+    <Action ID="Dock"/>
+    <Action ID="ChargeUntil">
+      <input_port name="percent" type="double" default="90">Battery level to charge to</input_port>
+    </Action>
+    <Action ID="Say">
+      <input_port name="message" type="std::string">Text to speak</input_port>
+      <MetaFields>
+        <owner>hri</owner>
+      </MetaFields>
+    </Action>
+  </TreeNodesModel>
+</root>

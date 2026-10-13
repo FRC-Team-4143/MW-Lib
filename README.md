@@ -11,42 +11,30 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 - **Geometry Utilities**: Regions, splines, and geometric calculations
 - **Logging Integration**: Built-in support for elastic logging
 - **Proxy Server**: Communication utilities for robot data
-- **Constants Loading**: JSON-based configuration management
+- **Behavior-Tree Autos**: Autos written as BehaviorTree.CPP v4 XML, with shared nodes, tunable
+  parameters, run logs and a live WebSocket view (`com.marswars.bt`)
+- **Robot Identity**: Per-robot selection via a burned "RobotName" preference (constants live in
+  each robot project's Java classes)
 
 ## Installation
 
-### Option 1: Vendor Dependency (Recommended)
-
-1. Download the `MWLib.json` vendordep file from the [latest release](https://github.com/FRC-Team-4143/MW-Lib/releases/latest)
-2. Place it in your robot project's `vendordeps/` directory
-3. Refresh your Gradle project
-
-### Option 2: Manual Installation
-
-Add to your `build.gradle` dependencies:
-
-```gradle
-dependencies {
-    implementation 'com.marswars.frc:MWLib-java:1.0.0'
-}
-```
-
-And add the Maven repository:
+MW-Lib is published only through [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib), with no token
+or credentials. Add to your `build.gradle`:
 
 ```gradle
 repositories {
-    maven {
-        name = "GitHubPackages"
-        url = "https://maven.pkg.github.com/FRC-Team-4143/MW-Lib"
-        credentials {
-            username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-            password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-        }
-    }
+    maven { url = 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:27.0.0'
 }
 ```
 
-**Note**: For GitHub Packages, you need a GitHub Personal Access Token with `read:packages` permission.
+Versions are `YY.minor.patch`: the first number is the season the architecture is written for (`27.0.0` opens the 2027 season), the second a feature release within it, the third a fix. Tags carry a `v`.
+Robot projects that want to build against a local checkout instead of a release use mainbot's
+`local.properties` / `mwlibLocal=true` composite build (see its README).
+
 
 ## Building from Source
 
@@ -68,6 +56,9 @@ cd MW-Lib
 ./gradlew publishToMavenLocal
 ```
 
+To try an unreleased branch from another project, JitPack also builds any commit:
+`com.github.FRC-Team-4143.MW-Lib:mw-lib-java:<commit-sha>` (first request takes a few minutes).
+
 ## Development & Publishing
 
 This library uses GitHub Actions for automated CI/CD:
@@ -78,45 +69,38 @@ This library uses GitHub Actions for automated CI/CD:
 - **Build artifacts** are generated and uploaded
 
 ### Publishing Releases
-1. **Create a tag**: `git tag v1.0.0 && git push origin v1.0.0`
-2. **Create GitHub release** from the tag
-3. **GitHub Action automatically**:
-   - Builds the library with the release version
-   - Publishes to GitHub Packages
-   - Attaches `MWLib.json` vendor dependency to the release
-    - Publishes Javadocs to GitHub Pages (`https://frc-team-4143.github.io/MW-Lib/`)
+Releases are cut from `develop` by the **Make Release** workflow; nothing is tagged by hand.
 
-### Manual Publishing
-You can also trigger publishing manually:
-- Go to **Actions** → **Build and Publish** → **Run workflow**
-- Check "Force publish to GitHub Packages"
+1. Merge the work into `develop` (PR, CI green).
+2. **Actions** → **Make Release** → **Run workflow**, enter the version (`27.0.0`, no `v`).
+3. The workflow runs the tests on `develop`, tags `v27.0.0`, asks JitPack to build that tag and
+   waits until `mw-lib-java:27.0.0` resolves (a failed JitPack build fails the run and prints its
+   log), then creates the GitHub Release (notes from the commits) and publishes the Javadoc to
+   `https://frc-team-4143.github.io/MW-Lib/`.
 
-## Usage
+JitPack reads `jitpack.yml` (JDK 17) and versions the build from the tag. Put breaking changes
+(removed classes, renamed keys) in the PR description so they land in the release notes.
 
-The library is organized into several packages:
+## Documentation
 
-- `com.marswars.swerve_lib` - Swerve drive implementation
+Feature guides live in [`docs/`](docs/):
+
+- [State machines](docs/state-machines.md): `MwSubsystem` and `MwSuperStateMachine`, the robot's super state machine that buttons and autos ask for states.
+- [Behavior-tree autos](docs/behavior-tree-autos.md): the `com.marswars.bt` engine, `BehaviorTreeAuto`, the node library, run logs and the live view.
+- [Swerve and robot identity](docs/swerve-and-robot-identity.md): `MwSwerveSubsystem`, `SwerveDriveConfig.builder()` and `RobotIdentity`.
+
+The team documentation site has the longer how-to pages: [Robot development](https://frc-team-4143.github.io/docs/software/robot_dev/quick-ref).
+
+## Packages
+
+- `com.marswars.swerve_lib` - Swerve drive implementation (see [Swerve and robot identity](docs/swerve-and-robot-identity.md))
 - `com.marswars.mechanisms` - Mechanism base classes
 - `com.marswars.geometry` - Geometric utilities
 - `com.marswars.logging` - Logging utilities
-- `com.marswars.util` - General utilities
-
-Example usage:
-
-```java
-import com.marswars.swerve_lib.SwerveMech;
-import com.marswars.mechanisms.ArmMech;
-import com.marswars.util.ConstantsLoader;
-
-// Load constants from JSON
-ConstantsLoader constants = ConstantsLoader.getInstance();
-
-// Use swerve drive
-SwerveMech swerve = new SwerveMech(config);
-
-// Use arm mechanism
-ArmMech arm = new ArmMech(config);
-```
+- `com.marswars.util` - General utilities, including `RobotIdentity`
+- `com.marswars.subsystem` - Subsystem state machines and the robot super state machine (see [State machines](docs/state-machines.md))
+- `com.marswars.bt` - Behavior-tree engine for autos (see [Behavior-tree autos](docs/behavior-tree-autos.md))
+- `com.marswars.auto` - `AutoRoutine`, `AutoManager`, `BehaviorTreeAuto` and the command-based `Auto`
 
 ## Dependencies
 
@@ -125,6 +109,9 @@ This library depends on:
 - Phoenix 6 (CTRE)
 - Jackson (JSON processing)
 - Various vendor libraries (Maplesim, Playing With Fusion, etc.)
+- Java-WebSocket 1.6.0, for the behavior-tree live server. MW-Lib's published package doesn't list
+  its dependencies, so robot projects must add
+  `implementation 'org.java-websocket:Java-WebSocket:1.6.0'` themselves.
 
 ## License
 
@@ -133,7 +120,8 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ## Library Components
 
 ### Subsystems
-- `MwSubsystem` - Base subsystem class with logging integration
+- `MwSubsystem` - Base subsystem class (a state machine) with logging integration
+- `MwSuperStateMachine` - The robot's super state machine; `RobotContainer` extends it (see [State machines](docs/state-machines.md))
 - `SubsystemManager` - Centralized subsystem management
 
 ### Mechanisms

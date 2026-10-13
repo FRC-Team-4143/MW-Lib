@@ -52,3 +52,6 @@ Thumbs.db
 *.tmp
 *.temp
 *~
+
+# Build output written next to src/ by the Java language server and some Gradle tasks
+/bin/

@@ -5,7 +5,7 @@
     "frcYear": "2026",
     "uuid": "a7c8ef9f-6b4d-4e5a-8f9e-7c6b5a4d3e2f",
     "mavenUrls": [
-        "https://maven.pkg.github.com/${githubUsername}/${githubRepo}"
+        "https://jitpack.io"
     ],
     "jsonUrl": "https://github.com/${githubUsername}/${githubRepo}/releases/latest/download/MWLib.json",
     "javaDependencies": [

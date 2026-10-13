@@ -1,113 +1,155 @@
 package com.marswars.auto;
 
-import choreo.trajectory.Trajectory;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.Alert;
+import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DataLogManager;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Base class for autonomous routines that load Choreo trajectories and expose
- * common path utilities.
+ * Base class for command-based autonomous routines: a {@code SequentialCommandGroup} that loads
+ * Choreo trajectories and exposes common path utilities. As an {@link AutoRoutine} it runs through
+ * the {@code CommandScheduler}: {@link #start()} schedules it, {@link #stop} cancels it.
+ * Behavior-tree autos ({@link BehaviorTreeAuto}) don't use this class; they run straight from the
+ * robot loop.
  */
-public class Auto extends SequentialCommandGroup {
-  // Trajectory info for visualization / path following
-  protected final Map<String, ChoreoTrajectory> trajectories_ = Collections.synchronizedMap(new LinkedHashMap<>());
+public class Auto extends SequentialCommandGroup implements AutoRoutine {
+    private final AutoTrajectories paths_ = new AutoTrajectories();
+    private volatile String load_error_ = "";
+    private Alert alert_ = null;
 
-  /** Creates a new autonomous routine container with a default name. */
-  public Auto() {
-    this.setName(getClass().getSimpleName());
-  }
+    /** Trajectory info for visualization / path following (null values until loaded). */
+    protected final Map<String, ChoreoTrajectory> trajectories_ = paths_.map();
 
-  /**
-   * Registers a trajectory to be part of the auto. The actual trajectory will be
-   * loaded once the auto is selected, allowing for pre-caching of trajectories
-   * without
-   * loading them all at once during initialization.
-   * 
-   * @param name The name of the trajectory to load
-   * 
-   * @apiNote You can load multiple trajectories by the same name; their poses
-   *          will be concatenated for visualization and path following.
-   */
-  protected void loadTrajectory(String name) {
-    trajectories_.put(name, null);
-  }
-
-  /**
-   * Loads all registered trajectories from Choreo and processes them for use in
-   * the auto. This should be called once after the auto is selected to ensure all
-   * paths are ready before execution
-   * 
-   * @param is_red_alliance true if the robot is on the red alliance, false for
-   *                        blue (used for flipping trajectories)
-   */
-  public void cacheTrajetories(boolean is_red_alliance) {
-    synchronized (trajectories_) {
-      for (var entry : trajectories_.entrySet()) {
-        String name = entry.getKey();
-        // request the choreo trajectory to be loaded; the .traj file decides whether its samples
-        // are swerve or differential, so keep the sample type open
-        Trajectory<?> traj = choreo.Choreo.loadTrajectory(name).get();
-
-        // load the trajectory with event markers into our typed ChoreoTrajectory class
-        // and store it
-        ChoreoTrajectory choreoTraj = new ChoreoTrajectory(traj, is_red_alliance);
-        entry.setValue(choreoTraj);
-
-      }
+    /** Creates a new autonomous routine container with a default name. */
+    public Auto() {
+        this.setName(getClass().getSimpleName());
     }
-  }
 
-  /**
-   * Get a loaded trajectory by name.
-   *
-   * @param name The name of the trajectory
-   * @return The typed Choreo trajectory
-   * 
-   * @throws IllegalStateException if the trajectory has not been loaded yet (i.e.
-   *                               cacheTrajectories() has not been called)
-   */
-  protected Supplier<ChoreoTrajectory> getTrajectory(String name) {
-    return () -> {
-       ChoreoTrajectory traj = trajectories_.get(name);
-       if (traj == null) {
-         throw new IllegalStateException("Trajectory " + name
-             + " has not been loaded yet. Make sure to call cacheTrajectories() after selecting the auto.");
-       }
-       return traj;
-    };
-  }
-
-  /**
-   * Gets the starting pose for the first loaded trajectory.
-   *
-   * @return The first pose in the first trajectory, or {@link Pose2d#kZero} if
-   *         none
-   */
-  public Pose2d getStartPose() {
-    if (trajectories_.isEmpty() || trajectories_.values().iterator().next() == null) {
-      return Pose2d.kZero;
+    /**
+     * Registers a trajectory to be part of the auto. The actual trajectory will be loaded once the
+     * auto is selected, allowing for pre-caching of trajectories without loading them all at once
+     * during initialization.
+     *
+     * @param name The name of the trajectory to load
+     */
+    protected void loadTrajectory(String name) {
+        paths_.register(name);
     }
-    return trajectories_.values().iterator().next().getPoses()[0];
-  }
 
-  /**
-   * Get the full path as an array of Pose2d
-   * 
-   * @return Array of Pose2d representing the path
-   */
-  public Pose2d[] getPath() {
-    synchronized (trajectories_) {
-      return trajectories_.values().stream()
-          .filter(t -> t != null)
-          .flatMap(t -> Arrays.stream(t.getPoses()))
-          .toArray(Pose2d[]::new);
+    /**
+     * Loads all registered trajectories from Choreo and processes them for use in the auto. Called
+     * when the auto is selected, so paths are ready before it runs.
+     *
+     * @param is_red_alliance true if the robot is on the red alliance, false for blue (used for
+     *     flipping trajectories)
+     */
+    public void cacheTrajetories(boolean is_red_alliance) {
+        paths_.loadAll(is_red_alliance);
     }
-  }
 
+    /**
+     * Get a loaded trajectory by name.
+     *
+     * @param name The name of the trajectory
+     * @return The typed Choreo trajectory, looked up when the supplier is called
+     */
+    protected Supplier<ChoreoTrajectory> getTrajectory(String name) {
+        return paths_.get(name);
+    }
+
+    /**
+     * Gets the starting pose for the first loaded trajectory.
+     *
+     * @return The first pose in the first trajectory, or {@link Pose2d#kZero} if none
+     */
+    @Override
+    public Pose2d getStartPose() {
+        return paths_.startPose();
+    }
+
+    /**
+     * Get the full path as an array of Pose2d
+     *
+     * @return Array of Pose2d representing the path
+     */
+    @Override
+    public Pose2d[] getPath() {
+        return paths_.path();
+    }
+
+    // ------------------------------------------------------------------ AutoRoutine
+
+    /**
+     * Loads and flips the paths off the robot thread; the returned step swaps them in. If a path is
+     * missing, the step unloads every path instead (so the auto can't drive the previous alliance's
+     * paths), reports the error and marks the auto not loaded.
+     */
+    @Override
+    public Runnable prepare(boolean is_red_alliance) {
+        Map<String, ChoreoTrajectory> loaded;
+        try {
+            loaded = AutoTrajectories.load(paths_.names(), is_red_alliance);
+        } catch (RuntimeException e) {
+            String error = String.valueOf(e.getMessage());
+            return () -> {
+                paths_.registerOnly(paths_.names());
+                setLoadError(error);
+            };
+        }
+        return () -> {
+            paths_.replaceWith(loaded);
+            setLoadError("");
+        };
+    }
+
+    @Override
+    public boolean isLoaded() {
+        return load_error_.isEmpty();
+    }
+
+    @Override
+    public String getLoadError() {
+        return load_error_;
+    }
+
+    private void setLoadError(String error) {
+        load_error_ = error;
+        if (!error.isEmpty()) {
+            DataLogManager.log("Auto " + getName() + ": " + error);
+            if (alert_ == null) {
+                alert_ = new Alert("", AlertType.kError);
+            }
+        }
+        if (alert_ != null) {
+            alert_.setText("Auto " + getName() + ": " + error);
+            alert_.set(!error.isEmpty());
+        }
+    }
+
+    @Override
+    public void start() {
+        CommandScheduler.getInstance().schedule(this);
+    }
+
+    @Override
+    public void periodic() {
+        // the CommandScheduler runs the command group
+    }
+
+    @Override
+    public void stop(boolean interrupted) {
+        if (isScheduled()) {
+            cancel();
+        }
+    }
+
+    @Override
+    public boolean isRunning() {
+        return isScheduled();
+    }
 }

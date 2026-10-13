@@ -7,16 +7,15 @@ import edu.wpi.first.wpilibj.Notifier;
 
 import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.MwLog;
-import com.marswars.util.ConstantsLoader;
+import com.marswars.util.RobotIdentity;
 import java.util.ArrayList;
 import java.util.List;
 
 public abstract class SubsystemManager {
-    private static final String subsystems_key_ = "disabled_subsystems";
-
     protected ArrayList<MwSubsystemBase> subsystems;
     protected Notifier loopThread;
     protected boolean log_init = false;
+    private final boolean start_logging_;
 
     private static StringPublisher robot_name_pub_ =
             NetworkTableInstance.getDefault().getStringTopic("/Metadata/ROBOT_NAME").publish();
@@ -28,18 +27,36 @@ public abstract class SubsystemManager {
     }
 
     public SubsystemManager(Object build_constants) {
+        this(build_constants, List.of());
+    }
+
+    public SubsystemManager(Object build_constants, List<String> disabled_subsystems) {
+        this(build_constants, disabled_subsystems, true);
+    }
+
+    /**
+     * @param start_logging false only in unit tests: AdvantageKit exits the JVM if it is started
+     *     outside a LoggedRobot, and battery logging needs the PWF native library
+     */
+    SubsystemManager(
+            Object build_constants, List<String> disabled_subsystems, boolean start_logging) {
         // Initialize the subsystem list
         subsystems = new ArrayList<>();
 
         // Start AdvantageKit logging (idempotent; sets up receivers + Logger.start,
         // and records/publishes git & build metadata)
-        MwLog.init(build_constants);
+        start_logging_ = start_logging;
+        if (start_logging) {
+            MwLog.init(build_constants);
+        }
 
-        robot_name_pub_.set(ConstantsLoader.getInstance().getRobotName());
-        BatteryLogger.logBatteryData();
+        robot_name_pub_.set(RobotIdentity.getInstance().getRobotName());
+        if (start_logging) {
+            BatteryLogger.logBatteryData();
+        }
 
         // Handle disabling subsystems
-        disabled_subsystems_ = ConstantsLoader.getInstance().getStringList(subsystems_key_);
+        disabled_subsystems_ = disabled_subsystems;
         DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
     }
 
@@ -56,6 +73,10 @@ public abstract class SubsystemManager {
     public void doControlLoop() {
         // Poll tunables and fire onChange consumers before subsystem logic runs
         MwLog.periodic();
+
+        // Let a coordinator (see MwSuperStateMachine) request subsystem states first, so its
+        // requests take effect in this same loop
+        update(MwLog.timestampSeconds());
 
         // For each subsystem run its update loop
         for (MwSubsystemBase subsystem : subsystems) {
@@ -87,8 +108,19 @@ public abstract class SubsystemManager {
             }
         }
         // Log battery data every loop
-        BatteryLogger.logBatteryData();
+        if (start_logging_) {
+            BatteryLogger.logBatteryData();
+        }
     }
+
+    /**
+     * The manager's own update, named like a subsystem's: runs once per loop after tunables are
+     * polled and before any subsystem updates. Does nothing by default; {@link MwSuperStateMachine}
+     * overrides it to run the robot-level state machine.
+     *
+     * @param timestamp the loop timestamp in seconds
+     */
+    protected void update(double timestamp) {}
 
     /**
      * If subsystems all need to be reset before a robot mode change, call this function to cleanly

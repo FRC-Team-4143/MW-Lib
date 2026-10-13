@@ -1,7 +1,6 @@
 package com.marswars.swerve_lib.module;
 
 import edu.wpi.first.wpilibj.DataLogManager;
-import com.marswars.util.ConstantsLoader;
 import java.util.Hashtable;
 
 /**
@@ -12,8 +11,6 @@ public class ModuleType {
     public final double steerRatio;
     public final double driveRatio;
     public final boolean steerInverted;
-
-    private static final ConstantsLoader LOADER = ConstantsLoader.getInstance();
 
     ModuleType(String name, double steerRatio, double driveRatio, boolean steerInverted) {
         this.name = name;
@@ -69,18 +66,6 @@ public class ModuleType {
         for (ModuleType type : ALL_TYPES) {
             ALL_MODULE_TYPES.put(type.name, type);
         }
-    }
-
-    /**
-     * Loads module type information from JSON constants for a given module position.
-     *
-     * @param position String representing the module location [fl, fr, bl, br, etc.]
-     * @return ModuleType to load the gear ratio constants from
-     */
-    public static ModuleType getModuleTypeFromJSON(String position) {
-        String type = LOADER.getStringValue("swerve", position, "module_type");
-        String gearing = LOADER.getStringValue("swerve", position, "module_gearing");
-        return getModuleType(type + "-" + gearing);
     }
 
     /**

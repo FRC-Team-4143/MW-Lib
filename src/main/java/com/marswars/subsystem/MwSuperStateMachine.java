@@ -1,0 +1,190 @@
+package com.marswars.subsystem;
+
+import com.marswars.logging.MwLog;
+
+import edu.wpi.first.wpilibj2.command.button.Trigger;
+
+import java.util.List;
+
+/**
+ * The robot's super state machine: one robot-level state that coordinates every subsystem state
+ * machine. A robot's {@code RobotContainer} extends this class, registers its subsystems, and
+ * requests subsystem states from {@link #updateLogic(double)}.
+ *
+ * <p>Each loop {@link #doControlLoop()} first runs this state machine (transition, then logic) and
+ * then updates every registered subsystem, so the subsystem states requested here take effect in
+ * the same loop.
+ *
+ * <p>Buttons and autos never talk to subsystems directly; they call {@link #setWantedState} on the
+ * robot, the same way the robot calls it on subsystems. That replaces per-subsystem command files:
+ * anything that involves more than one subsystem lives in one place, here, and teleop and autos
+ * share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
+ *
+ * <p>The robot's states are an enum in its constants class, the way a subsystem's states live in
+ * its {@code *Constants} class:
+ *
+ * <pre>{@code
+ * public class RobotConstants extends MwConstants {
+ *     public enum RobotStates { IDLE, DRIVE, SHOOT }
+ * }
+ *
+ * public class RobotContainer extends MwSuperStateMachine<RobotStates, RobotConstants> {
+ *     public RobotContainer() {
+ *         super(RobotStates.IDLE, new RobotConstants(), BuildConstants.class);
+ *         registerSubsystem(DrivetrainSubsystem.getInstance());
+ *         registerSubsystem(ShooterSubsystem.getInstance());
+ *         reset();
+ *     }
+ *
+ *     @Override
+ *     protected void updateLogic(double timestamp) {
+ *         switch (system_state_) {
+ *             case IDLE -> { drive.setWantedState(DriveStates.IDLE); shooter.setWantedState(ShooterStates.IDLE); }
+ *             case DRIVE -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.IDLE); }
+ *             case SHOOT -> { drive.setWantedState(DriveStates.ARCADE); shooter.setWantedState(ShooterStates.SHOOT); }
+ *         }
+ *     }
+ * }
+ *
+ * // OI
+ * driver.rightBumper().whileTrue(Commands.startEnd(
+ *         () -> robot.setWantedState(RobotStates.SHOOT),
+ *         () -> robot.setWantedState(RobotStates.DRIVE)));
+ * }</pre>
+ *
+ * @param <S> the robot state enum
+ */
+public abstract class MwSuperStateMachine<S extends Enum<S>, C extends MwConstants>
+        extends SubsystemManager {
+    /** Logging key prefix for the robot state, e.g. {@code Robot/State}. */
+    public static final String LOG_KEY = "Robot/";
+
+    // state info
+    protected S system_state_;
+
+    /** The robot's own constants, like a subsystem's {@code CONSTANTS}. */
+    protected final C CONSTANTS;
+
+    private S wanted_state_;
+    private final S default_state_;
+
+    /**
+     * @param default_state the state at startup and after {@link #reset()}
+     * @param constants the robot's constants, available as {@code CONSTANTS}
+     * @param build_constants the generated BuildConstants class, for log metadata
+     */
+    public MwSuperStateMachine(S default_state, C constants, Object build_constants) {
+        this(default_state, constants, build_constants, List.of());
+    }
+
+    /**
+     * @param default_state the state at startup and after {@link #reset()}
+     * @param constants the robot's constants, available as {@code CONSTANTS}
+     * @param build_constants the generated BuildConstants class, for log metadata
+     * @param disabled_subsystems names of subsystems that should not be registered
+     */
+    public MwSuperStateMachine(
+            S default_state,
+            C constants,
+            Object build_constants,
+            List<String> disabled_subsystems) {
+        this(default_state, constants, build_constants, disabled_subsystems, true);
+    }
+
+    /** Unit tests only: {@code start_logging = false} skips starting AdvantageKit. */
+    MwSuperStateMachine(
+            S default_state,
+            C constants,
+            Object build_constants,
+            List<String> disabled_subsystems,
+            boolean start_logging) {
+        super(build_constants, disabled_subsystems, start_logging);
+        CONSTANTS = java.util.Objects.requireNonNull(constants, "constants");
+        default_state_ = default_state;
+        system_state_ = default_state;
+        wanted_state_ = default_state;
+    }
+
+    /**
+     * Moves from the current state toward the wanted state. Called once per loop before {@link
+     * #updateLogic(double)}. The default goes straight to the wanted state. Override it as the
+     * transition table: switch on the current state, then on {@code wanted}; every condition lives
+     * here (guards, step states, values decided from sensors into fields that {@link #updateLogic}
+     * reads), and nothing else does. There are no enter/exit actions: a state asks for what it
+     * needs every loop.
+     *
+     * @param wanted the state that was last requested
+     */
+    protected void handleStateTransition(S wanted) {
+        system_state_ = wanted;
+    }
+
+    /**
+     * Requests subsystem states for the current robot state. Called once per loop, after the
+     * transition and before every subsystem update.
+     *
+     * @param timestamp the loop timestamp in seconds
+     */
+    protected abstract void updateLogic(double timestamp);
+
+    /** DO NOT OVERRIDE. Runs the robot state machine before the subsystems update. */
+    @Override
+    protected final void update(double timestamp) {
+        MwLog.log(LOG_KEY + "WantedState", wanted_state_);
+        handleStateTransition(wanted_state_);
+
+        MwLog.log(LOG_KEY + "State", system_state_);
+        updateLogic(timestamp);
+    }
+
+    /** Resets the robot state to the default state, then resets every subsystem. */
+    @Override
+    public void reset() {
+        system_state_ = default_state_;
+        wanted_state_ = default_state_;
+        super.reset();
+    }
+
+    /**
+     * Sets the wanted robot state. It stays wanted until something else asks for another state.
+     *
+     * @param wanted the state to move to
+     */
+    public void setWantedState(S wanted) {
+        wanted_state_ = wanted;
+    }
+
+    /**
+     * Gets the most recently requested robot state
+     *
+     * @return the wanted state
+     */
+    public S getWantedState() {
+        return wanted_state_;
+    }
+
+    /**
+     * Gets the current robot state
+     *
+     * @return the current state
+     */
+    public S getSystemState() {
+        return system_state_;
+    }
+
+    /**
+     * @param state the state to check
+     * @return true if the robot is currently in {@code state}
+     */
+    public boolean isIn(S state) {
+        return system_state_ == state;
+    }
+
+    /**
+     * @param state the state to watch
+     * @return a trigger that is true while the robot is in {@code state}
+     */
+    public Trigger inState(S state) {
+        return new Trigger(() -> isIn(state));
+    }
+}

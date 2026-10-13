@@ -1,0 +1,109 @@
+package com.marswars.bt.action;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import com.marswars.bt.support.BtTestBase;
+
+import edu.wpi.first.wpilibj2.command.Command;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+class BuiltinActionsTest extends BtTestBase {
+
+    @Test
+    void sleepUsesTreeClock() {
+        SleepNode sleep = new SleepNode("s", cfg(Map.of("msec", "300")));
+        assertEquals(R, sleep.executeTick());
+        clock.advance(0.29);
+        assertEquals(R, sleep.executeTick());
+        clock.advance(0.02);
+        assertEquals(S, sleep.executeTick());
+
+        SleepNode zero = new SleepNode("z", cfg(Map.of("msec", "0")));
+        assertEquals(S, zero.executeTick(), "zero sleep succeeds immediately");
+    }
+
+    @Test
+    void sleepReadsDurationFromBlackboard() {
+        bb.set("wait_msec", 2000);
+        SleepNode sleep = new SleepNode("s", cfg(Map.of("msec", "{wait_msec}")));
+        assertEquals(R, sleep.executeTick());
+        clock.advance(1.5);
+        assertEquals(R, sleep.executeTick());
+        clock.advance(0.6);
+        assertEquals(S, sleep.executeTick());
+    }
+
+    @Test
+    void setBlackboardLiteralAndCopy() {
+        new SetBlackboardNode("a", cfg(Map.of("value", "42", "output_key", "answer")))
+                .executeTick();
+        assertEquals("42", bb.get("answer"));
+        assertEquals(42, bb.get("answer", Integer.class));
+        new SetBlackboardNode("b", cfg(Map.of("value", "{answer}", "output_key", "{copy}")))
+                .executeTick();
+        assertEquals("42", bb.get("copy"));
+        new UnsetBlackboardNode("c", cfg(Map.of("key", "copy"))).executeTick();
+        assertEquals(null, bb.get("copy"));
+        assertFalse(bb.contains("copy"), "unset removes the entry, it does not store null");
+        assertFalse(bb.localKeys().contains("copy"));
+    }
+
+    @Test
+    void unsetUnderAutoremapRemovesTheParentEntry() {
+        bb.set("shared", "x");
+        com.marswars.bt.core.Blackboard child = com.marswars.bt.core.Blackboard.createChild(bb);
+        child.enableAutoRemapping(true);
+        child.unset("shared");
+        assertFalse(bb.contains("shared"));
+        child.set("shared", "y"); // now local to the child, not routed to the parent
+        assertFalse(bb.contains("shared"));
+        assertEquals("y", child.get("shared"));
+    }
+
+    @Test
+    void runCommandDrivesLifecycle() {
+        List<String> log = new ArrayList<>();
+        int[] executes = {0};
+        RunCommandNode node =
+                new RunCommandNode(
+                        "cmd",
+                        cfg(),
+                        n ->
+                                new Command() {
+                                    @Override
+                                    public void initialize() {
+                                        log.add("init");
+                                    }
+
+                                    @Override
+                                    public void execute() {
+                                        executes[0]++;
+                                    }
+
+                                    @Override
+                                    public boolean isFinished() {
+                                        return executes[0] >= 2;
+                                    }
+
+                                    @Override
+                                    public void end(boolean interrupted) {
+                                        log.add("end:" + interrupted);
+                                    }
+                                });
+        assertEquals(R, node.executeTick());
+        assertEquals(S, node.executeTick());
+        assertEquals(List.of("init", "end:false"), log);
+
+        executes[0] = -100;
+        node.resetStatus();
+        node.executeTick();
+        node.haltNode();
+        assertEquals(List.of("init", "end:false", "init", "end:true"), log);
+    }
+}

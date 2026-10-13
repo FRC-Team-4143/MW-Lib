@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 1.0.4)'
+        description: 'Version to release, no v (e.g., 27.0.0)'
         required: true
         type: string
       skip_tests:
@@ -13,7 +13,7 @@ on:
         type: boolean
         default: false
       create_release:
-        description: 'Create a GitHub release'
+        description: 'Create a GitHub release (the tag and JitPack build happen either way)'
         required: false
         type: boolean
         default: true
@@ -25,113 +25,90 @@ on:
 
 jobs:
   publish:
-    name: Build and Publish Release
+    name: Test, Tag and Release (JitPack)
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
-    
+
     steps:
       - name: Checkout code (develop)
         uses: actions/checkout@v4
         with:
           ref: develop
-      
+
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
           cache-read-only: false
-      
-      - name: Update version in publish.gradle
-        run: |
-          sed -i "s/def pubVersion = '.*'/def pubVersion = '${{ inputs.version }}'/" publish.gradle
-          echo "Updated version to ${{ inputs.version }}"
-      
-      - name: Clean previous builds
-        run: ./gradlew clean
-      
+
       - name: Run tests
         if: ${{ !inputs.skip_tests }}
-        run: |
-          ./gradlew test --continue || echo "Warning: Some tests failed, but continuing..."
-        continue-on-error: true
-      
+        run: ./gradlew test
+
       - name: Build library
-        run: ./gradlew build
-      
-      - name: Publish to GitHub Packages
-        run: ./gradlew publish --info
+        run: ./gradlew build -x test
         env:
-          GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-      
+          VERSION: ${{ inputs.version }}
+
       - name: Create Git tag
-        if: ${{ inputs.create_release }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
-      
+
+      # JitPack builds a tag the first time someone asks for it. Ask now, so the release is
+      # resolvable (and a broken JitPack build fails this run) before any robot project needs it.
+      - name: Build on JitPack
+        run: |
+          base="https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/${{ inputs.version }}"
+          pom="$base/mw-lib-java-${{ inputs.version }}.pom"
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 "$pom" || echo 000)
+            echo "attempt $i: $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 30
+          done
+          echo "JitPack did not publish ${{ inputs.version }}; its build log:"
+          curl -s "$base/build.log" | tail -100
+          exit 1
+
       - name: Create GitHub Release
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: MW-Lib v${{ inputs.version }}
-          body: |            
-            ## Installation Options
-            Add or modify the following to your `build.gradle`:
+          body: |
+            ## Installation
+            Add to your `build.gradle`:
             ```gradle
+            repositories {
+                maven { url = 'https://jitpack.io' }
+            }
             dependencies {
-                ...
-                implementation 'com.github.frc-team-4143:mw-lib-java:${{ inputs.version }}'
-                ...
+                implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:${{ inputs.version }}'
             }
             ```
           draft: false
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: true
-      
+
       - name: Create summary
         run: |
-          echo "# ✓ Successfully Published Release" >> $GITHUB_STEP_SUMMARY
+          echo "# ✓ Released MW-Lib ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:${{ inputs.version }}'\` from \`https://jitpack.io\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "JitPack build log: https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/${{ inputs.version }}/build.log" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📖 API docs: https://frc-team-4143.github.io/MW-Lib/" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Published by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Package Location" >> $GITHUB_STEP_SUMMARY
-          echo "https://github.com/${{ github.repository }}/packages" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Installation Options" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Option 1:** Download JARs directly from [GitHub Releases](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}) (no auth required)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Option 2:** Use GitHub Packages Maven (requires authentication):" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`gradle" >> $GITHUB_STEP_SUMMARY
-          echo "repositories {" >> $GITHUB_STEP_SUMMARY
-          echo "    maven {" >> $GITHUB_STEP_SUMMARY
-          echo "        url = uri('https://maven.pkg.github.com/${{ github.repository }}')" >> $GITHUB_STEP_SUMMARY
-          echo "        credentials {" >> $GITHUB_STEP_SUMMARY
-          echo "            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')" >> $GITHUB_STEP_SUMMARY
-          echo "            password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')" >> $GITHUB_STEP_SUMMARY
-          echo "        }" >> $GITHUB_STEP_SUMMARY
-          echo "    }" >> $GITHUB_STEP_SUMMARY
-          echo "}" >> $GITHUB_STEP_SUMMARY
-          echo "dependencies {" >> $GITHUB_STEP_SUMMARY
-          echo "    implementation 'com.github.frc-team-4143:mw-lib-java:${{ inputs.version }}'" >> $GITHUB_STEP_SUMMARY
-          echo "}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ _GitHub Packages requires authentication even for public repositories_" >> $GITHUB_STEP_SUMMARY
 
   deploy-docs:
     name: Generate & Deploy Javadocs
