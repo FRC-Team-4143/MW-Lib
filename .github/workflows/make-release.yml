@@ -56,12 +56,15 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
 
+      # The tag has no "v": JitPack publishes under the tag name exactly, and robot projects
+      # and the vendordep JSON ask for mw-lib-java:<version>. A "v27.0.0" tag published only
+      # as mw-lib-java:v27.0.0, so 27.0.0 never resolved.
       - name: Create Git tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          git tag -a "${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
 
       # JitPack builds a tag the first time someone asks for it. Ask now, so the release is
       # resolvable (and a broken JitPack build fails this run) before any robot project needs it.
@@ -83,7 +86,7 @@ jobs:
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ inputs.version }}
+          tag_name: ${{ inputs.version }}
           name: MW-Lib v${{ inputs.version }}
           body: |
             ## Installation
