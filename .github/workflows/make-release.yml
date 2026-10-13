@@ -56,12 +56,15 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
 
+      # The tag has no "v": JitPack publishes under the tag name exactly, and robot projects
+      # and the vendordep JSON ask for mw-lib-java:<version>. A "v27.0.0" tag published only
+      # as mw-lib-java:v27.0.0, so 27.0.0 never resolved.
       - name: Create Git tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
+          git tag -a "${{ inputs.version }}" -m "Release version ${{ inputs.version }}"
+          git push origin "${{ inputs.version }}"
 
       # JitPack builds a tag the first time someone asks for it. Ask now, so the release is
       # resolvable (and a broken JitPack build fails this run) before any robot project needs it.
@@ -83,7 +86,7 @@ jobs:
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ inputs.version }}
+          tag_name: ${{ inputs.version }}
           name: MW-Lib v${{ inputs.version }}
           body: |
             ## Installation
@@ -113,52 +116,7 @@ jobs:
   deploy-docs:
     name: Generate & Deploy Javadocs
     needs: publish
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/docs.yml
     permissions:
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Checkout code (develop)
-        uses: actions/checkout@v4
-        with:
-          ref: develop
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Generate Javadoc
-        run: ./gradlew javadoc --info
-
-      - name: Assemble site (main docs + bundled vendor javadoc)
-        run: |
-          mkdir -p site
-          cp -r build/docs/javadoc/. site/
-          # Bundled vendor javadoc that we linkOffline to (paths must match the linkOffline URLs).
-          if [ -d build/docs/vendor ]; then
-            mkdir -p site/vendor
-            cp -r build/docs/vendor/. site/vendor/
-          fi
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

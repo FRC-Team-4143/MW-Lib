@@ -1,0 +1,60 @@
+name: Deploy Javadocs
+
+# Builds the Javadocs from develop and publishes them to GitHub Pages. Make Release calls it
+# after a release; run it by hand (from develop) to republish without releasing.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  deploy-docs:
+    name: Generate & Deploy Javadocs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code (develop)
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Generate Javadoc
+        run: ./gradlew javadoc --info
+
+      - name: Assemble site (main docs + bundled vendor javadoc)
+        run: |
+          mkdir -p site
+          cp -r build/docs/javadoc/. site/
+          # Bundled vendor javadoc that we linkOffline to (paths must match the linkOffline URLs).
+          if [ -d build/docs/vendor ]; then
+            mkdir -p site/vendor
+            cp -r build/docs/vendor/. site/vendor/
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
