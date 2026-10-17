@@ -142,8 +142,8 @@ jobs:
   deploy-docs:
     name: Generate & Deploy Javadocs
     needs: publish
-    # Pre-releases don't replace the published docs. (env isn't available in a job-level if.)
-    if: ${{ github.ref_name == 'develop-2027' && needs.publish.outputs.is_prerelease != 'true' }}
+    # Pre-releases (including every release from a non-release branch) don't replace the published docs.
+    if: ${{ needs.publish.outputs.is_prerelease != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
