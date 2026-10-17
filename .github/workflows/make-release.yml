@@ -106,23 +106,48 @@ jobs:
           curl -s "$base/build.log" | tail -100
           exit 1
 
+      - name: Write release notes
+        if: ${{ inputs.create_release }}
+        env:
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ github.ref_name }}
+          IS_PRERELEASE: ${{ steps.release_type.outputs.is_prerelease }}
+          SHA: ${{ github.sha }}
+        run: |
+          jitpack="https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/$VERSION"
+          {
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              echo "> [!WARNING]"
+              echo "> **Pre-release** built from \`$BRANCH\`. It may change or break before the next full release."
+              echo ""
+            fi
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Version** | \`$VERSION\` |"
+            echo "| **Branch** | \`$BRANCH\` (${SHA:0:7}) |"
+            echo "| **Channel** | $([ "$IS_PRERELEASE" = "true" ] && echo "Pre-release" || echo "Release") |"
+            echo "| **Repository** | [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib/v$VERSION) · [build log]($jitpack/build.log) |"
+            echo ""
+            echo "## Installation"
+            echo "Add to your \`build.gradle\`:"
+            echo '```gradle'
+            echo "repositories {"
+            echo "    maven { url = 'https://jitpack.io' }"
+            echo "}"
+            echo "dependencies {"
+            echo "    implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:$VERSION'"
+            echo "}"
+            echo '```'
+          } > release-notes.md
+          cat release-notes.md
+
       - name: Create GitHub Release
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: MW-Lib v${{ inputs.version }}
-          body: |
-            ## Installation
-            Add to your `build.gradle`:
-            ```gradle
-            repositories {
-                maven { url = 'https://jitpack.io' }
-            }
-            dependencies {
-                implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:${{ inputs.version }}'
-            }
-            ```
+          body_path: release-notes.md
           draft: false
           prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           generate_release_notes: true
