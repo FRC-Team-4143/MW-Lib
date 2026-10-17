@@ -52,3 +52,5 @@ Thumbs.db
 *.tmp
 *.temp
 *~
+
+bin/

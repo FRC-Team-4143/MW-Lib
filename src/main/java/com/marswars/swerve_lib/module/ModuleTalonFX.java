@@ -455,10 +455,10 @@ public class ModuleTalonFX extends Module {
             // In simulation, reset the steer position to zero
             steer_sim_.setState(0.0, steer_sim_.getAngularVelocityRadPerSec());
         } else {
+            // Store the raw absolute encoder reading, not the steer motor position. The constructor
+            // seeds the motor with (encoder - offset), so the offset must be in encoder units.
             MWPreferences.getInstance()
-                    .setPreference(
-                            "Encoder" + module_index_ + "Offset",
-                            inputs_.steerAbsolutePosition.getRotations());
+                    .setPreference("Encoder" + module_index_ + "Offset", encoder.get());
             steer_talonfx_.setPosition(0.0);
         }
     }
