@@ -18,10 +18,14 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: 'Mark as pre-release'
+        description: 'Mark as pre-release (always on for branches other than develop-2027)'
         required: false
         type: boolean
         default: false
+
+env:
+  # Full releases come from this branch; any other branch can only cut a pre-release.
+  RELEASE_BRANCH: develop-2027
 
 jobs:
   publish:
@@ -29,12 +33,35 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      is_prerelease: ${{ steps.release_type.outputs.is_prerelease }}
 
     steps:
-      - name: Checkout code (develop)
+      - name: Determine release type
+        id: release_type
+        env:
+          BRANCH: ${{ github.ref_name }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE_INPUT: ${{ inputs.prerelease }}
+        run: |
+          if [ "$BRANCH" = "$RELEASE_BRANCH" ]; then
+            is_prerelease="$PRERELEASE_INPUT"
+          else
+            is_prerelease=true
+            # Pre-releases need a version suffix (e.g. 27.0.0-beta.1) so a branch build never
+            # takes the tag (and therefore the JitPack version) a real release needs.
+            if [[ "$VERSION" != *-* ]]; then
+              echo "::error::Releases from '$BRANCH' must use a pre-release version suffix (e.g. ${VERSION}-${BRANCH//\//-}.1)"
+              exit 1
+            fi
+          fi
+          echo "is_prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing from branch '$BRANCH' (pre-release: $is_prerelease)"
+
+      - name: Checkout code (${{ github.ref_name }})
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.ref }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -79,30 +106,57 @@ jobs:
           curl -s "$base/build.log" | tail -100
           exit 1
 
+      - name: Write release notes
+        if: ${{ inputs.create_release }}
+        env:
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ github.ref_name }}
+          IS_PRERELEASE: ${{ steps.release_type.outputs.is_prerelease }}
+          SHA: ${{ github.sha }}
+        run: |
+          jitpack="https://jitpack.io/com/github/FRC-Team-4143/MW-Lib/mw-lib-java/$VERSION"
+          {
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              echo "> [!WARNING]"
+              echo "> **Pre-release** built from \`$BRANCH\`. It may change or break before the next full release."
+              echo ""
+            fi
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Version** | \`$VERSION\` |"
+            echo "| **Branch** | \`$BRANCH\` (${SHA:0:7}) |"
+            echo "| **Channel** | $([ "$IS_PRERELEASE" = "true" ] && echo "Pre-release" || echo "Release") |"
+            echo "| **Repository** | [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib/v$VERSION) · [build log]($jitpack/build.log) |"
+            echo ""
+            echo "## Installation"
+            echo "Add to your \`build.gradle\`:"
+            echo '```gradle'
+            echo "repositories {"
+            echo "    maven { url = 'https://jitpack.io' }"
+            echo "}"
+            echo "dependencies {"
+            echo "    implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:$VERSION'"
+            echo "}"
+            echo '```'
+          } > release-notes.md
+          cat release-notes.md
+
       - name: Create GitHub Release
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ inputs.version }}
           name: MW-Lib v${{ inputs.version }}
-          body: |
-            ## Installation
-            Add to your `build.gradle`:
-            ```gradle
-            repositories {
-                maven { url = 'https://jitpack.io' }
-            }
-            dependencies {
-                implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:${{ inputs.version }}'
-            }
-            ```
+          body_path: release-notes.md
           draft: false
-          prerelease: ${{ inputs.prerelease }}
+          prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           generate_release_notes: true
 
       - name: Create summary
         run: |
           echo "# ✓ Released MW-Lib ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }} · **Pre-release:** ${{ steps.release_type.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`implementation 'com.github.FRC-Team-4143.MW-Lib:mw-lib-java:${{ inputs.version }}'\` from \`https://jitpack.io\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -113,6 +167,8 @@ jobs:
   deploy-docs:
     name: Generate & Deploy Javadocs
     needs: publish
+    # Pre-releases (including every release from a non-release branch) don't replace the published docs.
+    if: ${{ needs.publish.outputs.is_prerelease != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -121,10 +177,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout code (develop)
+      - name: Checkout code (${{ github.ref_name }})
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.ref }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4
