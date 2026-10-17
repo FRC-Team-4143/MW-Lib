@@ -18,7 +18,7 @@ on:
         type: boolean
         default: true
       prerelease:
-        description: 'Mark as pre-release'
+        description: 'Mark as pre-release (always on for non-develop branches)'
         required: false
         type: boolean
         default: false
@@ -30,12 +30,35 @@ jobs:
     permissions:
       contents: write
       packages: write
+    outputs:
+      is_prerelease: ${{ steps.release_type.outputs.is_prerelease }}
     
     steps:
-      - name: Checkout code (develop)
+      - name: Determine release type
+        id: release_type
+        env:
+          BRANCH: ${{ github.ref_name }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE_INPUT: ${{ inputs.prerelease }}
+        run: |
+          if [ "$BRANCH" = "develop" ]; then
+            is_prerelease="$PRERELEASE_INPUT"
+          else
+            is_prerelease=true
+            # Non-develop builds must use a pre-release version (e.g. 1.0.4-beta.1)
+            # so they never claim a version number reserved for a real release.
+            if [[ "$VERSION" != *-* ]]; then
+              echo "::error::Releases from '$BRANCH' must use a pre-release version suffix (e.g. ${VERSION}-${BRANCH//\//-}.1)"
+              exit 1
+            fi
+          fi
+          echo "is_prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
+          echo "Releasing from branch '$BRANCH' (pre-release: $is_prerelease)"
+
+      - name: Checkout code (${{ github.ref_name }})
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.ref }}
       
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -96,7 +119,7 @@ jobs:
             }
             ```
           draft: false
-          prerelease: ${{ inputs.prerelease }}
+          prerelease: ${{ steps.release_type.outputs.is_prerelease == 'true' }}
           generate_release_notes: true
       
       - name: Create summary
@@ -106,6 +129,8 @@ jobs:
           echo "📖 API docs: https://frc-team-4143.github.io/MW-Lib/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ steps.release_type.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
           echo "**Published by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Package Location" >> $GITHUB_STEP_SUMMARY
@@ -136,6 +161,8 @@ jobs:
   deploy-docs:
     name: Generate & Deploy Javadocs
     needs: publish
+    # Pre-releases (including every release from a non-release branch) don't replace the published docs.
+    if: ${{ needs.publish.outputs.is_prerelease != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
