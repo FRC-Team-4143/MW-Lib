@@ -8,6 +8,7 @@ plugins {
   // id 'edu.wpi.first.NativeUtils' version '2026.0.1'  // Disabled - Java only build
   // id 'edu.wpi.first.GradleJni' version '1.1.0'  // Disabled - Java only build
   id 'edu.wpi.first.GradleVsCode' version '2.1.0'
+  id 'com.google.protobuf' version '0.9.5'
 }
 
 // WPILib Version
@@ -61,16 +62,37 @@ java {
 }
 var javaVersion = "17"
 
-// Configure source sets to include all src subdirectories
+// Configure source sets to include all src subdirectories. main keeps Gradle's default
+// (src/main/java): reassigning its srcDirs would drop the protobuf plugin's generated sources.
 sourceSets {
-  main {
-    java {
-      srcDirs = ['src/main/java']
-    }
-  }
   test {
     java {
       srcDirs = ['src/test/java']
+    }
+  }
+}
+
+// Generates QuickBuffers classes (com.marswars.proxy_server.proto.ChassisProxy) from src/main/proto.
+// QuickBuffers rather than protobuf-java because WPILib already ships its runtime to every robot
+// project (GradleRIO pins quickbuf 1.4) and it parses without allocating. protoc matches the protobuf
+// release Aquila-Vision builds the same .proto files with (35.1, published to Maven as 4.35.1).
+protobuf {
+  protoc {
+    artifact = 'com.google.protobuf:protoc:4.35.1'
+  }
+  plugins {
+    quickbuf {
+      artifact = 'us.hebi.quickbuf:protoc-gen-quickbuf:1.4'
+    }
+  }
+  generateProtoTasks {
+    all().each { task ->
+      task.builtins {
+        remove java
+      }
+      task.plugins {
+        quickbuf {}
+      }
     }
   }
 }
@@ -105,8 +127,8 @@ dependencies {
     // the *InputsAutoLogged structs from @AutoLog.
     implementation "org.littletonrobotics.akit:akit-java:26.0.2"
     annotationProcessor "org.littletonrobotics.akit:akit-autolog:26.0.2"
-    // quickbuf-runtime is a transitive dep of akit-java required at compile time;
-    // the consuming robot project provides it at runtime via the AdvantageKit vendordep.
+    // quickbuf-runtime is needed at compile time by akit-java and by the generated proxy_server
+    // protocol classes; the consuming robot project provides it at runtime (WPILib ships it).
     compileOnly "us.hebi.quickbuf:quickbuf-runtime:1.4"
     implementation "org.dyn4j:dyn4j:5.0.2"
     implementation "com.playingwithfusion.frc:PlayingWithFusion-java:2026.2.25"
@@ -126,7 +148,7 @@ dependencies {
     
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testRuntimeOnly 'us.hebi.quickbuf:quickbuf-runtime:1.4'
+    testImplementation 'us.hebi.quickbuf:quickbuf-runtime:1.4'
 }
 
 // Native libraries (hal/wpiutil/wpimath/wpinet/ntcore) for tests that touch real WPILib native

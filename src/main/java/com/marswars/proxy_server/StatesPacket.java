@@ -2,7 +2,7 @@ package com.marswars.proxy_server;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import java.nio.ByteBuffer;
+import com.marswars.proxy_server.proto.ChassisProxy;
 
 /**
  * Packet handler for swerve drive module state data.
@@ -26,57 +26,18 @@ public abstract class StatesPacket implements Packet {
         }
     }
 
-    // Packet type identifier
-    public static final int TYPE_ID = 2;
-    
-    // Byte indices for module state data
-    private static final int MODULE_1_ANGLE_IDX = 9;
-    private static final int MODULE_1_VELOCITY_IDX = 13;
-    private static final int MODULE_2_ANGLE_IDX = 17;
-    private static final int MODULE_2_VELOCITY_IDX = 21;
-    private static final int MODULE_3_ANGLE_IDX = 25;
-    private static final int MODULE_3_VELOCITY_IDX = 29;
-    private static final int MODULE_4_ANGLE_IDX = 33;
-    private static final int MODULE_4_VELOCITY_IDX = 37;
-
-    private static final double STATE_RESOLUTION = 1000.0;
-
     /**
-     * Parses module states packet data from a received byte buffer.
-     * Extracts timestamp and all swerve module states from the buffer.
-     * 
-     * @param buffer the byte buffer containing the packet data
+     * Converts a received module states message.
+     *
+     * @param msg the module states payload of a received envelope
      * @return ModuleStatesData object with parsed information
      */
-    public static ModuleStatesData updateData(byte[] buffer) {
-        // Parse timestamp
-        Timestamp timestamp = new Timestamp(
-                ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
-                ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
-        
-        // Parse module states
-        SwerveModuleState[] moduleStates = new SwerveModuleState[4];
-        
-        moduleStates[0] = new SwerveModuleState(
-                ByteBuffer.wrap(buffer, MODULE_1_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
-                new Rotation2d(
-                        ByteBuffer.wrap(buffer, MODULE_1_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
-        
-        moduleStates[1] = new SwerveModuleState(
-                ByteBuffer.wrap(buffer, MODULE_2_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
-                new Rotation2d(
-                        ByteBuffer.wrap(buffer, MODULE_2_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
-        
-        moduleStates[2] = new SwerveModuleState(
-                ByteBuffer.wrap(buffer, MODULE_3_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
-                new Rotation2d(
-                        ByteBuffer.wrap(buffer, MODULE_3_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
-        
-        moduleStates[3] = new SwerveModuleState(
-                ByteBuffer.wrap(buffer, MODULE_4_VELOCITY_IDX, 4).getInt() / STATE_RESOLUTION,
-                new Rotation2d(
-                        ByteBuffer.wrap(buffer, MODULE_4_ANGLE_IDX, 4).getInt() / STATE_RESOLUTION));
-        
-        return new ModuleStatesData(moduleStates, timestamp);
+    public static ModuleStatesData fromProto(ChassisProxy.ModuleStates msg) {
+        SwerveModuleState[] states = new SwerveModuleState[msg.getModules().length()];
+        for (int i = 0; i < states.length; i++) {
+            ChassisProxy.SwerveModuleState module = msg.getModules().get(i);
+            states[i] = new SwerveModuleState(module.getSpeedMps(), new Rotation2d(module.getAngleRad()));
+        }
+        return new ModuleStatesData(states, Timestamp.fromProto(msg.getStamp()));
     }
 }

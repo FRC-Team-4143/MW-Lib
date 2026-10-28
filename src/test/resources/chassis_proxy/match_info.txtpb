@@ -1,0 +1,7 @@
+protocol_version: 1
+match_info {
+  match_num: 42
+  match_type: MATCH_TYPE_QUALIFICATION
+  station: ALLIANCE_STATION_RED_2
+  event_name: "MOKC Kansas City"
+}

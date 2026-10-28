@@ -1,7 +1,6 @@
 package com.marswars.proxy_server;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -23,6 +22,8 @@ import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolutionData;
 import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
+import com.marswars.proxy_server.proto.ChassisProxy;
+import us.hebi.quickbuf.ProtoSource;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -32,6 +33,7 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -139,6 +141,13 @@ public class ProxyServerThread extends Thread {
     private final int PORT = 5809; // local port to bind server
     private DatagramSocket socket_ = null;
     private final int TIMEOUT = 1; // Server receive blocking timeout
+
+    // Wire format: one ChassisProxy.Envelope per datagram, reused across receives so parsing
+    // doesn't allocate. Envelopes are far smaller than one Ethernet frame.
+    private static final int PROTOCOL_VERSION = ChassisProxy.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber();
+    private final byte[] receive_buffer_ = new byte[1500];
+    private final ProtoSource receive_source_ = ProtoSource.newArraySource();
+    private final ChassisProxy.Envelope receive_envelope_ = ChassisProxy.Envelope.newInstance();
     
     // Multi-client connection tracking
     private static final double CONNECTION_TIMEOUT_SECONDS = 5.0; // Consider disconnected after 5 seconds
@@ -174,10 +183,10 @@ public class ProxyServerThread extends Thread {
             this.has_camera_ever_connected = false;
         }
         
-        void updatePacketReceived(int packet_id) {
+        void updatePacketReceived(String payload) {
             this.last_packet_time = Timer.getFPGATimestamp();
             MwLog.log("/Proxy/"+name + "/LastPacketTime", last_packet_time);
-            MwLog.log("/Proxy/"+name + "/LastPacket", packet_id);
+            MwLog.log("/Proxy/"+name + "/LastPacket", payload);
         }
         
         void updateConnectionStatus() {
@@ -321,13 +330,8 @@ public class ProxyServerThread extends Thread {
     private boolean updateData() {
 
         try {
-            // clear the buffer after every message
-            // Increased size to accommodate variable-length camera serial strings
-            // Header(9) + SerialLen(2) + Serial(~50) + Data(~100) = ~200 bytes with margin
-            byte[] buffer = new byte[256];
-
             // create a packet to receive the data
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            DatagramPacket packet = new DatagramPacket(receive_buffer_, receive_buffer_.length);
 
             // receive the data in byte buffer
             socket_.receive(packet);
@@ -342,47 +346,51 @@ public class ProxyServerThread extends Thread {
                 has_ever_connected_ = true;
             }
 
-            int packet_id = (int) buffer[Packet.PACKET_ID_IDX];
+            // Each datagram is one envelope; parse it into the reused instance
+            receive_source_.setInput(receive_buffer_, 0, packet.getLength());
+            try {
+                receive_envelope_.clearQuick().mergeFrom(receive_source_);
+            } catch (IOException e) {
+                MwLog.log("/Proxy/DroppedPacket", "malformed envelope from " + client_key);
+                return false;
+            }
+            if (receive_envelope_.getProtocolVersion() != PROTOCOL_VERSION) {
+                MwLog.log("/Proxy/DroppedPacket", "protocol_version " + receive_envelope_.getProtocolVersion()
+                        + " from " + client_key + " (expected " + PROTOCOL_VERSION + ")");
+                return false;
+            }
             
             // Get or create client connection tracker
             ClientConnection client = clients_.computeIfAbsent(client_key, 
                 k -> new ClientConnection(client_address));
 
-            // Determine packet type from first byte of buffer
-            switch (packet_id) {
-                // Odometry Packet Type
-                case OdomPacket.TYPE_ID: // const uint8_t msg_id{ 30u };
-                    odometry_readings_.add(OdomPacket.updateData(buffer));
-                    break;
-                // Module States Packet Type
-                case StatesPacket.TYPE_ID: // const uint8_t msg_id{ 2u };
-                    module_states_readings_.add(StatesPacket.updateData(buffer));
-                    break;
-                // AprilTag Solution Packet Type
-                case TagSolutionPacket.TYPE_ID: // const uint8_t msg_id{ 15u };
-                    TagSolutionPacket.TagSolutionData tag_data = TagSolutionPacket.updateData(buffer);
-                    tag_solutions_.add(tag_data);
-                    // Update camera connection tracking
-                    updateCameraConnection(tag_data.cameraSerial, client_key, client.name);
-                    break;
-                // Piece Detection Packet Type
-                case PieceDetectionPacket.TYPE_ID: // const uint8_t msg_id{ 10u };
-                    PieceDetectionPacket.PieceDetectionData piece_data = PieceDetectionPacket.updateData(buffer);
-                    piece_detections_.add(piece_data);
-                    // Update camera connection tracking
-                    updateCameraConnection(piece_data.cameraSerial, client_key, client.name);
-                    break;
-                // Timesync Request Packet Type
-                case TimesyncRequest.TYPE_ID: // const uint8_t msg_id{ 60u };
-                    // Update client connection status only for timesync requests
-                    client.updatePacketReceived(packet_id);
-                    // Parse request and send response
-                    TimesyncRequestData timesync_request = TimesyncRequest.updateData(buffer);
-                    sendTimesyncResponse(timesync_request);
-                    break;
-                // Unknown Packet Type
-                default:
-                    return false;
+            // Determine packet type from the envelope's payload
+            if (receive_envelope_.hasOdometry()) {
+                odometry_readings_.add(OdomPacket.fromProto(receive_envelope_.getOdometry()));
+            } else if (receive_envelope_.hasModuleStates()) {
+                module_states_readings_.add(StatesPacket.fromProto(receive_envelope_.getModuleStates()));
+            } else if (receive_envelope_.hasTagSolution()) {
+                TagSolutionPacket.TagSolutionData tag_data =
+                        TagSolutionPacket.fromProto(receive_envelope_.getTagSolution());
+                tag_solutions_.add(tag_data);
+                // Update camera connection tracking
+                updateCameraConnection(tag_data.cameraSerial, client_key, client.name);
+            } else if (receive_envelope_.hasPieceDetections()) {
+                PieceDetectionPacket.PieceDetectionData piece_data =
+                        PieceDetectionPacket.fromProto(receive_envelope_.getPieceDetections());
+                piece_detections_.add(piece_data);
+                // Update camera connection tracking
+                updateCameraConnection(piece_data.cameraSerial, client_key, client.name);
+            } else if (receive_envelope_.hasTimesyncRequest()) {
+                // Update client connection status only for timesync requests
+                client.updatePacketReceived("timesync_request");
+                // Parse request and send response
+                TimesyncRequestData timesync_request =
+                        TimesyncRequest.fromProto(receive_envelope_.getTimesyncRequest());
+                sendTimesyncResponse(timesync_request);
+            } else {
+                // Unknown or missing payload
+                return false;
             }
 
         } catch (SocketTimeoutException e) {
@@ -715,14 +723,22 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean snapshot(String tag_name) {
-        int tag_name_length = (int) MathUtil.clamp(tag_name.length(), 0, 400);
-        byte[] buffer = new byte[1 + tag_name_length];
-        buffer[0] = 52; // Message ID
-        for (int i = 0; i < tag_name_length; i++) {
-            buffer[i + 1] = (byte) Character.getNumericValue(tag_name.charAt(i));
-        }
+        return snapshot(tag_name, true);
+    }
 
-        return sendData(buffer);
+    /**
+     * Starts or stops a named log snapshot on the coprocessor
+     *
+     * @param tag_name flag name to record in log
+     * @param start true to start the snapshot, false to stop it
+     * @return true if packet was sent successfully, false otherwise
+     */
+    public boolean snapshot(String tag_name, boolean start) {
+        ChassisProxy.Envelope envelope = newEnvelope();
+        envelope.getMutableAutoSnapshot()
+                .setEventName(tag_name)
+                .setStart(start);
+        return sendData(envelope.toByteArray());
     }
 
     /** 
@@ -731,18 +747,20 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean syncMatchData() {
-        String event_name = DriverStation.getEventName();
-        byte[] buffer = new byte[5 + event_name.length()];
-        buffer[0] = 50; // Message ID
-        buffer[1] = (byte) DriverStation.getMatchNumber();
-        buffer[2] = serializeMatchType();
-        buffer[3] = serializeAllianceStation();
-        buffer[4] = (byte) event_name.length();
-        for (int i = 0; i < event_name.length(); i++) {
-            buffer[i + 5] = (byte) Character.getNumericValue(event_name.charAt(i));
-        }
+        ChassisProxy.Envelope envelope = newEnvelope();
+        envelope.getMutableMatchInfo()
+                .setMatchNum(DriverStation.getMatchNumber())
+                .setMatchType(serializeMatchType())
+                .setStation(serializeAllianceStation())
+                .setEventName(DriverStation.getEventName());
+        return sendData(envelope.toByteArray());
+    }
 
-        return sendData(buffer);
+    /**
+     * @return an envelope stamped with this build's protocol version, ready for a payload
+     */
+    private static ChassisProxy.Envelope newEnvelope() {
+        return ChassisProxy.Envelope.newInstance().setProtocolVersion(PROTOCOL_VERSION);
     }
 
     /**
@@ -759,30 +777,6 @@ public class ProxyServerThread extends Thread {
         // Serialize and send response
         byte[] response_buffer = TimesyncResponse.serialize(response);
         return sendData(response_buffer);
-    }
-
-    /**
-     * Sends a custom packet with specified message ID and payload data
-     * 
-     * @param message_id the message type identifier
-     * @param payload the data payload (can be null for header-only packets)
-     * @return true if packet was sent successfully, false otherwise
-     */
-    public boolean sendCustomPacket(byte message_id, byte[] payload) {
-        byte[] buffer;
-        
-        if (payload == null || payload.length == 0) {
-            // Header-only packet
-            buffer = new byte[1];
-            buffer[0] = message_id;
-        } else {
-            // Packet with payload
-            buffer = new byte[1 + payload.length];
-            buffer[0] = message_id;
-            System.arraycopy(payload, 0, buffer, 1, payload.length);
-        }
-        
-        return sendData(buffer);
     }
 
     /**
@@ -805,52 +799,43 @@ public class ProxyServerThread extends Thread {
     }
 
     /**
-     * Serializes {@link DriverStation.MatchType} to byte value {None, Practice, Qualification,
-     * Elimination}
+     * Converts {@link DriverStation#getMatchType()} to its protobuf form
      *
-     * @return byte value representing match type
+     * @return the current match type
      */
-    private byte serializeMatchType() {
+    private ChassisProxy.MatchType serializeMatchType() {
         switch (DriverStation.getMatchType()) {
             case Practice:
-                {
-                    return 1;
-                }
+                return ChassisProxy.MatchType.MATCH_TYPE_PRACTICE;
             case Qualification:
-                {
-                    return 2;
-                }
+                return ChassisProxy.MatchType.MATCH_TYPE_QUALIFICATION;
             case Elimination:
-                {
-                    return 3;
-                }
+                return ChassisProxy.MatchType.MATCH_TYPE_ELIMINATION;
             case None:
             default:
-                return 0;
+                return ChassisProxy.MatchType.MATCH_TYPE_NONE;
         }
     }
 
     /**
-     * Serializes DriverStation Location to byte value {Blue1, Blue2, Blue3, Red1, Red2, Red3} Will
-     * return 0 if no DriverStation is Present
+     * Converts the DriverStation location to its protobuf form {Blue1, Blue2, Blue3, Red1, Red2,
+     * Red3}. Will return ALLIANCE_STATION_UNKNOWN if no DriverStation is present
      *
-     * @return byte value representing station location
+     * @return the current alliance station
      */
-    private byte serializeAllianceStation() {
+    private ChassisProxy.AllianceStation serializeAllianceStation() {
         OptionalInt optional = DriverStation.getLocation();
-        if (optional.isPresent()) {
+        Optional<Alliance> alliance = DriverStation.getAlliance();
+        if (optional.isPresent() && alliance.isPresent()) {
             int station = optional.getAsInt();
-            if (DriverStation.getAlliance().get() == Alliance.Blue) {
-                // If on Blue Alliance apply no offset {1, 2, 3}
-                return (byte) station;
-            } else {
-                // If on Red Alliance offset by 3 {4, 5, 6}
-                return (byte) (station + 3);
-            }
+            // Blue stations are numbered {1, 2, 3} and red ones {4, 5, 6}
+            int number = alliance.get() == Alliance.Blue ? station : station + 3;
+            return ChassisProxy.AllianceStation.forNumberOr(number,
+                    ChassisProxy.AllianceStation.ALLIANCE_STATION_UNKNOWN);
         } else {
             // Drivers Station Not Connected.
             // This should not occur since this will only be TeleOp Init
-            return 0;
+            return ChassisProxy.AllianceStation.ALLIANCE_STATION_UNKNOWN;
         }
     }
     

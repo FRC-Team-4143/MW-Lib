@@ -1,0 +1,7 @@
+protocol_version: 1
+piece_detections {
+  stamp { sec: 512 nanosec: 750000000 }
+  camera_serial: "40123456"
+  detections { class_id: 1 theta_x_rad: 0.125 theta_y_rad: -0.0625 }
+  detections { class_id: 2 theta_x_rad: -0.5 theta_y_rad: 0.25 }
+}

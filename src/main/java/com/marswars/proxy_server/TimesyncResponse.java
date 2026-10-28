@@ -1,6 +1,7 @@
 package com.marswars.proxy_server;
 
-import java.nio.ByteBuffer;
+import com.marswars.proxy_server.proto.ChassisProxy;
+import us.hebi.quickbuf.InvalidProtocolBufferException;
 
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.RobotController;
@@ -38,52 +39,48 @@ public abstract class TimesyncResponse implements Packet {
         }
     }
     
-    // Packet type identifier
-    public static final int TYPE_ID = 61;
-    
     /**
-     * Serializes a TimesyncResponseData into a byte array for transmission.
+     * Serializes a TimesyncResponseData into an envelope for transmission.
      * 
      * @param response the response data to serialize
-     * @return byte array representing the serialized response packet
+     * @return the serialized {@link ChassisProxy.Envelope}
      */
     public static byte[] serialize(TimesyncResponseData response) {
-        byte[] buffer = new byte[21]; // 1 + 4*5 = 21 bytes
-        
-        ByteBuffer bb = ByteBuffer.wrap(buffer);
-        bb.put((byte) TYPE_ID);                           // msg_id
-        bb.putInt(response.requestId);                    // req_id
-        bb.putInt(response.serverReceiveSeconds);         // server_recv_sec
-        bb.putInt(response.serverReceiveNanoseconds);     // server_recv_nanosec
-        bb.putInt(response.clientSendSeconds);            // server_send_sec
-        bb.putInt(response.clientSendNanoseconds);        // server_send_nanosec
-        
-        return buffer;
+        ChassisProxy.Envelope envelope = ChassisProxy.Envelope.newInstance()
+                .setProtocolVersion(ChassisProxy.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber());
+        ChassisProxy.TimesyncResponse msg = envelope.getMutableTimesyncResponse()
+                .setReqId(response.requestId);
+        msg.getMutableServerRecv()
+                .setSec(response.serverReceiveSeconds)
+                .setNanosec(response.serverReceiveNanoseconds);
+        msg.getMutableClientSend()
+                .setSec(response.clientSendSeconds)
+                .setNanosec(response.clientSendNanoseconds);
+        return envelope.toByteArray();
     }
     
     /**
-     * Deserializes a byte array into a TimesyncResponseData object.
+     * Deserializes a serialized envelope carrying a timesync response.
      * 
-     * @param data the byte array to deserialize
+     * @param data the serialized {@link ChassisProxy.Envelope}
      * @return TimesyncResponseData object with parsed information
-     * @throws IllegalArgumentException if data length is invalid
+     * @throws IllegalArgumentException if data is not an envelope carrying a timesync response
      */
     public static TimesyncResponseData deserialize(byte[] data) {
-        if (data.length < 21) {
-            throw new IllegalArgumentException("Invalid timesync response data length: " + data.length);
+        ChassisProxy.Envelope envelope;
+        try {
+            envelope = ChassisProxy.Envelope.parseFrom(data);
+        } catch (InvalidProtocolBufferException e) {
+            throw new IllegalArgumentException("Invalid timesync response envelope", e);
+        }
+        if (!envelope.hasTimesyncResponse()) {
+            throw new IllegalArgumentException("Envelope does not carry a timesync response");
         }
         
-        ByteBuffer bb = ByteBuffer.wrap(data);
-        bb.get(); // skip message ID
-        
-        int requestId = bb.getInt();
-        int serverReceiveSeconds = bb.getInt();
-        int serverReceiveNanoseconds = bb.getInt();
-        int serverSendSeconds = bb.getInt();
-        int serverSendNanoseconds = bb.getInt();
-        
-        return new TimesyncResponseData(requestId, serverReceiveSeconds, serverReceiveNanoseconds,
-                                      serverSendSeconds, serverSendNanoseconds);
+        ChassisProxy.TimesyncResponse msg = envelope.getTimesyncResponse();
+        return new TimesyncResponseData(msg.getReqId(),
+                msg.getServerRecv().getSec(), msg.getServerRecv().getNanosec(),
+                msg.getClientSend().getSec(), msg.getClientSend().getNanosec());
     }
     
     /**

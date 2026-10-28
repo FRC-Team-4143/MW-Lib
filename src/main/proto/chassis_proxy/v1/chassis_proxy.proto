@@ -1,0 +1,149 @@
+// Messages exchanged over UDP between the roboRIO's ProxyServerThread (com.marswars.proxy_server)
+// and a vision coprocessor's chassis proxy client (Aquila-Vision's
+// //camera_app/chassis_proxy_client, which builds this file from a pinned MW-Lib release tag).
+//
+// Every UDP datagram carries exactly one serialized Envelope.
+//
+// Evolving this file:
+//  - Never renumber a field or reuse a field number; mark removed fields (and their names) reserved.
+//  - Adding a field or a payload is wire-compatible: the other side ignores what it doesn't know.
+//  - Bump kProtocolVersion only for a change that is not wire-compatible (a changed field type or
+//    meaning). Receivers drop envelopes whose protocol_version they don't support.
+//  - Changes reach the coprocessor only when Aquila-Vision pins a new MW-Lib tag, so release both
+//    sides together.
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+option java_package = "com.marswars.proxy_server.proto";
+// QuickBuffers nests every message in this class (ChassisProxy.Envelope, ...).
+option java_outer_classname = "ChassisProxy";
+
+// The protocol_version every sender sets on its Envelope.
+enum ProtocolVersion {
+  PROTOCOL_VERSION_UNSPECIFIED = 0;
+  PROTOCOL_VERSION_CURRENT = 1;
+}
+
+message Envelope {
+  // Always PROTOCOL_VERSION_CURRENT of the sender's build.
+  uint32 protocol_version = 1;
+
+  oneof payload {
+    // Coprocessor -> roboRIO
+    TimesyncRequest timesync_request = 10;
+    TagSolution tag_solution = 11;
+    PieceDetections piece_detections = 12;
+    Odometry odometry = 13;
+    ModuleStates module_states = 14;
+
+    // roboRIO -> coprocessor
+    TimesyncResponse timesync_response = 20;
+    MatchInfo match_info = 21;
+    AutoSnapshot auto_snapshot = 22;
+  }
+}
+
+// A point in time on the roboRIO's clock. Coprocessor stamps are shifted onto that clock by the
+// timesync offset before they are sent; timesync stamps themselves are on each sender's own clock.
+message Timestamp {
+  int32 sec = 1;
+  uint32 nanosec = 2;
+}
+
+message Pose2d {
+  double x_m = 1;
+  double y_m = 2;
+  double theta_rad = 3;
+}
+
+// Field-relative robot pose solved from the AprilTags one camera saw.
+message TagSolution {
+  Timestamp stamp = 1;
+  string camera_serial = 2;
+  Pose2d robot_pose = 3;
+  repeated uint32 tag_ids = 4;
+}
+
+message Detection {
+  // Index into the coprocessor's configured class names; the last index means "unknown".
+  uint32 class_id = 1;
+  // Angles from the camera's optical center to the detection's center, positive right and down.
+  double theta_x_rad = 2;
+  double theta_y_rad = 3;
+}
+
+// Every detection one camera produced for a frame (empty when it saw nothing).
+message PieceDetections {
+  Timestamp stamp = 1;
+  string camera_serial = 2;
+  repeated Detection detections = 3;
+}
+
+message Odometry {
+  Timestamp stamp = 1;
+  Pose2d pose = 2;
+  double vx_mps = 3;
+  double vy_mps = 4;
+  double omega_radps = 5;
+  double x_variance = 6;
+  double y_variance = 7;
+  double theta_variance = 8;
+}
+
+message SwerveModuleState {
+  double speed_mps = 1;
+  double angle_rad = 2;
+}
+
+message ModuleStates {
+  Timestamp stamp = 1;
+  repeated SwerveModuleState modules = 2;
+}
+
+message TimesyncRequest {
+  int32 req_id = 1;
+  // Coprocessor clock when the request was sent.
+  Timestamp client_send = 2;
+}
+
+message TimesyncResponse {
+  // Echoed from the request.
+  int32 req_id = 1;
+  // roboRIO clock when the request was received.
+  Timestamp server_recv = 2;
+  // Echoed from the request, for the round-trip time.
+  Timestamp client_send = 3;
+}
+
+enum MatchType {
+  MATCH_TYPE_NONE = 0;
+  MATCH_TYPE_PRACTICE = 1;
+  MATCH_TYPE_QUALIFICATION = 2;
+  MATCH_TYPE_ELIMINATION = 3;
+}
+
+enum AllianceStation {
+  ALLIANCE_STATION_UNKNOWN = 0;
+  ALLIANCE_STATION_BLUE_1 = 1;
+  ALLIANCE_STATION_BLUE_2 = 2;
+  ALLIANCE_STATION_BLUE_3 = 3;
+  ALLIANCE_STATION_RED_1 = 4;
+  ALLIANCE_STATION_RED_2 = 5;
+  ALLIANCE_STATION_RED_3 = 6;
+}
+
+// Sent so the coprocessor can name its logs after the match.
+message MatchInfo {
+  uint32 match_num = 1;
+  MatchType match_type = 2;
+  AllianceStation station = 3;
+  string event_name = 4;
+}
+
+// Starts or stops a named log snapshot on the coprocessor.
+message AutoSnapshot {
+  string event_name = 1;
+  bool start = 2;
+}

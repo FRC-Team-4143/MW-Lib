@@ -1,0 +1,2 @@
+protocol_version: 1
+timesync_request { req_id: 7 client_send { sec: 1700000000 nanosec: 123456789 } }

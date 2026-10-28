@@ -1,0 +1,2 @@
+protocol_version: 1
+auto_snapshot { event_name: "auto_start" start: true }
