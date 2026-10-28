@@ -1,0 +1,21 @@
+// Types shared by the chassis proxy payloads (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "CoreProto";
+
+// A point in time on the roboRIO's clock. Coprocessor stamps are shifted onto that clock by the
+// timesync offset before they are sent; timesync stamps themselves are on each sender's own clock.
+message Timestamp {
+  int32 sec = 1;
+  uint32 nanosec = 2;
+}
+
+message Pose2d {
+  double x_m = 1;
+  double y_m = 2;
+  double theta_rad = 3;
+}

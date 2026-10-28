@@ -1,0 +1,33 @@
+// Match details for log naming, roboRIO -> coprocessor (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "MatchInfoProto";
+
+enum MatchType {
+  MATCH_TYPE_NONE = 0;
+  MATCH_TYPE_PRACTICE = 1;
+  MATCH_TYPE_QUALIFICATION = 2;
+  MATCH_TYPE_ELIMINATION = 3;
+}
+
+enum AllianceStation {
+  ALLIANCE_STATION_UNKNOWN = 0;
+  ALLIANCE_STATION_BLUE_1 = 1;
+  ALLIANCE_STATION_BLUE_2 = 2;
+  ALLIANCE_STATION_BLUE_3 = 3;
+  ALLIANCE_STATION_RED_1 = 4;
+  ALLIANCE_STATION_RED_2 = 5;
+  ALLIANCE_STATION_RED_3 = 6;
+}
+
+// Sent so the coprocessor can name its logs after the match.
+message MatchInfo {
+  uint32 match_num = 1;
+  MatchType match_type = 2;
+  AllianceStation station = 3;
+  string event_name = 4;
+}

@@ -1,0 +1,14 @@
+// Log snapshot control, roboRIO -> coprocessor (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "AutoSnapshotProto";
+
+// Starts or stops a named log snapshot on the coprocessor.
+message AutoSnapshot {
+  string event_name = 1;
+  bool start = 2;
+}

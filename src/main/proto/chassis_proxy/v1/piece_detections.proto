@@ -1,0 +1,25 @@
+// Game piece detections, coprocessor -> roboRIO (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/core.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "PieceDetectionsProto";
+
+message Detection {
+  // Index into the coprocessor's configured class names; the last index means "unknown".
+  uint32 class_id = 1;
+  // Angles from the camera's optical center to the detection's center, positive right and down.
+  double theta_x_rad = 2;
+  double theta_y_rad = 3;
+}
+
+// Every detection one camera produced for a frame (empty when it saw nothing).
+message PieceDetections {
+  Timestamp stamp = 1;
+  string camera_serial = 2;
+  repeated Detection detections = 3;
+}

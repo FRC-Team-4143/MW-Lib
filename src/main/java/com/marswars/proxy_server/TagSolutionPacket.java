@@ -2,7 +2,8 @@ package com.marswars.proxy_server;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import java.nio.ByteBuffer;
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.TagSolutionProto;
 import java.util.ArrayList;
 
 /**
@@ -33,61 +34,22 @@ public abstract class TagSolutionPacket implements Packet {
         }
     }
 
-    // Packet type identifier
-    public static final int TYPE_ID = 15;
-    
-    // Byte indices for packet data fields
-    private static final int DOUBLE_SIZE = 8; // Size of double values in bytes
-    private static final int INT_SIZE = 4; // Size of integer values in bytes
-    private static final int SHORT_SIZE = 2; // Size of short values in bytes
-
-    // Camera serial string starts after the header
-    private static final int CAMERA_SERIAL_LEN_IDX = HEADER_SIZE;
-
-    private static final double POSITION_RESOLUTION = 1E6; // Resolution for position data (e.g., 1 unit = 1 millionth of a meter)
-
-
-
     /**
-     * Parses tag solution packet data from a received byte buffer.
-     * Extracts timestamp, camera serial, pose, and detected tag IDs from the buffer.
-     * 
-     * @param buffer the byte buffer containing the packet data
+     * Converts a received tag solution message.
+     *
+     * @param msg the tag solution payload of a received envelope
      * @return TagSolutionData object with parsed information
      */
-    public static TagSolutionData updateData(byte[] buffer) {
-        // Parse timestamp
-        Timestamp timestamp = new Timestamp(
-                ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
-                ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
-        
-        // Parse camera serial string
-        int cameraSerialLen = ByteBuffer.wrap(buffer, CAMERA_SERIAL_LEN_IDX, SHORT_SIZE).getShort() & 0xFFFF;
-        int cameraSerialStartIdx = CAMERA_SERIAL_LEN_IDX + SHORT_SIZE;
-        String cameraSerial = new String(buffer, cameraSerialStartIdx, cameraSerialLen);
-        
-        // Calculate indices for remaining fields (after variable-length string)
-        int xPosIdx = cameraSerialStartIdx + cameraSerialLen;
-        int yPosIdx = xPosIdx + DOUBLE_SIZE;
-        int omegaPosIdx = yPosIdx + DOUBLE_SIZE;
-        int detectedTagCountIdx = omegaPosIdx + DOUBLE_SIZE;
-        int detectedTagStartIdx = detectedTagCountIdx + INT_SIZE;
-        
-        // Parse position data
-        Pose2d pose = new Pose2d(
-                ByteBuffer.wrap(buffer, xPosIdx, 8).getLong() / POSITION_RESOLUTION,
-                ByteBuffer.wrap(buffer, yPosIdx, 8).getLong() / POSITION_RESOLUTION,
-                new Rotation2d(
-                        ByteBuffer.wrap(buffer, omegaPosIdx, 8).getLong() / POSITION_RESOLUTION));
-
-        // Parse detected tag IDs
-        ArrayList<Integer> detectedIds = new ArrayList<>();
-        int detectedTagCount = ByteBuffer.wrap(buffer, detectedTagCountIdx, 4).getInt();
-        for (int i = 0; i < detectedTagCount; i++) {
-            int tagId = ByteBuffer.wrap(buffer, detectedTagStartIdx + (i), 1).get();
-            detectedIds.add(tagId);
+    public static TagSolutionData fromProto(TagSolutionProto.TagSolution msg) {
+        CoreProto.Pose2d pose = msg.getRobotPose();
+        ArrayList<Integer> detectedIds = new ArrayList<>(msg.getTagIds().length());
+        for (int i = 0; i < msg.getTagIds().length(); i++) {
+            detectedIds.add(msg.getTagIds().get(i));
         }
-        
-        return new TagSolutionData(pose, detectedIds, timestamp, cameraSerial);
+        return new TagSolutionData(
+                new Pose2d(pose.getXM(), pose.getYM(), new Rotation2d(pose.getThetaRad())),
+                detectedIds,
+                Timestamp.fromProto(msg.getStamp()),
+                msg.getCameraSerial());
     }
 }

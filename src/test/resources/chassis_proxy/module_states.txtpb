@@ -1,0 +1,8 @@
+protocol_version: 1
+module_states {
+  stamp { sec: 513 nanosec: 20000000 }
+  modules { speed_mps: 1.0 angle_rad: 0.0 }
+  modules { speed_mps: 1.5 angle_rad: 0.5 }
+  modules { speed_mps: -2.0 angle_rad: -0.5 }
+  modules { speed_mps: 0.25 angle_rad: 3.0 }
+}
