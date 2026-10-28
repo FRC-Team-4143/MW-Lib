@@ -2,7 +2,8 @@ package com.marswars.proxy_server;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.TagSolutionProto;
 import java.util.ArrayList;
 
 /**
@@ -39,8 +40,8 @@ public abstract class TagSolutionPacket implements Packet {
      * @param msg the tag solution payload of a received envelope
      * @return TagSolutionData object with parsed information
      */
-    public static TagSolutionData fromProto(ChassisProxy.TagSolution msg) {
-        ChassisProxy.Pose2d pose = msg.getRobotPose();
+    public static TagSolutionData fromProto(TagSolutionProto.TagSolution msg) {
+        CoreProto.Pose2d pose = msg.getRobotPose();
         ArrayList<Integer> detectedIds = new ArrayList<>(msg.getTagIds().length());
         for (int i = 0; i < msg.getTagIds().length(); i++) {
             detectedIds.add(msg.getTagIds().get(i));

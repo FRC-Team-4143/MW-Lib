@@ -2,7 +2,12 @@ package com.marswars.proxy_server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.EnvelopeProto;
+import com.marswars.proxy_server.proto.MatchInfoProto;
+import com.marswars.proxy_server.proto.ModuleStatesProto;
+import com.marswars.proxy_server.proto.OdometryProto;
+import com.marswars.proxy_server.proto.PieceDetectionsProto;
+import com.marswars.proxy_server.proto.TagSolutionProto;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -12,7 +17,7 @@ import org.junit.jupiter.api.Test;
  * Checks the golden envelopes in src/test/resources/chassis_proxy against messages built here. Each
  * .binpb was encoded by protoc (the C++ protobuf library the coprocessor's client uses) from the .txtpb
  * next to it with
- * {@code protoc -Isrc/main/proto --encode=chassis_proxy.v1.Envelope chassis_proxy/v1/chassis_proxy.proto},
+ * {@code protoc -Isrc/main/proto --encode=chassis_proxy.v1.Envelope chassis_proxy/v1/envelope.proto},
  * and Aquila-Vision's client checks the same files.
  *
  * <p>QuickBuffers orders fields differently from the C++ library, which protobuf allows, so the bytes
@@ -25,7 +30,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ChassisProxyFixturesTest {
 
-    private static final int VERSION = ChassisProxy.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber();
+    private static final int VERSION = EnvelopeProto.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber();
 
     private static byte[] fixture(String name) throws IOException {
         try (InputStream stream = ChassisProxyFixturesTest.class.getResourceAsStream("/chassis_proxy/" + name + ".binpb")) {
@@ -34,17 +39,17 @@ public class ChassisProxyFixturesTest {
         }
     }
 
-    private static ChassisProxy.Envelope envelope() {
-        return ChassisProxy.Envelope.newInstance().setProtocolVersion(VERSION);
+    private static EnvelopeProto.Envelope envelope() {
+        return EnvelopeProto.Envelope.newInstance().setProtocolVersion(VERSION);
     }
 
     /**
      * Asserts the protoc-encoded fixture decodes to the expected envelope, and that the expected envelope
      * encodes to the fixture's QuickBuffers copy.
      */
-    private static ChassisProxy.Envelope assertMatchesFixture(String name, ChassisProxy.Envelope expected)
+    private static EnvelopeProto.Envelope assertMatchesFixture(String name, EnvelopeProto.Envelope expected)
             throws IOException {
-        ChassisProxy.Envelope decoded = ChassisProxy.Envelope.parseFrom(fixture(name));
+        EnvelopeProto.Envelope decoded = EnvelopeProto.Envelope.parseFrom(fixture(name));
         assertEquals(expected, decoded);
         assertArrayEquals(fixture(name + ".quickbuf"), expected.toByteArray());
         return decoded;
@@ -52,10 +57,10 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void timesyncRequest() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
+        EnvelopeProto.Envelope expected = envelope();
         expected.getMutableTimesyncRequest().setReqId(7)
                 .getMutableClientSend().setSec(1700000000).setNanosec(123456789);
-        ChassisProxy.Envelope decoded = assertMatchesFixture("timesync_request", expected);
+        EnvelopeProto.Envelope decoded = assertMatchesFixture("timesync_request", expected);
 
         TimesyncRequest.TimesyncRequestData data = TimesyncRequest.fromProto(decoded.getTimesyncRequest());
         assertEquals(7, data.requestId);
@@ -79,12 +84,12 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void tagSolution() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
-        ChassisProxy.TagSolution msg = expected.getMutableTagSolution().setCameraSerial("40123456");
+        EnvelopeProto.Envelope expected = envelope();
+        TagSolutionProto.TagSolution msg = expected.getMutableTagSolution().setCameraSerial("40123456");
         msg.getMutableStamp().setSec(512).setNanosec(500000000);
         msg.getMutableRobotPose().setXM(1.25).setYM(-3.5).setThetaRad(0.75);
         msg.addAllTagIds(3, 7, 22);
-        ChassisProxy.Envelope decoded = assertMatchesFixture("tag_solution", expected);
+        EnvelopeProto.Envelope decoded = assertMatchesFixture("tag_solution", expected);
 
         TagSolutionPacket.TagSolutionData data = TagSolutionPacket.fromProto(decoded.getTagSolution());
         assertEquals(1.25, data.pose.getX());
@@ -97,12 +102,12 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void pieceDetections() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
-        ChassisProxy.PieceDetections msg = expected.getMutablePieceDetections().setCameraSerial("40123456");
+        EnvelopeProto.Envelope expected = envelope();
+        PieceDetectionsProto.PieceDetections msg = expected.getMutablePieceDetections().setCameraSerial("40123456");
         msg.getMutableStamp().setSec(512).setNanosec(750000000);
-        msg.addDetections(ChassisProxy.Detection.newInstance().setClassId(1).setThetaXRad(0.125).setThetaYRad(-0.0625));
-        msg.addDetections(ChassisProxy.Detection.newInstance().setClassId(2).setThetaXRad(-0.5).setThetaYRad(0.25));
-        ChassisProxy.Envelope decoded = assertMatchesFixture("piece_detections", expected);
+        msg.addDetections(PieceDetectionsProto.Detection.newInstance().setClassId(1).setThetaXRad(0.125).setThetaYRad(-0.0625));
+        msg.addDetections(PieceDetectionsProto.Detection.newInstance().setClassId(2).setThetaXRad(-0.5).setThetaYRad(0.25));
+        EnvelopeProto.Envelope decoded = assertMatchesFixture("piece_detections", expected);
 
         PieceDetectionPacket.PieceDetectionData data = PieceDetectionPacket.fromProto(decoded.getPieceDetections());
         assertEquals(2, data.detectionCount);
@@ -118,7 +123,7 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void emptyPieceDetections() {
-        ChassisProxy.PieceDetections msg = ChassisProxy.PieceDetections.newInstance().setCameraSerial("40123456");
+        PieceDetectionsProto.PieceDetections msg = PieceDetectionsProto.PieceDetections.newInstance().setCameraSerial("40123456");
         PieceDetectionPacket.PieceDetectionData data = PieceDetectionPacket.fromProto(msg);
         assertEquals(0, data.detectionCount);
         assertTrue(data.allDetections.isEmpty());
@@ -126,13 +131,13 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void odometry() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
-        ChassisProxy.Odometry msg = expected.getMutableOdometry()
+        EnvelopeProto.Envelope expected = envelope();
+        OdometryProto.Odometry msg = expected.getMutableOdometry()
                 .setVxMps(1.5).setVyMps(-0.25).setOmegaRadps(0.5)
                 .setXVariance(0.01).setYVariance(0.02).setThetaVariance(0.005);
         msg.getMutableStamp().setSec(513);
         msg.getMutablePose().setXM(2.5).setYM(4.0).setThetaRad(-1.5);
-        ChassisProxy.Envelope decoded = assertMatchesFixture("odometry", expected);
+        EnvelopeProto.Envelope decoded = assertMatchesFixture("odometry", expected);
 
         OdomPacket.OdometryData data = OdomPacket.fromProto(decoded.getOdometry());
         assertEquals(2.5, data.pose.getX());
@@ -142,18 +147,18 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void moduleStates() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
-        ChassisProxy.ModuleStates msg = expected.getMutableModuleStates();
+        EnvelopeProto.Envelope expected = envelope();
+        ModuleStatesProto.ModuleStates msg = expected.getMutableModuleStates();
         msg.getMutableStamp().setSec(513).setNanosec(20000000);
         double[][] modules = {{1.0, 0.0}, {1.5, 0.5}, {-2.0, -0.5}, {0.25, 3.0}};
         for (double[] module : modules) {
-            ChassisProxy.SwerveModuleState state = ChassisProxy.SwerveModuleState.newInstance().setSpeedMps(module[0]);
+            ModuleStatesProto.SwerveModuleState state = ModuleStatesProto.SwerveModuleState.newInstance().setSpeedMps(module[0]);
             if (module[1] != 0.0) {
                 state.setAngleRad(module[1]);
             }
             msg.addModules(state);
         }
-        ChassisProxy.Envelope decoded = assertMatchesFixture("module_states", expected);
+        EnvelopeProto.Envelope decoded = assertMatchesFixture("module_states", expected);
 
         StatesPacket.ModuleStatesData data = StatesPacket.fromProto(decoded.getModuleStates());
         assertEquals(4, data.moduleStates.length);
@@ -163,18 +168,18 @@ public class ChassisProxyFixturesTest {
 
     @Test
     public void matchInfo() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
+        EnvelopeProto.Envelope expected = envelope();
         expected.getMutableMatchInfo()
                 .setMatchNum(42)
-                .setMatchType(ChassisProxy.MatchType.MATCH_TYPE_QUALIFICATION)
-                .setStation(ChassisProxy.AllianceStation.ALLIANCE_STATION_RED_2)
+                .setMatchType(MatchInfoProto.MatchType.MATCH_TYPE_QUALIFICATION)
+                .setStation(MatchInfoProto.AllianceStation.ALLIANCE_STATION_RED_2)
                 .setEventName("MOKC Kansas City");
         assertMatchesFixture("match_info", expected);
     }
 
     @Test
     public void autoSnapshot() throws IOException {
-        ChassisProxy.Envelope expected = envelope();
+        EnvelopeProto.Envelope expected = envelope();
         expected.getMutableAutoSnapshot().setEventName("auto_start").setStart(true);
         assertMatchesFixture("auto_snapshot", expected);
     }

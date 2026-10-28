@@ -22,7 +22,8 @@ import com.marswars.proxy_server.PieceDetectionPacket.PieceDetectionData;
 import com.marswars.proxy_server.StatesPacket.ModuleStatesData;
 import com.marswars.proxy_server.TagSolutionPacket.TagSolutionData;
 import com.marswars.proxy_server.TimesyncRequest.TimesyncRequestData;
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.EnvelopeProto;
+import com.marswars.proxy_server.proto.MatchInfoProto;
 import us.hebi.quickbuf.ProtoSource;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -142,12 +143,12 @@ public class ProxyServerThread extends Thread {
     private DatagramSocket socket_ = null;
     private final int TIMEOUT = 1; // Server receive blocking timeout
 
-    // Wire format: one ChassisProxy.Envelope per datagram, reused across receives so parsing
+    // Wire format: one EnvelopeProto.Envelope per datagram, reused across receives so parsing
     // doesn't allocate. Envelopes are far smaller than one Ethernet frame.
-    private static final int PROTOCOL_VERSION = ChassisProxy.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber();
+    private static final int PROTOCOL_VERSION = EnvelopeProto.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber();
     private final byte[] receive_buffer_ = new byte[1500];
     private final ProtoSource receive_source_ = ProtoSource.newArraySource();
-    private final ChassisProxy.Envelope receive_envelope_ = ChassisProxy.Envelope.newInstance();
+    private final EnvelopeProto.Envelope receive_envelope_ = EnvelopeProto.Envelope.newInstance();
     
     // Multi-client connection tracking
     private static final double CONNECTION_TIMEOUT_SECONDS = 5.0; // Consider disconnected after 5 seconds
@@ -734,7 +735,7 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean snapshot(String tag_name, boolean start) {
-        ChassisProxy.Envelope envelope = newEnvelope();
+        EnvelopeProto.Envelope envelope = newEnvelope();
         envelope.getMutableAutoSnapshot()
                 .setEventName(tag_name)
                 .setStart(start);
@@ -747,7 +748,7 @@ public class ProxyServerThread extends Thread {
      * @return true if packet was sent successfully, false otherwise
      */
     public boolean syncMatchData() {
-        ChassisProxy.Envelope envelope = newEnvelope();
+        EnvelopeProto.Envelope envelope = newEnvelope();
         envelope.getMutableMatchInfo()
                 .setMatchNum(DriverStation.getMatchNumber())
                 .setMatchType(serializeMatchType())
@@ -759,8 +760,8 @@ public class ProxyServerThread extends Thread {
     /**
      * @return an envelope stamped with this build's protocol version, ready for a payload
      */
-    private static ChassisProxy.Envelope newEnvelope() {
-        return ChassisProxy.Envelope.newInstance().setProtocolVersion(PROTOCOL_VERSION);
+    private static EnvelopeProto.Envelope newEnvelope() {
+        return EnvelopeProto.Envelope.newInstance().setProtocolVersion(PROTOCOL_VERSION);
     }
 
     /**
@@ -803,17 +804,17 @@ public class ProxyServerThread extends Thread {
      *
      * @return the current match type
      */
-    private ChassisProxy.MatchType serializeMatchType() {
+    private MatchInfoProto.MatchType serializeMatchType() {
         switch (DriverStation.getMatchType()) {
             case Practice:
-                return ChassisProxy.MatchType.MATCH_TYPE_PRACTICE;
+                return MatchInfoProto.MatchType.MATCH_TYPE_PRACTICE;
             case Qualification:
-                return ChassisProxy.MatchType.MATCH_TYPE_QUALIFICATION;
+                return MatchInfoProto.MatchType.MATCH_TYPE_QUALIFICATION;
             case Elimination:
-                return ChassisProxy.MatchType.MATCH_TYPE_ELIMINATION;
+                return MatchInfoProto.MatchType.MATCH_TYPE_ELIMINATION;
             case None:
             default:
-                return ChassisProxy.MatchType.MATCH_TYPE_NONE;
+                return MatchInfoProto.MatchType.MATCH_TYPE_NONE;
         }
     }
 
@@ -823,19 +824,19 @@ public class ProxyServerThread extends Thread {
      *
      * @return the current alliance station
      */
-    private ChassisProxy.AllianceStation serializeAllianceStation() {
+    private MatchInfoProto.AllianceStation serializeAllianceStation() {
         OptionalInt optional = DriverStation.getLocation();
         Optional<Alliance> alliance = DriverStation.getAlliance();
         if (optional.isPresent() && alliance.isPresent()) {
             int station = optional.getAsInt();
             // Blue stations are numbered {1, 2, 3} and red ones {4, 5, 6}
             int number = alliance.get() == Alliance.Blue ? station : station + 3;
-            return ChassisProxy.AllianceStation.forNumberOr(number,
-                    ChassisProxy.AllianceStation.ALLIANCE_STATION_UNKNOWN);
+            return MatchInfoProto.AllianceStation.forNumberOr(number,
+                    MatchInfoProto.AllianceStation.ALLIANCE_STATION_UNKNOWN);
         } else {
             // Drivers Station Not Connected.
             // This should not occur since this will only be TeleOp Init
-            return ChassisProxy.AllianceStation.ALLIANCE_STATION_UNKNOWN;
+            return MatchInfoProto.AllianceStation.ALLIANCE_STATION_UNKNOWN;
         }
     }
     

@@ -1,6 +1,7 @@
 package com.marswars.proxy_server;
 
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.TimesyncProto;
 
 /**
  * Packet handler for time synchronization requests.
@@ -37,8 +38,8 @@ public abstract class TimesyncRequest implements Packet {
      * @param msg the timesync request payload of a received envelope
      * @return TimesyncRequestData object with parsed information
      */
-    public static TimesyncRequestData fromProto(ChassisProxy.TimesyncRequest msg) {
-        ChassisProxy.Timestamp clientSend = msg.getClientSend();
+    public static TimesyncRequestData fromProto(TimesyncProto.TimesyncRequest msg) {
+        CoreProto.Timestamp clientSend = msg.getClientSend();
         return new TimesyncRequestData(msg.getReqId(), clientSend.getSec(), clientSend.getNanosec(),
                 Timestamp.fromProto(clientSend));
     }

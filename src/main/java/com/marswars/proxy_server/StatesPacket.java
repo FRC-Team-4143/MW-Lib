@@ -2,7 +2,7 @@ package com.marswars.proxy_server;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.ModuleStatesProto;
 
 /**
  * Packet handler for swerve drive module state data.
@@ -32,10 +32,10 @@ public abstract class StatesPacket implements Packet {
      * @param msg the module states payload of a received envelope
      * @return ModuleStatesData object with parsed information
      */
-    public static ModuleStatesData fromProto(ChassisProxy.ModuleStates msg) {
+    public static ModuleStatesData fromProto(ModuleStatesProto.ModuleStates msg) {
         SwerveModuleState[] states = new SwerveModuleState[msg.getModules().length()];
         for (int i = 0; i < states.length; i++) {
-            ChassisProxy.SwerveModuleState module = msg.getModules().get(i);
+            ModuleStatesProto.SwerveModuleState module = msg.getModules().get(i);
             states[i] = new SwerveModuleState(module.getSpeedMps(), new Rotation2d(module.getAngleRad()));
         }
         return new ModuleStatesData(states, Timestamp.fromProto(msg.getStamp()));

@@ -1,11 +1,12 @@
 package com.marswars.proxy_server;
 
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.EnvelopeProto;
 
 /**
  * Base interface for all proxy server packet types.
- * Packets travel as {@link ChassisProxy.Envelope} protobuf messages, defined in
- * src/main/proto/chassis_proxy/v1/chassis_proxy.proto; the packet classes convert them to and from
+ * Packets travel as {@link EnvelopeProto.Envelope} protobuf messages, defined in
+ * src/main/proto/chassis_proxy/v1/envelope.proto; the packet classes convert them to and from
  * the data types the rest of the library uses.
  */
 public interface Packet {
@@ -29,7 +30,7 @@ public interface Packet {
          * @param stamp the protobuf timestamp
          * @return the equivalent timestamp
          */
-        public static Timestamp fromProto(ChassisProxy.Timestamp stamp) {
+        public static Timestamp fromProto(CoreProto.Timestamp stamp) {
             return new Timestamp(stamp.getSec(), stamp.getNanosec());
         }
 
@@ -39,7 +40,7 @@ public interface Packet {
          * @param stamp the protobuf timestamp to overwrite
          * @return the protobuf timestamp, for chaining
          */
-        public ChassisProxy.Timestamp toProto(ChassisProxy.Timestamp stamp) {
+        public CoreProto.Timestamp toProto(CoreProto.Timestamp stamp) {
             return stamp.setSec(seconds).setNanosec(nanoseconds);
         }
 

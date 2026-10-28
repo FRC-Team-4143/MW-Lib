@@ -1,6 +1,6 @@
 package com.marswars.proxy_server;
 
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.PieceDetectionsProto;
 import java.util.ArrayList;
 
 /**
@@ -59,14 +59,14 @@ public abstract class PieceDetectionPacket implements Packet {
      * @param msg the piece detections payload of a received envelope
      * @return PieceDetectionData object with parsed information
      */
-    public static PieceDetectionData fromProto(ChassisProxy.PieceDetections msg) {
+    public static PieceDetectionData fromProto(PieceDetectionsProto.PieceDetections msg) {
         Timestamp timestamp = Timestamp.fromProto(msg.getStamp());
         String cameraSerial = msg.getCameraSerial();
         int count = msg.getDetections().length();
 
         ArrayList<PieceDetectionData> all = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            ChassisProxy.Detection detection = msg.getDetections().get(i);
+            PieceDetectionsProto.Detection detection = msg.getDetections().get(i);
             all.add(new PieceDetectionData(detection.getClassId(), count, i,
                     detection.getThetaXRad(), detection.getThetaYRad(), timestamp, cameraSerial));
         }

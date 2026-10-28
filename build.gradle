@@ -72,7 +72,7 @@ sourceSets {
   }
 }
 
-// Generates QuickBuffers classes (com.marswars.proxy_server.proto.ChassisProxy) from src/main/proto.
+// Generates QuickBuffers classes (com.marswars.proxy_server.proto.EnvelopeProto, ...) from src/main/proto.
 // QuickBuffers rather than protobuf-java because WPILib already ships its runtime to every robot
 // project (GradleRIO pins quickbuf 1.4) and it parses without allocating. protoc matches the protobuf
 // release Aquila-Vision builds the same .proto files with (35.1, published to Maven as 4.35.1).

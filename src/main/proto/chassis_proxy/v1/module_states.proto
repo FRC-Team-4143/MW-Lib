@@ -1,0 +1,20 @@
+// Swerve module states, coprocessor -> roboRIO (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/core.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "ModuleStatesProto";
+
+message SwerveModuleState {
+  double speed_mps = 1;
+  double angle_rad = 2;
+}
+
+message ModuleStates {
+  Timestamp stamp = 1;
+  repeated SwerveModuleState modules = 2;
+}

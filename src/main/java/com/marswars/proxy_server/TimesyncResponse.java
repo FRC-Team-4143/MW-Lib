@@ -1,6 +1,7 @@
 package com.marswars.proxy_server;
 
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.EnvelopeProto;
+import com.marswars.proxy_server.proto.TimesyncProto;
 import us.hebi.quickbuf.InvalidProtocolBufferException;
 
 import edu.wpi.first.wpilibj.RobotBase;
@@ -43,12 +44,12 @@ public abstract class TimesyncResponse implements Packet {
      * Serializes a TimesyncResponseData into an envelope for transmission.
      * 
      * @param response the response data to serialize
-     * @return the serialized {@link ChassisProxy.Envelope}
+     * @return the serialized {@link EnvelopeProto.Envelope}
      */
     public static byte[] serialize(TimesyncResponseData response) {
-        ChassisProxy.Envelope envelope = ChassisProxy.Envelope.newInstance()
-                .setProtocolVersion(ChassisProxy.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber());
-        ChassisProxy.TimesyncResponse msg = envelope.getMutableTimesyncResponse()
+        EnvelopeProto.Envelope envelope = EnvelopeProto.Envelope.newInstance()
+                .setProtocolVersion(EnvelopeProto.ProtocolVersion.PROTOCOL_VERSION_CURRENT.getNumber());
+        TimesyncProto.TimesyncResponse msg = envelope.getMutableTimesyncResponse()
                 .setReqId(response.requestId);
         msg.getMutableServerRecv()
                 .setSec(response.serverReceiveSeconds)
@@ -62,14 +63,14 @@ public abstract class TimesyncResponse implements Packet {
     /**
      * Deserializes a serialized envelope carrying a timesync response.
      * 
-     * @param data the serialized {@link ChassisProxy.Envelope}
+     * @param data the serialized {@link EnvelopeProto.Envelope}
      * @return TimesyncResponseData object with parsed information
      * @throws IllegalArgumentException if data is not an envelope carrying a timesync response
      */
     public static TimesyncResponseData deserialize(byte[] data) {
-        ChassisProxy.Envelope envelope;
+        EnvelopeProto.Envelope envelope;
         try {
-            envelope = ChassisProxy.Envelope.parseFrom(data);
+            envelope = EnvelopeProto.Envelope.parseFrom(data);
         } catch (InvalidProtocolBufferException e) {
             throw new IllegalArgumentException("Invalid timesync response envelope", e);
         }
@@ -77,7 +78,7 @@ public abstract class TimesyncResponse implements Packet {
             throw new IllegalArgumentException("Envelope does not carry a timesync response");
         }
         
-        ChassisProxy.TimesyncResponse msg = envelope.getTimesyncResponse();
+        TimesyncProto.TimesyncResponse msg = envelope.getTimesyncResponse();
         return new TimesyncResponseData(msg.getReqId(),
                 msg.getServerRecv().getSec(), msg.getServerRecv().getNanosec(),
                 msg.getClientSend().getSec(), msg.getClientSend().getNanosec());

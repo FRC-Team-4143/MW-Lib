@@ -3,7 +3,8 @@ package com.marswars.proxy_server;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Twist2d;
-import com.marswars.proxy_server.proto.ChassisProxy;
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.OdometryProto;
 
 /**
  * Packet handler for robot odometry data.
@@ -39,8 +40,8 @@ public abstract class OdomPacket implements Packet {
      * @param msg the odometry payload of a received envelope
      * @return OdometryData object with parsed information
      */
-    public static OdometryData fromProto(ChassisProxy.Odometry msg) {
-        ChassisProxy.Pose2d pose = msg.getPose();
+    public static OdometryData fromProto(OdometryProto.Odometry msg) {
+        CoreProto.Pose2d pose = msg.getPose();
         return new OdometryData(
                 new Pose2d(pose.getXM(), pose.getYM(), new Rotation2d(pose.getThetaRad())),
                 new Twist2d(msg.getVxMps(), msg.getVyMps(), msg.getOmegaRadps()),
