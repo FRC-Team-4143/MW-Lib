@@ -1,6 +1,6 @@
 # Design: field regions rewrite + region editor
 
-**Status:** Part 1 (MW-Lib) implemented on `claude/exciting-bohr-efq7zb`. Parts 2 and 3 not started.
+**Status:** Part 1 (MW-Lib) implemented on `claude/exciting-bohr-efq7zb`, based on `develop-2027`. Parts 2 and 3 not started.
 **Scope:** MW-Lib (new region library), a new team repo for the region editor (based on
 [RegionBool](https://github.com/Arthur225/regionbool), MIT), and a later, off-season mainbot migration.
 **App name:** Mariner (Mariner 9 was the first spacecraft to map Mars). In the editor the name is
@@ -39,8 +39,9 @@ That causes four problems:
 
 New package `com.marswars.regions`. It replaces `com.marswars.geometry.Region`,
 `PolygonRegion`, `CircularRegion` and the `AllianceFlipUtil.apply(Region…)` overloads, which are
-deleted. That's a breaking change, so MW-Lib takes a major version bump. mainbot keeps its current
-MW-Lib version until it migrates. `AllianceFlipUtil` itself stays, for poses and translations.
+deleted. It's a breaking change, so it ships in the **27.x** line (branch `develop-2027`), not in
+26.x. mainbot pins 26.17.4 and keeps it until it migrates; moving mainbot to 27.x also brings in the
+rest of 27.x's changes. `AllianceFlipUtil` itself stays, for poses and translations.
 
 ### Types
 
@@ -257,7 +258,5 @@ The current `.contains(pose)` call sites in `LocalizationSubsystem`, `Simulation
 3. **Importing today's regions.** Instead of redrawing the 14 rectangles, a one-time script could
    convert `lib2026/FieldRegions.java` into the regions file. Is it worth it?
 4. **Package name.** Is `com.marswars.regions` OK, or should it stay under `com.marswars.geometry`?
-5. **MW-Lib version.** Removing the old region classes is breaking. Tags so far run `v26.17.x`
-   and `v27.x`. Which number should this release get?
-6. **Region docs location.** `docs/regions/` in the robot project, set per project like the Java
+5. **Region docs location.** `docs/regions/` in the robot project, set per project like the Java
    output path. Is that OK?
