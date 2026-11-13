@@ -13,9 +13,9 @@ import java.util.Objects;
  * <p>A point is in the region if it's in at least one added shape and in no subtracted shape. A
  * point exactly on a hole's edge is therefore outside the region.
  *
- * <p>A {@link AllianceMode#FLIPS FLIPS} region is drawn from blue's side. When the robot is on
- * red, the queried point is flipped to blue's side before it's tested, using the field's {@link
- * Symmetry}. The alliance is read on every call (see {@link AllianceState}), so nothing needs to
+ * <p>Shapes are in blue-corner coordinates (see {@link FieldGeometry}). A {@link AllianceMode#FLIPS
+ * FLIPS} region is drawn from blue's side. When the robot is on red, the queried point is flipped
+ * to blue's side before it's tested, using the field's {@link Symmetry}. The alliance is read on every call (see {@link AllianceState}), so nothing needs to
  * be flipped or rebuilt when the alliance changes. An unknown alliance counts as blue.
  *
  * <p>Regions are immutable, and {@code contains} doesn't allocate, so it's safe to call every loop.
@@ -66,15 +66,23 @@ public final class FieldRegion {
         return contains(point.getX(), point.getY());
     }
 
-    /** Returns whether a point is in the region, for the robot's current alliance. */
+    /**
+     * Returns whether a point is in the region, for the robot's current alliance. The point is in
+     * the robot code's coordinate system ({@link FieldGeometry#origin()}).
+     */
     public boolean contains(double x, double y) {
+        double bx = field_.toBlueCornerX(x);
+        double by = field_.toBlueCornerY(y);
         if (alliance_mode_ == AllianceMode.FLIPS && AllianceState.isRed()) {
-            return containsAsDrawn(field_.flipX(x), field_.flipY(y));
+            return containsAsDrawn(field_.flipX(bx), field_.flipY(by));
         }
-        return containsAsDrawn(x, y);
+        return containsAsDrawn(bx, by);
     }
 
-    /** Returns whether a point is in the region as drawn, on blue's side, ignoring the alliance. */
+    /**
+     * Returns whether a point in blue-corner coordinates is in the region as drawn, ignoring the
+     * alliance.
+     */
     public boolean containsAsDrawn(double x, double y) {
         for (Shape hole : subtracted_) {
             if (hole.contains(x, y)) {
@@ -106,29 +114,37 @@ public final class FieldRegion {
 
     /**
      * Returns the outline of every shape and hole, each as a closed loop, where they are for the
-     * robot's current alliance. This allocates, so call it when the alliance changes, not every
+     * robot's current alliance, in the robot code's coordinate system. This allocates, so call it when the alliance changes, not every
      * loop. {@link RegionPublisher} does this for you.
      */
     public List<Translation2d[]> outlines() {
         boolean flip = alliance_mode_ == AllianceMode.FLIPS && AllianceState.isRed();
         List<Translation2d[]> outlines = new ArrayList<>(added_.length + subtracted_.length);
         for (Shape shape : added_) {
-            outlines.add(flip ? flipAll(shape.outline()) : shape.outline());
+            outlines.add(toRobot(shape.outline(), flip));
         }
         for (Shape shape : subtracted_) {
-            outlines.add(flip ? flipAll(shape.outline()) : shape.outline());
+            outlines.add(toRobot(shape.outline(), flip));
         }
         return Collections.unmodifiableList(outlines);
     }
 
-    private Translation2d[] flipAll(Translation2d[] points) {
-        Translation2d[] flipped = new Translation2d[points.length];
-        for (int i = 0; i < points.length; i++) {
-            flipped[i] =
-                    new Translation2d(
-                            field_.flipX(points[i].getX()), field_.flipY(points[i].getY()));
+    /** Moves outline points to red's side if needed, then into the robot code's coordinates. */
+    private Translation2d[] toRobot(Translation2d[] points, boolean flip) {
+        if (!flip && field_.origin() == Origin.BLUE_CORNER) {
+            return points;
         }
-        return flipped;
+        Translation2d[] moved = new Translation2d[points.length];
+        for (int i = 0; i < points.length; i++) {
+            double x = points[i].getX();
+            double y = points[i].getY();
+            if (flip) {
+                x = field_.flipX(x);
+                y = field_.flipY(y);
+            }
+            moved[i] = new Translation2d(field_.fromBlueCornerX(x), field_.fromBlueCornerY(y));
+        }
+        return moved;
     }
 
     @Override

@@ -96,12 +96,20 @@ public final class RegionGroup {                // fixes the HOLD_REGIONS proble
 
 ### Alliance handling
 
-`FLIPS` regions are drawn from blue's side. On red, the **queried point** is flipped, not the shapes:
+Shapes are always stored in **blue-corner** coordinates, the same as the editor's file.
+`FieldGeometry.origin` is the system the robot's poses are in. `contains` converts the queried point
+to blue-corner coordinates first (for `CENTER`: `(L/2 - x, W/2 - y)`), then, for a `FLIPS` region on
+red, flips the **point**, not the shapes:
 
-| Symmetry | Blue-corner origin | Center origin |
-|---|---|---|
-| `ROTATIONAL` | `(L - x, W - y)` | `(-x, -y)` |
-| `MIRRORED` | `(L - x, y)` | `(-x, y)` |
+| Symmetry | Flip (blue-corner coordinates) |
+|---|---|
+| `ROTATIONAL` | `(L - x, W - y)` |
+| `MIRRORED` | `(L - x, y)` |
+
+This is exactly the editor's arithmetic, in the same order, so the editor and the robot agree on
+every point, even ones 1e-9 m from an edge. An earlier draft stored shapes in the robot's system
+instead; Mariner's cross-check test found it rounded differently at the edges. Outlines are
+published in the robot's system.
 
 The alliance comes from a small `AllianceState` helper. It reads `DriverStation.getAlliance()` at most
 once every 20 ms and caches the result. An unknown alliance counts as blue. Tests can force

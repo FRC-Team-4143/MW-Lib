@@ -92,33 +92,34 @@ public class FieldRegionTest {
         assertFalse(region.contains(L - 1.5, W - 1.5), "mirrored keeps y");
     }
 
+    /** (1.5, 1.5) in blue-corner coordinates, as the robot sees it with a center origin. */
+    private static final double CX = L / 2 - 1.5;
+    private static final double CY = W / 2 - 1.5;
+
     @Test
-    public void rotationalCenterOrigin() {
-        // In center coordinates, (-7, -3) is near one corner; rotating flips both signs.
-        FieldRegion region =
-                FieldRegion.builder("C", ROTATIONAL_CENTER).add(Shape.box(-7.5, -3.5, -6.5, -2.5)).build();
-        assertTrue(region.contains(-7, -3));
+    public void centerOriginTakesCenterPosesAndBlueCornerShapes() {
+        FieldRegion region = corner(ROTATIONAL_CENTER, true);
+        assertTrue(region.contains(CX, CY));
+        assertFalse(region.contains(1.5, 1.5), "a blue-corner pose means somewhere else");
         setAlliance(Alliance.Red);
-        assertTrue(region.contains(7, 3));
-        assertFalse(region.contains(-7, -3));
-        assertFalse(region.contains(7, -3));
+        assertTrue(region.contains(-CX, -CY), "rotational: both signs flip");
+        assertFalse(region.contains(CX, CY));
+        assertFalse(region.contains(-CX, CY));
     }
 
     @Test
     public void mirroredCenterOrigin() {
-        FieldRegion region =
-                FieldRegion.builder("C", MIRRORED_CENTER).add(Shape.box(-7.5, -3.5, -6.5, -2.5)).build();
+        FieldRegion region = corner(MIRRORED_CENTER, true);
         setAlliance(Alliance.Red);
-        assertTrue(region.contains(7, -3));
-        assertFalse(region.contains(7, 3));
+        assertTrue(region.contains(-CX, CY), "mirrored: only x flips");
+        assertFalse(region.contains(-CX, -CY));
     }
 
     @Test
     public void centerOriginMatchesBlueCornerOrigin() {
-        // The same physical region in both coordinate systems gives the same answers.
+        // The same shapes give the same answers for the same physical point in either system.
         FieldRegion corner = FieldRegion.builder("A", ROTATIONAL).add(Shape.rect(3, 2, 2, 1, 20)).build();
-        FieldRegion center =
-                FieldRegion.builder("A", ROTATIONAL_CENTER).add(Shape.rect(L / 2 - 3, W / 2 - 2, 2, 1, 20)).build();
+        FieldRegion center = FieldRegion.builder("A", ROTATIONAL_CENTER).add(Shape.rect(3, 2, 2, 1, 20)).build();
         for (Alliance alliance : new Alliance[] {Alliance.Blue, Alliance.Red}) {
             setAlliance(alliance);
             for (double x = 0; x <= L; x += 0.37) {
@@ -130,6 +131,18 @@ public class FieldRegionTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void centerOriginOutlinesAreInRobotCoordinates() {
+        FieldRegion region = FieldRegion.builder("Z", ROTATIONAL_CENTER).add(Shape.box(1, 1, 2, 2)).build();
+        Translation2d first = region.outlines().get(0)[0];
+        assertEquals(L / 2 - 1, first.getX(), 1e-12);
+        assertEquals(W / 2 - 1, first.getY(), 1e-12);
+        setAlliance(Alliance.Red);
+        Translation2d flipped = region.outlines().get(0)[0];
+        assertEquals(-(L / 2 - 1), flipped.getX(), 1e-12);
+        assertEquals(-(W / 2 - 1), flipped.getY(), 1e-12);
     }
 
     @Test
