@@ -250,13 +250,15 @@ The current `.contains(pose)` call sites in `LocalizationSubsystem`, `Simulation
 | 2 | Import commit, rename, rebrand, new generator, groups, adopt step | new editor repo | 1, repo created |
 | 3 | Migration | mainbot | 1, 2, off-season |
 
+## Decisions
+
+- **Region docs folder:** `docs/regions/` by default, and selectable per project in the editor.
+- **Package:** `com.marswars.regions`.
+- **2027:** Mariner's WPILib 2027 output waits until MW-Lib moves to WPILib 2027. Until then the
+  generator only targets 2026 (`edu.wpi.first`). Upstream's 2027 import profile stays in the code.
+- **Today's regions:** no import script. The 14 regions get redrawn in Mariner during the migration.
+- **MW-Lib version:** the 27.x line.
+
 ## Open questions
 
 1. **Logo.** A placeholder is used until a real file is provided.
-2. **2027 alpha.** MW-Lib builds against WPILib 2026 (`edu.wpi.first`). For the editor's 2027 profile
-   to be useful, MW-Lib needs a 2027 build too. Should that wait until MW-Lib moves to 2027?
-3. **Importing today's regions.** Instead of redrawing the 14 rectangles, a one-time script could
-   convert `lib2026/FieldRegions.java` into the regions file. Is it worth it?
-4. **Package name.** Is `com.marswars.regions` OK, or should it stay under `com.marswars.geometry`?
-5. **Region docs location.** `docs/regions/` in the robot project, set per project like the Java
-   output path. Is that OK?
