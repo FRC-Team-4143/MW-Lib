@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj.Notifier;
 
 import com.marswars.logging.BatteryLogger;
 import com.marswars.logging.MwLog;
+import com.marswars.regions.RegionPublisher;
 import com.marswars.util.RobotIdentity;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,9 @@ public abstract class SubsystemManager {
     public void doControlLoop() {
         // Poll tunables and fire onChange consumers before subsystem logic runs
         MwLog.periodic();
+
+        // Republish field region outlines if the alliance changed
+        RegionPublisher.periodic();
 
         // Let a coordinator (see MwSuperStateMachine) request subsystem states first, so its
         // requests take effect in this same loop

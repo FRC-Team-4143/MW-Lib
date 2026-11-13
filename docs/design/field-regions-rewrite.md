@@ -1,6 +1,6 @@
 # Design: field regions rewrite + region editor
 
-**Status:** draft for review
+**Status:** Part 1 (MW-Lib) implemented on `claude/exciting-bohr-efq7zb`. Parts 2 and 3 not started.
 **Scope:** MW-Lib (new region library), a new team repo for the region editor (based on
 [RegionBool](https://github.com/Arthur225/regionbool), MIT), and a later, off-season mainbot migration.
 **App name:** Mariner (Mariner 9 was the first spacecraft to map Mars). In the editor the name is
@@ -52,11 +52,16 @@ public record FieldGeometry(double lengthMeters, double widthMeters,
 public enum Symmetry { ROTATIONAL, MIRRORED }   // 2026 REBUILT: ROTATIONAL
 public enum Origin   { BLUE_CORNER, CENTER }
 
-// Shapes. Plain data; contains() is allocation-free.
-public sealed interface Shape permits Rect, Circle, Polygon {
+// Shapes. Immutable; contains() is allocation-free.
+public sealed interface Shape permits Shape.Rect, Shape.Circle, Shape.Polygon {
     static Shape rect(double cx, double cy, double width, double height, double rotationDeg);
+    static Shape rect(double cx, double cy, double width, double height, double cos, double sin);
+    static Shape box(double x1, double y1, double x2, double y2);   // axis-aligned, two corners
     static Shape circle(double cx, double cy, double radius);
     static Shape polygon(double[] xs, double[] ys);      // triangles are 3-point polygons
+    static Shape polygon(Translation2d... points);       // a repeated closing point is dropped
+    boolean contains(double x, double y);
+    Translation2d[] outline();                           // closed loop
 }
 
 public enum AllianceMode { FLIPS, FIXED }
@@ -68,6 +73,7 @@ public final class FieldRegion {
     public boolean contains(Pose2d pose);
     public boolean contains(Translation2d point);
     public boolean contains(double x, double y);
+    public boolean containsAsDrawn(double x, double y);   // ignores the alliance
     public String name();
     public AllianceMode allianceMode();
     public List<Translation2d[]> outlines();    // for the current alliance; allocates
@@ -97,14 +103,16 @@ public final class RegionGroup {                // fixes the HOLD_REGIONS proble
 | `MIRRORED` | `(L - x, y)` | `(-x, y)` |
 
 The alliance comes from a small `AllianceState` helper. It reads `DriverStation.getAlliance()` at most
-once per loop timestamp and caches the result. An unknown alliance counts as blue. Tests can force
+once every 20 ms and caches the result. An unknown alliance counts as blue. Tests can force
 the alliance with `AllianceState.overrideForTesting(...)`. Nothing is mutated or rebuilt when the
 alliance changes, so references in lists and groups never go stale.
 
 ### Publishing outlines
 
 `RegionPublisher.register(Collection<FieldRegion>)` creates one `StructArrayPublisher<Translation2d>`
-per region outline at `Regions/<name>`, and publishes once. `SubsystemManager`'s periodic loop
+per region outline, and publishes once. The first outline goes to `Regions/<name>`, the same topic as
+today, so the existing AdvantageScope layouts keep working. Extra shapes and holes go to
+`Regions/<name>/1`, `/2` and so on. `SubsystemManager`'s periodic loop
 (which already calls `MwLog.periodic()`) calls `RegionPublisher.periodic()`. That republishes only when
 `AllianceState` reports a change, so steady state costs one boolean compare per loop.
 AdvantageScope shows the topics live, and AdvantageKit's NT logging records them. MW-Lib gains no
@@ -117,8 +125,9 @@ AdvantageKit dependency.
 - Flipping: both symmetries × both origins × red/blue/unknown.
 - No stale references: a group built before an alliance change gives the right answer after it.
 - Publisher: publishes once, republishes on change, never on a steady loop.
-- Cross-check: the same point fixtures as the editor's geometry tests (exported as JSON), so the
-  editor and MW-Lib can never disagree.
+- Done: 28 tests in `src/test/java/com/marswars/regions/`.
+- Still to do in Part 2: a cross-check using the same point fixtures as the editor's geometry tests
+  (exported as JSON), so the editor and MW-Lib can never disagree.
 
 ## Part 2: The region editor (new repo)
 
@@ -153,7 +162,23 @@ AdvantageKit dependency.
    and the project's origin setting.
 6. **Renaming** the folder (`.regionbool/` → `.mariner/`), file header, app ID and installer names all
    come from the single name constant.
-7. **Releases:** keep upstream's release workflow for Windows, macOS and Linux installers (unsigned,
+7. **Region descriptions.** Each region (and group) gets an optional description in the editor. It
+   becomes the Javadoc on the generated constant, so IntelliSense in VS Code shows it when you hover
+   over or autocomplete `FieldRegions.HOLD_ZONE`. The same text goes into the generated README.
+8. **Region docs: images and a README, written on every export.** The editor already draws the
+   field and regions, so it renders them to PNGs from the same canvas:
+   - `docs/regions/all.png`: the field with every region, labeled.
+   - `docs/regions/<REGION>.png`: the field with only that region, plus one per group.
+   - `docs/regions/README.md`: generated. A title, the field and symmetry, the combined image, then a
+     section per region and group with its image, description, `FLIPS`/`FIXED`, and the Java name to
+     use. It carries a "GENERATED by Mariner" header and gets the same hand-edit protection as the
+     Java file.
+
+   The images are drawn from blue's side, with a note saying flipping regions move on red. They go
+   into the same export diff dialog (listed as changed or unchanged; images aren't diffed line by
+   line). Regenerating the PNGs from the same input must give identical bytes, so git only sees a
+   change when a region really moved.
+9. **Releases:** keep upstream's release workflow for Windows, macOS and Linux installers (unsigned,
    as upstream).
 
 ### Generated file (example)
@@ -172,6 +197,12 @@ public final class FieldRegions {
     public static final FieldGeometry FIELD =
             new FieldGeometry(16.541, 8.069, Symmetry.ROTATIONAL, Origin.BLUE_CORNER);
 
+    /**
+     * Our side of the field, from the alliance wall to the starting line. Shooting at the hub is
+     * allowed here.
+     *
+     * <p>Flips with the alliance. See docs/regions/README.md#alliance_zone.
+     */
     public static final FieldRegion ALLIANCE_ZONE =
             FieldRegion.builder("ALLIANCE_ZONE", FIELD).flips()
                     .add(Shape.rect(1.9815, 4.021, 3.963, 8.042, 0.0))
@@ -226,3 +257,7 @@ The current `.contains(pose)` call sites in `LocalizationSubsystem`, `Simulation
 3. **Importing today's regions.** Instead of redrawing the 14 rectangles, a one-time script could
    convert `lib2026/FieldRegions.java` into the regions file. Is it worth it?
 4. **Package name.** Is `com.marswars.regions` OK, or should it stay under `com.marswars.geometry`?
+5. **MW-Lib version.** Removing the old region classes is breaking. Tags so far run `v26.17.x`
+   and `v27.x`. Which number should this release get?
+6. **Region docs location.** `docs/regions/` in the robot project, set per project like the Java
+   output path. Is that OK?
