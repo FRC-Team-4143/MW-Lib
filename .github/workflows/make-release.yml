@@ -129,7 +129,7 @@ jobs:
             echo "| **Version** | \`$VERSION\` |"
             echo "| **Branch** | \`$BRANCH\` (${SHA:0:7}) |"
             echo "| **Channel** | $([ "$IS_PRERELEASE" = "true" ] && echo "Pre-release" || echo "Release") |"
-            echo "| **Repository** | [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib/v$VERSION) · [build log]($jitpack/build.log) |"
+            echo "| **Repository** | [JitPack](https://jitpack.io/#FRC-Team-4143/MW-Lib/$VERSION) · [build log]($jitpack/build.log) |"
             echo ""
             echo "## Installation"
             echo "Add to your \`build.gradle\`:"
