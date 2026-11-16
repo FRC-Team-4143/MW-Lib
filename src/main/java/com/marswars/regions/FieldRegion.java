@@ -14,8 +14,8 @@ import java.util.Objects;
  * point exactly on a hole's edge is therefore outside the region.
  *
  * <p>Shapes are in blue-corner coordinates (see {@link FieldGeometry}). A {@link AllianceMode#FLIPS
- * FLIPS} region is drawn from blue's side. When the robot is on red, the queried point is flipped
- * to blue's side before it's tested, using the field's {@link Symmetry}. The alliance is read on every call (see {@link AllianceState}), so nothing needs to
+ * FLIPS} region is drawn as the blue alliance sees it, on either half of the field. When the robot is
+ * on red, the queried point is flipped into blue's view before it's tested, using the field's {@link Symmetry}. The alliance is read on every call (see {@link AllianceState}), so nothing needs to
  * be flipped or rebuilt when the alliance changes. An unknown alliance counts as blue.
  *
  * <p>Regions are immutable, and {@code contains} doesn't allocate, so it's safe to call every loop.
@@ -129,7 +129,7 @@ public final class FieldRegion {
         return Collections.unmodifiableList(outlines);
     }
 
-    /** Moves outline points to red's side if needed, then into the robot code's coordinates. */
+    /** Mirrors outline points for red if needed, then moves them into the robot code's coordinates. */
     private Translation2d[] toRobot(Translation2d[] points, boolean flip) {
         if (!flip && field_.origin() == Origin.BLUE_CORNER) {
             return points;
@@ -168,7 +168,7 @@ public final class FieldRegion {
             }
         }
 
-        /** The region is drawn from blue's side and moves to red's side on red. The default. */
+        /** The region is drawn as the blue alliance sees it and is mirrored on red. The default. */
         public Builder flips() {
             alliance_mode_ = AllianceMode.FLIPS;
             return this;

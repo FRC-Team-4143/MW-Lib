@@ -138,7 +138,7 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 - `FieldGeometry` - Field size, `Symmetry` (`ROTATIONAL` or `MIRRORED`) and `Origin` (`BLUE_CORNER` or `CENTER`).
 - `RegionPublisher` - Publishes outlines to `Regions/<name>` for AdvantageScope, once and again only when the alliance changes. `SubsystemManager` calls `periodic()` for you.
 
-Regions flip by themselves. A `FLIPS` region (the default) is drawn from blue's side, and on red the queried point is flipped before testing, so there is no `flipRegions()` call and nothing goes stale. Use `.fixed()` for regions that stay put. An unknown alliance counts as blue.
+Regions flip by themselves. A `FLIPS` region (the default) is drawn as the blue alliance sees it, on either half of the field (a passing zone on the far side is fine), and on red the queried point is flipped before testing, so there is no `flipRegions()` call and nothing goes stale. Use `.fixed()` for regions that stay put. An unknown alliance counts as blue.
 
 ```java
 public static final FieldGeometry FIELD = new FieldGeometry(16.541, 8.069, Symmetry.ROTATIONAL);
