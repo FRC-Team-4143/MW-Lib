@@ -8,7 +8,8 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
 
 - **Swerve Drive Library**: Complete swerve drive implementation with Phoenix 6 support
 - **Mechanism Classes**: Base classes for arms, elevators, flywheels, and rollers
-- **Geometry Utilities**: Regions, splines, and geometric calculations
+- **Field Regions**: Alliance-aware field regions (rectangles, circles, polygons, holes, groups), drawn in [Mariner](https://github.com/FRC-Team-4143/mariner) or by hand
+- **Geometry Utilities**: Splines, alliance flipping, and geometric calculations
 - **Logging Integration**: Built-in support for elastic logging
 - **Proxy Server**: Communication utilities for robot data
 - **Behavior-Tree Autos**: Autos written as BehaviorTree.CPP v4 XML, with shared nodes, tunable
@@ -130,3 +131,28 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 - `FlywheelMech` - Velocity-controlled flywheel
 - `RollerMech` - Simple roller mechanism
 
+### Field regions (`com.marswars.regions`)
+- `FieldRegion` - A named area of the field: shapes added together, minus holes. `contains(pose)` is allocation-free and safe every loop.
+- `Shape` - `rect` (rotated), `box`, `circle` and `polygon`. Points on an edge count as inside.
+- `RegionGroup` - A named set of regions; `contains` is true if the point is in any of them.
+- `FieldGeometry` - Field size, `Symmetry` (`ROTATIONAL` or `MIRRORED`) and `Origin` (`BLUE_CORNER` or `CENTER`).
+- `RegionPublisher` - Publishes outlines to `Regions/<name>` for AdvantageScope, once and again only when the alliance changes. `SubsystemManager` calls `periodic()` for you.
+
+Regions flip by themselves. A `FLIPS` region (the default) is drawn as the blue alliance sees it, on either half of the field (a passing zone on the far side is fine), and on red the queried point is flipped before testing, so there is no `flipRegions()` call and nothing goes stale. Use `.fixed()` for regions that stay put. An unknown alliance counts as blue.
+
+```java
+public static final FieldGeometry FIELD = new FieldGeometry(16.541, 8.069, Symmetry.ROTATIONAL);
+
+public static final FieldRegion ALLIANCE_ZONE =
+        FieldRegion.builder("ALLIANCE_ZONE", FIELD).add(Shape.box(0, 0, 3.963, 8.042)).build();
+
+public static final RegionGroup HOLD_REGIONS = RegionGroup.of("HOLD_REGIONS", HOLD_ZONE, OPP_HOLD_ZONE);
+
+static {
+    RegionPublisher.register(ALLIANCE_ZONE, HOLD_ZONE, OPP_HOLD_ZONE);
+}
+
+if (ALLIANCE_ZONE.contains(pose)) { ... }
+```
+
+This replaces `Region`, `PolygonRegion`, `CircularRegion` and `AllianceFlipUtil.apply(Region)`, which were removed.

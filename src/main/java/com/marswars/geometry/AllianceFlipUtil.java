@@ -137,52 +137,6 @@ public class AllianceFlipUtil {
   }
 
   /**
-   * Applies alliance flip transformation to a region.
-   * Automatically determines the region type and applies the appropriate transformation.
-   * 
-   * @param region the original region to transform (PolygonRegion or CircularRegion)
-   * @return the transformed region from the opposite alliance perspective
-   * @throws IllegalStateException if the utility has not been configured
-   */
-  public static Region apply(Region region) {
-    if (region instanceof PolygonRegion) {
-      return apply((PolygonRegion) region);
-    } else {
-      return apply((CircularRegion) region);
-    }
-  }
-
-  /**
-   * Applies alliance flip transformation to a polygon region.
-   * Transforms all vertices of the polygon.
-   * 
-   * @param region the original polygon region to transform
-   * @return the transformed polygon region from the opposite alliance perspective
-   * @throws IllegalStateException if the utility has not been configured
-   */
-  public static PolygonRegion apply(PolygonRegion region) {
-    Translation2d[] points = region.getPoints();
-    for (int i = 0; i < points.length; i++) {
-      points[i] = apply(points[i]);
-    }
-    return new PolygonRegion(points, region.getName());
-  }
-
-  /**
-   * Applies alliance flip transformation to a circular region.
-   * Transforms the center point while preserving the radius.
-   * 
-   * @param region the original circular region to transform
-   * @return the transformed circular region from the opposite alliance perspective
-   * @throws IllegalStateException if the utility has not been configured
-   */
-  public static CircularRegion apply(CircularRegion region) {
-    Translation2d newCenter;
-    newCenter = apply(region.getCenter());
-    return new CircularRegion(newCenter, region.getRadius(), region.getName());
-  }
-
-  /**
    * Applies alliance flip transformation to a tight rope path.
    * Transforms both endpoint poses and swaps their order to maintain path direction.
    * 
