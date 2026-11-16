@@ -1,3 +1,9 @@
 # JitPack builds every tag on first request: com.github.FRC-Team-4143.MW-Lib:mw-lib-java:<tag>
 jdk:
   - openjdk17
+# JitPack's own JDK 17 (17.0.12) predates the "SSL.com TLS RSA Root CA 2022" root that
+# frcmaven.wpi.edu's certificate chains to since November 2026, so it can't download WPILib
+# (PKIX path building failed). Temurin 17.0.15 and later trust that root.
+before_install:
+  - sdk install java 17.0.20-tem
+  - sdk use java 17.0.20-tem
