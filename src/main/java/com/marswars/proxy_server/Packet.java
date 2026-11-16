@@ -1,24 +1,15 @@
 package com.marswars.proxy_server;
 
+import com.marswars.proxy_server.proto.CoreProto;
+import com.marswars.proxy_server.proto.EnvelopeProto;
+
 /**
  * Base interface for all proxy server packet types.
- * Provides common constants and utilities for packet parsing.
+ * Packets travel as {@link EnvelopeProto.Envelope} protobuf messages, defined in
+ * src/main/proto/chassis_proxy/v1/envelope.proto; the packet classes convert them to and from
+ * the data types the rest of the library uses.
  */
 public interface Packet {
-    
-    // Common packet header byte indices
-    /** Packet type identifier index */
-    int PACKET_ID_IDX = 0;
-    /** Timestamp seconds index */
-    int TIME_SEC_IDX = 1;
-    /** Timestamp nanoseconds index */
-    int TIME_NSEC_IDX = 5;
-    /** Total size of the common packet header (type + timestamp) */
-    int HEADER_SIZE = 9;
-    
-    // Legacy aliases for compatibility
-    @Deprecated
-    int ID_IDX = PACKET_ID_IDX;
 
     /**
      * Timestamp class to store packet timestamp and perform timestamp operations.
@@ -31,6 +22,26 @@ public interface Packet {
         public Timestamp(int seconds, int nanoseconds) {
             this.seconds = seconds;
             this.nanoseconds = nanoseconds;
+        }
+
+        /**
+         * Creates a timestamp from its protobuf form.
+         *
+         * @param stamp the protobuf timestamp
+         * @return the equivalent timestamp
+         */
+        public static Timestamp fromProto(CoreProto.Timestamp stamp) {
+            return new Timestamp(stamp.getSec(), stamp.getNanosec());
+        }
+
+        /**
+         * Writes this timestamp into a protobuf timestamp.
+         *
+         * @param stamp the protobuf timestamp to overwrite
+         * @return the protobuf timestamp, for chaining
+         */
+        public CoreProto.Timestamp toProto(CoreProto.Timestamp stamp) {
+            return stamp.setSec(seconds).setNanosec(nanoseconds);
         }
 
         /**

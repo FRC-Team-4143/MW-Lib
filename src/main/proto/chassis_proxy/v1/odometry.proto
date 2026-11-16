@@ -1,0 +1,21 @@
+// Robot odometry, coprocessor -> roboRIO (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/core.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "OdometryProto";
+
+message Odometry {
+  Timestamp stamp = 1;
+  Pose2d pose = 2;
+  double vx_mps = 3;
+  double vy_mps = 4;
+  double omega_radps = 5;
+  double x_variance = 6;
+  double y_variance = 7;
+  double theta_variance = 8;
+}

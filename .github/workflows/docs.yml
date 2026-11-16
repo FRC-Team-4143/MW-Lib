@@ -1,7 +1,8 @@
 name: Deploy Javadocs
 
-# Builds the Javadocs from develop and publishes them to GitHub Pages. Make Release calls it
-# after a release; run it by hand (from develop) to republish without releasing.
+# Builds the Javadocs from the branch it runs on and publishes them to GitHub Pages. Make Release
+# calls it after a full release (from the release branch); run it by hand from that branch to
+# republish without releasing. The github-pages environment must allow the branch.
 on:
   workflow_dispatch:
   workflow_call:
@@ -17,10 +18,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout code (develop)
+      - name: Checkout code (${{ github.ref_name }})
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.ref }}
 
       - name: Set up JDK
         uses: actions/setup-java@v4

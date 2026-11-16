@@ -1,0 +1,7 @@
+protocol_version: 1
+tag_solution {
+  stamp { sec: 512 nanosec: 500000000 }
+  camera_serial: "40123456"
+  robot_pose { x_m: 1.25 y_m: -3.5 theta_rad: 0.75 }
+  tag_ids: [3, 7, 22]
+}

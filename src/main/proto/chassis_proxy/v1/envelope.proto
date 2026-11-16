@@ -1,0 +1,55 @@
+// The chassis proxy protocol: messages exchanged over UDP between the roboRIO's ProxyServerThread
+// (com.marswars.proxy_server) and a vision coprocessor's chassis proxy client (Aquila-Vision's
+// //camera_app/chassis_proxy_client, which builds these files from a pinned MW-Lib release tag).
+//
+// Every UDP datagram carries exactly one serialized Envelope; each payload type has its own file in
+// this directory, and core.proto holds the types they share.
+//
+// Evolving the protocol:
+//  - Never renumber a field or reuse a field number; mark removed fields (and their names) reserved.
+//  - Adding a field or a payload is wire-compatible: the other side ignores what it doesn't know.
+//  - Bump PROTOCOL_VERSION_CURRENT only for a change that is not wire-compatible (a changed field
+//    type or meaning). Receivers drop envelopes whose protocol_version they don't support.
+//  - Moving a message between files changes its generated Java class and C++ header but not the wire.
+//  - Changes reach the coprocessor only when Aquila-Vision pins a new MW-Lib tag, so release both
+//    sides together.
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/auto_snapshot.proto";
+import "chassis_proxy/v1/match_info.proto";
+import "chassis_proxy/v1/module_states.proto";
+import "chassis_proxy/v1/odometry.proto";
+import "chassis_proxy/v1/piece_detections.proto";
+import "chassis_proxy/v1/tag_solution.proto";
+import "chassis_proxy/v1/timesync.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "EnvelopeProto";
+
+// The protocol_version every sender sets on its Envelope.
+enum ProtocolVersion {
+  PROTOCOL_VERSION_UNSPECIFIED = 0;
+  PROTOCOL_VERSION_CURRENT = 1;
+}
+
+message Envelope {
+  // Always PROTOCOL_VERSION_CURRENT of the sender's build.
+  uint32 protocol_version = 1;
+
+  oneof payload {
+    // Coprocessor -> roboRIO
+    TimesyncRequest timesync_request = 10;
+    TagSolution tag_solution = 11;
+    PieceDetections piece_detections = 12;
+    Odometry odometry = 13;
+    ModuleStates module_states = 14;
+
+    // roboRIO -> coprocessor
+    TimesyncResponse timesync_response = 20;
+    MatchInfo match_info = 21;
+    AutoSnapshot auto_snapshot = 22;
+  }
+}

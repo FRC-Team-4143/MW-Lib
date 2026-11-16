@@ -1,6 +1,6 @@
 package com.marswars.proxy_server;
 
-import java.nio.ByteBuffer;
+import com.marswars.proxy_server.proto.PieceDetectionsProto;
 import java.util.ArrayList;
 
 /**
@@ -51,55 +51,31 @@ public abstract class PieceDetectionPacket implements Packet {
         }
     }
 
-    // Packet type identifier
-    public static final int TYPE_ID = 10;
-    
-    // Byte indices for piece detection data fields
-    private static final int SHORT_SIZE = 2; // Size of short values in bytes
-    private static final int CAMERA_SERIAL_LEN_IDX = HEADER_SIZE;
-
-    private static final double ANGLE_RESOLUTION = 1e6;
-
     /**
-     * Parses piece detection packet data from a received byte buffer.
-     * Extracts timestamp, camera serial, and game piece detection information from the buffer.
-     * 
-     * @param buffer the byte buffer containing the packet data
+     * Converts a received piece detections message. The first detection fills the top-level fields
+     * and every detection (the first included) is listed in {@code allDetections}; a frame with no
+     * detections has a {@code detectionCount} of 0.
+     *
+     * @param msg the piece detections payload of a received envelope
      * @return PieceDetectionData object with parsed information
      */
-    public static PieceDetectionData updateData(byte[] buffer) {
-        // Parse timestamp
-        Timestamp timestamp = new Timestamp(
-                ByteBuffer.wrap(buffer, TIME_SEC_IDX, 4).getInt(),
-                ByteBuffer.wrap(buffer, TIME_NSEC_IDX, 4).getInt());
-        
-        // Parse camera serial string
-        int cameraSerialLen = ByteBuffer.wrap(buffer, CAMERA_SERIAL_LEN_IDX, SHORT_SIZE).getShort() & 0xFFFF;
-        int cameraSerialStartIdx = CAMERA_SERIAL_LEN_IDX + SHORT_SIZE;
-        String cameraSerial = new String(buffer, cameraSerialStartIdx, cameraSerialLen);
-        
-        // Calculate indices for remaining fields (after variable-length string)
-        int detectionCountIdx = cameraSerialStartIdx + cameraSerialLen;
-        int detectionIndexIdx = detectionCountIdx + 4;
-        int classIdIdx = detectionIndexIdx + 4;
-        int thetaXIdx = classIdIdx + 1;
-        int thetaYIdx = thetaXIdx + 8;
-        
-        // Parse detection metadata
-        int detectionCount = ByteBuffer.wrap(buffer, detectionCountIdx, 4).getInt();
-        int detectionIndex = ByteBuffer.wrap(buffer, detectionIndexIdx, 4).getInt();
-        
-        // Handle empty detection case
-        if (detectionCount == 0 || detectionIndex == 0) {
-            return new PieceDetectionData(0, detectionCount, detectionIndex, 0.0, 0.0, timestamp, cameraSerial);
+    public static PieceDetectionData fromProto(PieceDetectionsProto.PieceDetections msg) {
+        Timestamp timestamp = Timestamp.fromProto(msg.getStamp());
+        String cameraSerial = msg.getCameraSerial();
+        int count = msg.getDetections().length();
+
+        ArrayList<PieceDetectionData> all = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            PieceDetectionsProto.Detection detection = msg.getDetections().get(i);
+            all.add(new PieceDetectionData(detection.getClassId(), count, i,
+                    detection.getThetaXRad(), detection.getThetaYRad(), timestamp, cameraSerial));
         }
 
-        // Parse detection data
-        int classId = ByteBuffer.wrap(buffer, classIdIdx, 1).get();
-        double thetaX = ByteBuffer.wrap(buffer, thetaXIdx, 8).getLong() / ANGLE_RESOLUTION;
-        double thetaY = ByteBuffer.wrap(buffer, thetaYIdx, 8).getLong() / ANGLE_RESOLUTION;
-        
-        return new PieceDetectionData(classId, detectionCount, detectionIndex, 
-                                    thetaX, thetaY, timestamp, cameraSerial);
+        if (count == 0) {
+            return new PieceDetectionData(0, 0, 0, 0.0, 0.0, timestamp, cameraSerial);
+        }
+        PieceDetectionData first = all.get(0);
+        return new PieceDetectionData(first.classId, count, 0, first.thetaX, first.thetaY,
+                all, timestamp, cameraSerial);
     }
 }

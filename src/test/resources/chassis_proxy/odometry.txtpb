@@ -1,0 +1,11 @@
+protocol_version: 1
+odometry {
+  stamp { sec: 513 nanosec: 0 }
+  pose { x_m: 2.5 y_m: 4.0 theta_rad: -1.5 }
+  vx_mps: 1.5
+  vy_mps: -0.25
+  omega_radps: 0.5
+  x_variance: 0.01
+  y_variance: 0.02
+  theta_variance: 0.005
+}

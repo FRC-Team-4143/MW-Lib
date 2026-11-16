@@ -1,0 +1,6 @@
+protocol_version: 1
+timesync_response {
+  req_id: 7
+  server_recv { sec: 512 nanosec: 250000000 }
+  client_send { sec: 1700000000 nanosec: 123456789 }
+}

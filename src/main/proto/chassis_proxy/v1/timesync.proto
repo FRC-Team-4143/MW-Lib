@@ -1,0 +1,27 @@
+// Clock synchronization between the coprocessor and the roboRIO (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/core.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "TimesyncProto";
+
+// Coprocessor -> roboRIO
+message TimesyncRequest {
+  int32 req_id = 1;
+  // Coprocessor clock when the request was sent.
+  Timestamp client_send = 2;
+}
+
+// roboRIO -> coprocessor
+message TimesyncResponse {
+  // Echoed from the request.
+  int32 req_id = 1;
+  // roboRIO clock when the request was received.
+  Timestamp server_recv = 2;
+  // Echoed from the request, for the round-trip time.
+  Timestamp client_send = 3;
+}

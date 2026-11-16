@@ -1,0 +1,18 @@
+// AprilTag pose solutions, coprocessor -> roboRIO (see envelope.proto).
+
+syntax = "proto3";
+
+package chassis_proxy.v1;
+
+import "chassis_proxy/v1/core.proto";
+
+option java_package = "com.marswars.proxy_server.proto";
+option java_outer_classname = "TagSolutionProto";
+
+// Field-relative robot pose solved from the AprilTags one camera saw.
+message TagSolution {
+  Timestamp stamp = 1;
+  string camera_serial = 2;
+  Pose2d robot_pose = 3;
+  repeated uint32 tag_ids = 4;
+}
