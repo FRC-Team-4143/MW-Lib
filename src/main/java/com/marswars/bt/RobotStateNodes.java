@@ -2,6 +2,8 @@ package com.marswars.bt;
 
 import com.marswars.bt.core.BehaviorTreeFactory;
 import com.marswars.bt.core.PortInfo;
+import com.marswars.bt.core.PortType;
+import com.marswars.subsystem.MwSubsystemBase;
 import com.marswars.subsystem.MwSuperStateMachine;
 
 import java.util.List;
@@ -16,7 +18,17 @@ import java.util.function.Supplier;
  *       once. A request is instant, like a button press; the state stays wanted until something
  *       asks for another one.
  *   <li>condition {@code IsSystemState}: the robot is in a state
+ *   <li>condition {@code IsSubsystemAvailable}: a subsystem is under robot control (not pinned,
+ *       in manual or switched off from the dashboard), so an auto can fail fast instead of waiting
+ *       on a subsystem that will never move
  * </ul>
+ *
+ * <pre>{@code
+ * <ReactiveSequence>
+ *   <IsSubsystemAvailable subsystem="Elevator"/>
+ *   <Sequence> ... the scoring steps ... </Sequence>
+ * </ReactiveSequence>
+ * }</pre>
  *
  * To wait until the robot reaches a state, retry the condition (add a {@code Timeout} around it so
  * it can't wait forever):
@@ -56,5 +68,17 @@ public final class RobotStateNodes {
                 "The robot is in the given state",
                 List.of(PortInfo.enumInput("state", state_class, null, "Robot state to check")),
                 n -> robot.get().isIn(n.getEnum("state", state_class)));
+        factory.registerSimpleCondition(
+                "IsSubsystemAvailable",
+                "The subsystem is under robot control (not pinned, manual or off)",
+                List.of(
+                        PortInfo.input(
+                                "subsystem",
+                                PortType.STRING,
+                                "Subsystem name, e.g. Elevator for ElevatorSubsystem")),
+                n -> {
+                    MwSubsystemBase subsystem = robot.get().getSubsystem(n.getString("subsystem"));
+                    return subsystem != null && robot.get().isAvailable(subsystem);
+                });
     }
 }

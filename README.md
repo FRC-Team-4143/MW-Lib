@@ -16,6 +16,9 @@ A Java library for FRC (FIRST Robotics Competition) teams, providing utilities f
   parameters, run logs and a live WebSocket view (`com.marswars.bt`)
 - **Robot Identity**: Per-robot selection via a burned "RobotName" preference (constants live in
   each robot project's Java classes)
+- **Subsystem Controls**: Switch any subsystem to robot control, a pinned state, manual output
+  overrides or off, live from NetworkTables or the bundled web console; switch off or override
+  single mechanisms and sensors (see [Subsystem controls](docs/subsystem-controls.md))
 
 ## Installation
 
@@ -123,7 +126,9 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 ### Subsystems
 - `MwSubsystem` - Base subsystem class (a state machine) with logging integration
 - `MwSuperStateMachine` - The robot's super state machine; `RobotContainer` extends it (see [State machines](docs/state-machines.md))
-- `SubsystemManager` - Centralized subsystem management
+- `SubsystemManager` - Centralized subsystem management, with live per-subsystem and per-IO controls (see [Subsystem controls](docs/subsystem-controls.md))
+- `SubsystemConsole` - Web control panel served from the robot
+- `TuningGamepad` - Drive mechanisms in manual from a spare controller
 
 ### Mechanisms
 - `ArmMech` - Multi-motor arm mechanism with position/velocity control

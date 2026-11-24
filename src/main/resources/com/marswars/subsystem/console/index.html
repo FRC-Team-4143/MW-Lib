@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--CONSOLE-START-->
+<title>Subsystem Console</title>
+<style>
+/* Layout: status bar on top, subsystem list | selected subsystem's IO bench. System fonts only: no internet at events. */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --sunk:#f6f8fa; --fg:#16202b; --muted:#5a6776; --line:#d9dfe6;
+  --accent:#2f66d0; --accent-ink:#ffffff;
+  --ok:#1d8a4d; --ok-bg:#e3f4ea; --tune:#b87400; --tune-bg:#fdf1da; --off:#bf3434; --off-bg:#fbe6e6;
+  --pin:#6a4fc4; --pin-bg:#eee9fb;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1318; --panel:#161d25; --sunk:#11171e; --fg:#e4e9ef; --muted:#93a0b0; --line:#2a3440;
+  --accent:#6b9cff; --accent-ink:#0b1220;
+  --ok:#43c77d; --ok-bg:#14301f; --tune:#f0b13a; --tune-bg:#352710; --off:#f07272; --off-bg:#3a1a1a;
+  --pin:#a993ff; --pin-bg:#241d3d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1318; --panel:#161d25; --sunk:#11171e; --fg:#e4e9ef; --muted:#93a0b0; --line:#2a3440;
+  --accent:#6b9cff; --accent-ink:#0b1220;
+  --ok:#43c77d; --ok-bg:#14301f; --tune:#f0b13a; --tune-bg:#352710; --off:#f07272; --off-bg:#3a1a1a;
+  --pin:#a993ff; --pin-bg:#241d3d; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45;
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));padding-block:14px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+.wrap > *{min-width:0}
+h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:1.15rem;font-weight:700}
+h2{font-size:1rem;font-weight:650}
+h3{font-size:.95rem;font-weight:650}
+.mono{font-family:var(--mono);font-size:.85em}
+.muted{color:var(--muted)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.grow{flex:1 1 auto}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:600;border:1px solid var(--line);background:var(--sunk);white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.chip.ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}
+.chip.off{color:var(--off);background:var(--off-bg);border-color:transparent}
+.chip.tune{color:var(--tune);background:var(--tune-bg);border-color:transparent}
+.chip.pin{color:var(--pin);background:var(--pin-bg);border-color:transparent}
+.host{display:flex;gap:6px;align-items:center}
+.host input{width:150px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);font-family:var(--mono);font-size:.82rem}
+.btn{border:1px solid var(--line);background:var(--sunk);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.82rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.demo-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.82rem;color:var(--muted)}
+.demo-bar label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.banner{border-radius:8px;padding:8px 12px;font-size:.85rem;border:1px solid var(--line);background:var(--panel)}
+.banner.warn{background:var(--off-bg);color:var(--off);border-color:transparent}
+
+.grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:12px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.grid > *{min-width:0}
+.col{display:grid;gap:10px;min-width:0}
+
+.sub{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:10px 12px;display:grid;gap:8px;cursor:pointer}
+.sub[aria-current="true"]{box-shadow:0 0 0 2px var(--accent)}
+.sub[data-c="ROBOT"]{border-left-color:var(--ok)} .sub[data-c="PINNED"]{border-left-color:var(--pin)}
+.sub[data-c="MANUAL"]{border-left-color:var(--tune)} .sub[data-c="OFF"]{border-left-color:var(--off)}
+.row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.row.between{justify-content:space-between}
+.state{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.state b{color:var(--fg);font-weight:600}
+.note{font-size:.8rem;color:var(--off)}
+.iochips{display:flex;flex-wrap:wrap;gap:4px}
+.iochip{flex:0 0 auto;font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.iochip.off{color:var(--off);border-color:var(--off)} .iochip.ovrd{color:var(--pin);border-color:var(--pin)}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--sunk);flex-wrap:wrap}
+.seg button{border:0;border-right:1px solid var(--line);background:transparent;padding:4px 10px;font-size:.8rem;color:var(--muted);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button:disabled{cursor:not-allowed;opacity:.5}
+.seg button[aria-pressed="true"]{font-weight:650}
+.seg button[aria-pressed="true"][data-v="ROBOT"]{background:var(--ok-bg);color:var(--ok)}
+.seg button[aria-pressed="true"][data-v="PINNED"]{background:var(--pin-bg);color:var(--pin)}
+.seg button[aria-pressed="true"][data-v="MANUAL"]{background:var(--tune-bg);color:var(--tune)}
+.seg button[aria-pressed="true"][data-v="OFF"]{background:var(--off-bg);color:var(--off)}
+.seg.modes button{font-family:var(--mono);font-size:.72rem;padding:3px 8px}
+.seg.modes button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+select{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);font-family:var(--mono);font-size:.8rem}
+
+.bench{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:12px;min-width:0}
+.io{border:1px solid var(--line);border-radius:9px;background:var(--sunk);padding:10px 12px;display:grid;gap:10px;min-width:0}
+.io.disabled{opacity:.92}
+.io-head{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.key{font-family:var(--mono);font-size:.72rem;color:var(--muted);overflow-wrap:anywhere}
+.switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:.82rem}
+.switch input{width:16px;height:16px;accent-color:var(--accent)}
+.section{display:grid;gap:6px}
+.section > .label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ovr{display:grid;grid-template-columns:minmax(70px,auto) minmax(0,1fr) 110px;gap:8px;align-items:center}
+.ovr .meas{font-family:var(--mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=number]{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-family:var(--mono);font-size:.82rem}
+.sp{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;max-width:320px}
+.sp .lbl{font-size:.78rem;color:var(--muted)}
+.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.readout div{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 8px;min-width:0}
+.readout small{display:block;font-size:.68rem;color:var(--muted)}
+.readout b{font-family:var(--mono);font-weight:550;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hint{font-size:.82rem;color:var(--muted)}
+.empty{border:1px dashed var(--line);border-radius:9px;padding:22px;text-align:center;color:var(--muted)}
+.gp{font-size:.78rem}
+fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:8px}
+fieldset:disabled{opacity:.55}
+@media (max-width:520px){.ovr{grid-template-columns:minmax(0,1fr) 100px}.ovr .meas{grid-column:1/-1}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <h1>Subsystem Console</h1>
+    <span id="conn" class="chip"><i></i><span>Connecting</span></span>
+    <span id="dsChip" class="chip" hidden><i></i><span></span></span>
+    <span id="fmsChip" class="chip off" hidden><i></i><span>FMS attached</span></span>
+    <span id="gpChip" class="chip gp" hidden></span>
+    <span class="grow"></span>
+    <form class="host" id="hostForm">
+      <label for="host" class="muted">Robot</label>
+      <input id="host" spellcheck="false" autocomplete="off">
+      <button class="btn" type="submit">Connect</button>
+      <button class="btn" type="button" id="demoBtn">Demo robot</button>
+    </form>
+  </div>
+  <div id="demoBar" class="banner demo-bar" hidden>
+    <b>Demo robot</b><span>Nothing here talks to a real robot.</span>
+    <label><input type="checkbox" id="demoEnabled" checked> Robot enabled</label>
+    <label><input type="checkbox" id="demoFms"> FMS attached</label>
+  </div>
+  <div id="fmsBanner" class="banner warn" hidden>FMS attached: Pinned, Manual and sensor overrides are ignored by the robot. Switching things off may still work, depending on the robot's settings.</div>
+
+  <div class="grid">
+    <div class="col" id="subList"></div>
+    <div class="bench" id="bench"><div class="empty">Waiting for the robot to publish its subsystems.</div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const ROOT = "/MwLib/Subsystems/";
+const CONTROLS = ["ROBOT","PINNED","MANUAL","OFF"];
+const CONTROL_LABEL = {ROBOT:"Robot",PINNED:"Pinned",MANUAL:"Manual",OFF:"Off"};
+
+// =====================================================================
+// MessagePack (just what NT4 uses)
+// =====================================================================
+const enc = new TextEncoder(), dec = new TextDecoder();
+function mpEncode(v, out){
+  if (v === null || v === undefined) out.push(0xc0);
+  else if (v === true) out.push(0xc3);
+  else if (v === false) out.push(0xc2);
+  else if (typeof v === "bigint"){ out.push(0xd3); const b=new DataView(new ArrayBuffer(8)); b.setBigInt64(0,v); for(let i=0;i<8;i++) out.push(b.getUint8(i)); }
+  else if (typeof v === "number"){
+    if (Number.isInteger(v) && v >= -32 && v < 128){ out.push(v & 0xff); }
+    else if (Number.isInteger(v) && Math.abs(v) < 2**31){ out.push(0xd2); const b=new DataView(new ArrayBuffer(4)); b.setInt32(0,v); for(let i=0;i<4;i++) out.push(b.getUint8(i)); }
+    else { out.push(0xcb); const b=new DataView(new ArrayBuffer(8)); b.setFloat64(0,v); for(let i=0;i<8;i++) out.push(b.getUint8(i)); }
+  }
+  else if (typeof v === "string"){ const s=enc.encode(v); if (s.length<32) out.push(0xa0|s.length); else if (s.length<256) out.push(0xd9,s.length); else out.push(0xda,s.length>>8,s.length&255); for (const c of s) out.push(c); }
+  else if (Array.isArray(v)){ if (v.length<16) out.push(0x90|v.length); else out.push(0xdc,v.length>>8,v.length&255); for (const x of v) mpEncode(x,out); }
+  return out;
+}
+function mpDecodeAll(buf){
+  const dv = new DataView(buf), u8 = new Uint8Array(buf); let o = 0; const res = [];
+  function str(n){ const s = dec.decode(u8.subarray(o,o+n)); o+=n; return s; }
+  function arr(n){ const a=[]; for(let i=0;i<n;i++) a.push(read()); return a; }
+  function map(n){ const m={}; for(let i=0;i<n;i++){ const k=read(); m[k]=read(); } return m; }
+  function read(){
+    const t = u8[o++];
+    if (t < 0x80) return t;
+    if (t >= 0xe0) return t - 256;
+    if ((t & 0xf0) === 0x90) return arr(t & 15);
+    if ((t & 0xf0) === 0x80) return map(t & 15);
+    if ((t & 0xe0) === 0xa0) return str(t & 31);
+    let v;
+    switch(t){
+      case 0xc0: return null; case 0xc2: return false; case 0xc3: return true;
+      case 0xca: v=dv.getFloat32(o); o+=4; return v;
+      case 0xcb: v=dv.getFloat64(o); o+=8; return v;
+      case 0xcc: return u8[o++];
+      case 0xcd: v=dv.getUint16(o); o+=2; return v;
+      case 0xce: v=dv.getUint32(o); o+=4; return v;
+      case 0xcf: v=Number(dv.getBigUint64(o)); o+=8; return v;
+      case 0xd0: v=dv.getInt8(o); o+=1; return v;
+      case 0xd1: v=dv.getInt16(o); o+=2; return v;
+      case 0xd2: v=dv.getInt32(o); o+=4; return v;
+      case 0xd3: v=Number(dv.getBigInt64(o)); o+=8; return v;
+      case 0xd9: return str(u8[o++]);
+      case 0xda: v=dv.getUint16(o); o+=2; return str(v);
+      case 0xdb: v=dv.getUint32(o); o+=4; return str(v);
+      case 0xc4: v=u8[o++]; o+=v; return null;
+      case 0xc5: v=dv.getUint16(o); o+=2+v; return null;
+      case 0xc6: v=dv.getUint32(o); o+=4+v; return null;
+      case 0xdc: v=dv.getUint16(o); o+=2; return arr(v);
+      case 0xdd: v=dv.getUint32(o); o+=4; return arr(v);
+      case 0xde: v=dv.getUint16(o); o+=2; return map(v);
+      default: throw new Error("msgpack type 0x"+t.toString(16));
+    }
+  }
+  while (o < u8.length) res.push(read());
+  return res;
+}
+
+// =====================================================================
+// Data store shared by the NT4 client and the demo robot
+// =====================================================================
+class Store {
+  constructor(){ this.values = new Map(); this.version = 0; this.topoVersion = 0; }
+  put(name, value){
+    const had = this.values.has(name);
+    this.values.set(name, value);
+    if (!had) this.topoVersion++;
+    this.version++;
+  }
+  get(name, fallback){ return this.values.has(name) ? this.values.get(name) : fallback; }
+  clear(){ this.values.clear(); this.version++; this.topoVersion++; }
+}
+const store = new Store();
+
+// =====================================================================
+// NT4 client
+// =====================================================================
+const TYPE_IDX = {"boolean":0,"double":1,"int":2,"float":3,"string":4,"raw":5,"boolean[]":16,"double[]":17,"int[]":18,"float[]":19,"string[]":20};
+class NT4 {
+  constructor(host, onStatus){
+    this.host = host; this.onStatus = onStatus; this.ws = null; this.closed = false;
+    this.byId = new Map(); this.types = new Map(); this.pubs = new Map(); this.nextPub = 1; this.nextSub = 1;
+    this.offset = 0; this.subscribed = new Set();
+    this.connect();
+  }
+  now(){ return Math.round(performance.now()*1000); }
+  serverTime(){ return this.now() + this.offset; }
+  connect(){
+    if (this.closed) return;
+    this.onStatus("connecting");
+    let ws;
+    try { ws = new WebSocket(`ws://${this.host}:5810/nt/mwlib-console-${Math.floor(Math.random()*1e6)}`, ["v4.1.networktables.first.wpi.edu","networktables.first.wpi.edu"]); }
+    catch(e){ this.onStatus("failed"); this.retry(); return; }
+    ws.binaryType = "arraybuffer";
+    this.ws = ws;
+    ws.onopen = () => {
+      this.byId.clear(); this.pubs.clear(); this.subscribed.clear();
+      this.onStatus("connected");
+      this.sendTimeSync();
+      this.timer = setInterval(() => this.sendTimeSync(), 3000);
+      this.subscribe(["/MwLib/","/FMSInfo/","/AdvantageKit/RealOutputs/MwLib/"], 0.05);
+    };
+    ws.onclose = () => { clearInterval(this.timer); if (!this.closed){ this.onStatus("disconnected"); this.retry(); } };
+    ws.onerror = () => {};
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === "string"){
+        for (const m of JSON.parse(ev.data)) this.handleText(m);
+      } else {
+        for (const msg of mpDecodeAll(ev.data)){
+          if (!Array.isArray(msg) || msg.length < 4) continue;
+          const [id, ts, , value] = msg;
+          if (id === -1){ const rtt = this.now() - value; this.offset = ts + rtt/2 - this.now(); continue; }
+          const name = this.byId.get(id);
+          if (name !== undefined) store.put(name, value);
+        }
+      }
+    };
+  }
+  retry(){ clearTimeout(this.rt); this.rt = setTimeout(() => this.connect(), 1500); }
+  close(){ this.closed = true; clearTimeout(this.rt); clearInterval(this.timer); if (this.ws) this.ws.close(); }
+  sendText(msgs){ if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(msgs)); }
+  sendBin(arr){ if (this.ws && this.ws.readyState === 1) this.ws.send(new Uint8Array(mpEncode(arr, []))); }
+  sendTimeSync(){ this.sendBin([-1, 0, 2, this.now()]); }
+  handleText(m){
+    if (m.method === "announce"){ this.byId.set(m.params.id, m.params.name); this.types.set(m.params.name, m.params.type); }
+    else if (m.method === "unannounce"){ this.byId.delete(m.params.id); }
+  }
+  subscribe(topics, periodic){
+    const fresh = topics.filter(t => !this.subscribed.has(t));
+    if (!fresh.length) return;
+    fresh.forEach(t => this.subscribed.add(t));
+    this.sendText([{method:"subscribe", params:{topics:fresh, subuid:this.nextSub++, options:{prefix:true, periodic}}}]);
+  }
+  set(name, type, value){
+    type = this.types.get(name) || type;
+    let pub = this.pubs.get(name);
+    if (!pub){
+      pub = this.nextPub++;
+      this.pubs.set(name, pub);
+      this.sendText([{method:"publish", params:{name, pubuid:pub, type, properties:{}}}]);
+    }
+    let v = value;
+    if (type === "int") v = Math.round(value);
+    this.sendBin([pub, this.serverTime(), TYPE_IDX[type], v]);
+    store.put(name, value);
+  }
+}
+
+// =====================================================================
+// Demo robot: the same rules as the Java code, with a little physics
+// =====================================================================
+class DemoRobot {
+  constructor(){
+    this.t = 0; this.enabled = true; this.fms = false;
+    this.subs = {
+      Drivetrain:{states:["IDLE","FIELD_CENTRIC","ROBOT_CENTRIC","CHOREO_PATH","TRACTOR_BEAM"],def:"IDLE",
+        ios:[{name:"Swerve",key:"Subsystem/Drivetrain/Swerve/",kind:"swerve",modes:["NEUTRAL","POSITION","VELOCITY"],sensors:[],min:-3.2,max:3.2,vmax:4.5},
+             {name:"Pigeon2",key:"Subsystem/Drivetrain/Pigeon2/",kind:"sensor",modes:[],sensors:["Yaw","Pitch","Roll"]}]},
+      Elevator:{states:["STOW","L2","L4"],def:"STOW",
+        ios:[{name:"Elevator",key:"Subsystem/Elevator/Elevator/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:0,max:1.4,g:3}]},
+      Intake:{states:["STOW","DEPLOY","EJECT"],def:"STOW",
+        ios:[{name:"Pivot",key:"Subsystem/Intake/Pivot/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:-0.2,max:1.9,g:2},
+             {name:"Rollers",key:"Subsystem/Intake/Rollers/",kind:"vel",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","MOTION_PROFILE_VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:-300,max:300,A:10},
+             {name:"Grapple0",key:"Subsystem/Intake/Grapple0/",kind:"tof",modes:[],sensors:["Range"]}]},
+      Shooter:{states:["IDLE","SPIN_UP","SHOOT"],def:"IDLE",
+        ios:[{name:"Flywheel",key:"Subsystem/Shooter/Flywheel/",kind:"vel",modes:["NEUTRAL","VELOCITY","MOTION_PROFILE_VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Velocity"],min:0,max:600,A:2.5},
+             {name:"Hood",key:"Subsystem/Shooter/Hood/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:0.2,max:1.0,g:1}]},
+    };
+    // what each subsystem state asks its mechanisms for: [mode, value]
+    this.targets = {
+      Drivetrain:{IDLE:{Swerve:["VELOCITY",0]},FIELD_CENTRIC:{Swerve:["VELOCITY",1.5]},ROBOT_CENTRIC:{Swerve:["VELOCITY",0.8]},CHOREO_PATH:{Swerve:["VELOCITY",2.5]},TRACTOR_BEAM:{Swerve:["VELOCITY",1.0]}},
+      Elevator:{STOW:{Elevator:["MOTION_PROFILE_POSITION",0.05]},L2:{Elevator:["MOTION_PROFILE_POSITION",0.6]},L4:{Elevator:["MOTION_PROFILE_POSITION",1.25]}},
+      Intake:{STOW:{Pivot:["POSITION",1.8],Rollers:["VELOCITY",0]},DEPLOY:{Pivot:["POSITION",0],Rollers:["VELOCITY",250]},EJECT:{Pivot:["POSITION",0.6],Rollers:["VELOCITY",-200]}},
+      Shooter:{IDLE:{Flywheel:["VELOCITY",0],Hood:["POSITION",0.35]},SPIN_UP:{Flywheel:["VELOCITY",480],Hood:["POSITION",0.7]},SHOOT:{Flywheel:["VELOCITY",500],Hood:["POSITION",0.72]}},
+    };
+    this.driver = [
+      {Drivetrain:"FIELD_CENTRIC",Elevator:"STOW",Intake:"DEPLOY",Shooter:"IDLE"},
+      {Drivetrain:"FIELD_CENTRIC",Elevator:"L2",Intake:"STOW",Shooter:"SPIN_UP"},
+      {Drivetrain:"TRACTOR_BEAM",Elevator:"L4",Intake:"STOW",Shooter:"SHOOT"},
+      {Drivetrain:"FIELD_CENTRIC",Elevator:"STOW",Intake:"EJECT",Shooter:"IDLE"},
+    ];
+    for (const [s,def] of Object.entries(this.subs)){
+      def.control = "ROBOT"; def.state = def.def; def.wanted = def.def;
+      this.pubStr(ROOT+s+"/Control","ROBOT"); this.pubStr(ROOT+s+"/PinnedState",""); this.pubStr(ROOT+s+"/ActiveControl","ROBOT");
+      store.put(ROOT+s+"/States", def.states);
+      for (const io of def.ios){
+        const p = ROOT+s+"/IO/"+io.name+"/";
+        io.x = io.kind==="pos" ? 0.2 : 0; io.v = 0; io.ang = 0; io.prof = 0; io.manual = false; io.u = 0;
+        store.put(p+"Enabled", true); store.put(p+"LoggingKey", io.key);
+        for (const c of io.sensors){ store.put(p+"Override/"+c+"/Active", false); store.put(p+"Override/"+c+"/Value", 0); }
+        if (io.modes.length){
+          store.put(p+"Manual/Modes", io.modes); store.put(p+"Manual/Mode","NEUTRAL"); store.put(p+"Manual/Setpoint",0);
+          store.put(p+"Manual/Step",false); store.put(p+"Manual/StepTo",0); store.put(p+"Manual/StepPeriod",2);
+        }
+      }
+    }
+    store.put("/MwLib/TuningGamepad/Selected","");
+    // opening scene: Elevator overridden to hold 0.9 m, Intake rollers switched off,
+    // a faked game-piece reading on the ToF, Shooter pinned to SPIN_UP
+    for (let i=0;i<60;i++) this.step();
+    this.set(ROOT+"Elevator/Control","string","MANUAL");
+    this.step();
+    this.set(ROOT+"Elevator/IO/Elevator/Manual/Setpoint","double",0.9);
+    this.set(ROOT+"Intake/IO/Rollers/Enabled","boolean",false);
+    this.set(ROOT+"Intake/IO/Grapple0/Override/Range/Value","double",0.03);
+    this.set(ROOT+"Intake/IO/Grapple0/Override/Range/Active","boolean",true);
+    this.set(ROOT+"Shooter/PinnedState","string","SPIN_UP");
+    this.set(ROOT+"Shooter/Control","string","PINNED");
+    for (let i=0;i<200;i++) this.step();
+    this.timer = setInterval(() => this.step(), 20);
+  }
+  pubStr(n,v){ store.put(n,v); }
+  set(name, type, value){ store.put(name, value); }
+  close(){ clearInterval(this.timer); }
+  out(key, v){ store.put("/AdvantageKit/RealOutputs/"+key, v); }
+  step(){
+    const dt = 0.02; this.t += dt;
+    store.put("/FMSInfo/FMSControlData", (this.enabled?1:0) | (this.fms?16:0) | 32);
+    const driverStep = this.driver[Math.floor(this.t/4) % this.driver.length];
+    for (const [s,def] of Object.entries(this.subs)){
+      const req = String(store.get(ROOT+s+"/Control","ROBOT")).trim().toUpperCase();
+      const pinned = store.get(ROOT+s+"/PinnedState","");
+      let c = CONTROLS.includes(req) ? req : "ROBOT";
+      if (c === "PINNED" && !def.states.includes(pinned)) c = "ROBOT";
+      if (this.fms && (c === "PINNED" || c === "MANUAL")) c = "ROBOT";
+      const prev = def.control; def.control = c;
+      if (c !== prev && c !== "OFF" && c !== "MANUAL" && (prev === "OFF" || prev === "MANUAL" || c === "ROBOT")) { def.state = def.def; def.wanted = def.def; }
+      store.put(ROOT+s+"/ActiveControl", c);
+      if (c === "ROBOT"){ def.wanted = driverStep[s]; def.state = def.wanted; }
+      else if (c === "PINNED"){ def.wanted = pinned; def.state = pinned; }
+      this.out("Subsystem/"+s+"/State", def.state); this.out("Subsystem/"+s+"/WantedState", def.wanted);
+      const tg = this.targets[s][def.state] || {};
+      for (const io of def.ios) this.stepIo(s, def, io, c, tg[io.name], dt);
+    }
+  }
+  stepIo(s, def, io, control, target, dt){
+    const p = ROOT+s+"/IO/"+io.name+"/";
+    const enabled = store.get(p+"Enabled", true) !== false;
+    const entering = control === "MANUAL" && !io.manual;
+    io.manual = control === "MANUAL";
+    let mode = "NEUTRAL", sp = 0;
+    if (io.manual && io.modes.length){
+      if (entering){
+        const m = io.modes.includes("POSITION") ? "POSITION" : io.modes.includes("VELOCITY") ? "VELOCITY" : "NEUTRAL";
+        const seed = m === "POSITION" ? (io.kind==="swerve" ? io.ang : this.measured(io).pos) : 0;
+        store.put(p+"Manual/Mode", m); store.put(p+"Manual/Setpoint", +seed.toFixed(3)); store.put(p+"Manual/Step", false); store.put(p+"Manual/StepTo", +seed.toFixed(3));
+      }
+      const want = String(store.get(p+"Manual/Mode","NEUTRAL")).trim().toUpperCase();
+      mode = io.modes.includes(want) ? want : "NEUTRAL";
+      sp = +store.get(p+"Manual/Setpoint",0) || 0;
+      const per = +store.get(p+"Manual/StepPeriod",2) || 0;
+      if (store.get(p+"Manual/Step",false) && per > 0 && Math.floor(this.t/per) % 2 === 1) sp = +store.get(p+"Manual/StepTo",0) || 0;
+      if (mode === "DUTY_CYCLE") sp = Math.max(-0.3, Math.min(0.3, sp));
+    }
+    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/EnabledApplied", enabled);
+    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/ManualModeApplied", io.manual ? mode : "NEUTRAL");
+    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/ManualSetpointApplied", io.manual ? sp : 0);
+    if (io.kind === "sensor" || io.kind === "tof"){
+      if (io.kind === "tof"){ const piece = def.state === "DEPLOY" && Math.sin(this.t*1.3) > 0.2; store.put("/AdvantageKit/"+io.key+"Inputs/range", piece ? 0.04 : 0.42); }
+      return;
+    }
+    let cmdMode, val, neutral = !this.enabled || !enabled || control === "OFF";
+    if (control === "MANUAL"){ cmdMode = mode; val = sp; if (mode === "NEUTRAL") neutral = true; }
+    else if (target){ [cmdMode, val] = target; }
+    else { neutral = true; }
+    this.physics(io, neutral ? "NEUTRAL" : cmdMode, val, dt);
+    const m = this.measured(io);
+    store.put("/AdvantageKit/"+io.key+"Inputs/position", m.pos);
+    store.put("/AdvantageKit/"+io.key+"Inputs/velocity", m.vel);
+  }
+  measured(io){
+    if (io.kind === "pos") return {pos: io.min + io.x*(io.max-io.min), vel: io.v*(io.max-io.min)};
+    if (io.kind === "vel") return {pos: io.ang, vel: io.x*io.max};
+    return {pos: io.ang, vel: io.x*io.vmax};
+  }
+  physics(io, mode, val, dt){
+    if (io.kind === "pos"){
+      const span = io.max-io.min, tn = (val-io.min)/span;
+      let u;
+      if (mode === "NEUTRAL") u = -25*io.v + io.g*0.9;
+      else if (mode === "DUTY_CYCLE") u = val*12;
+      else if (mode === "CURRENT") u = val/40*12;
+      else if (mode === "VELOCITY") u = 8*(val/span - io.v) + io.g;
+      else {
+        let goal = tn;
+        if (mode === "MOTION_PROFILE_POSITION"){ const r=0.7*dt; io.prof += Math.max(-r, Math.min(r, tn-io.prof)); goal = io.prof; } else io.prof = io.x;
+        u = 40*(goal-io.x) - 8*io.v + io.g;
+      }
+      u = Math.max(-12, Math.min(12, u));
+      io.v += (u - io.g)*dt; io.x += io.v*dt;
+      if (io.x < 0){ io.x = 0; if (io.v < 0) io.v = 0; } if (io.x > 1){ io.x = 1; if (io.v > 0) io.v = 0; }
+    } else if (io.kind === "vel"){
+      let u;
+      const full = Math.max(Math.abs(io.min), Math.abs(io.max));
+      if (mode === "NEUTRAL") u = io.x*0.85;
+      else if (mode === "DUTY_CYCLE") u = val;
+      else if (mode === "CURRENT") u = val/40;
+      else if (mode === "POSITION" || mode === "MOTION_PROFILE_POSITION") u = Math.max(-1,Math.min(1,(val-io.ang)*0.05));
+      else u = val/full;
+      u = Math.max(-1, Math.min(1, u));
+      io.x += io.A*(u*(full/io.max) - io.x)*dt; io.ang += io.x*io.max*dt;
+    } else {
+      if (mode === "POSITION"){ io.ang += Math.max(-8*dt, Math.min(8*dt, val - io.ang)); io.x += 4*(0 - io.x)*dt; }
+      else if (mode === "VELOCITY"){ io.x += 4*(val/io.vmax - io.x)*dt; }
+      else io.x += 4*(0 - io.x)*dt;
+    }
+  }
+}
+
+// =====================================================================
+// Connection
+// =====================================================================
+let backend = null, mode = "none";
+const connEl = document.getElementById("conn");
+const hostEl = document.getElementById("host");
+function setConn(state){
+  if (state === "connected") topoSeen = -1; // rebuild, which re-subscribes the readout topics
+  const label = {connecting:"Connecting to "+hostEl.value, connected:"Connected to "+hostEl.value, disconnected:"Not connected, retrying", failed:"Can't connect", demo:"Demo robot"}[state] || state;
+  connEl.className = "chip " + (state==="connected" ? "ok" : state==="demo" ? "pin" : state==="connecting" ? "" : "off");
+  connEl.lastElementChild.textContent = label;
+}
+function connect(host){
+  if (backend) backend.close();
+  store.clear(); selected = null;
+  document.getElementById("demoBar").hidden = true;
+  mode = "nt"; backend = new NT4(host, setConn);
+  try { localStorage.setItem("mwlib-console-host", host); } catch(e) {}
+}
+function startDemo(){
+  if (backend) backend.close();
+  store.clear(); selected = "Elevator";
+  mode = "demo"; backend = new DemoRobot(); setConn("demo");
+  document.getElementById("demoBar").hidden = false;
+  document.getElementById("demoEnabled").checked = true; document.getElementById("demoFms").checked = false;
+}
+document.getElementById("hostForm").addEventListener("submit", e => { e.preventDefault(); connect(hostEl.value.trim() || "localhost"); });
+document.getElementById("demoBtn").addEventListener("click", startDemo);
+document.getElementById("demoEnabled").addEventListener("change", e => { if (mode==="demo") backend.enabled = e.target.checked; });
+document.getElementById("demoFms").addEventListener("change", e => { if (mode==="demo") backend.fms = e.target.checked; });
+
+function write(name, type, value){ if (backend) backend.set(name, type, value); }
+function subscribeExtra(topics){ if (mode === "nt") backend.subscribe(topics, 0.02); }
+
+// =====================================================================
+// Model from topics
+// =====================================================================
+function topology(){
+  const subs = new Map();
+  for (const name of store.values.keys()){
+    if (!name.startsWith(ROOT)) continue;
+    const parts = name.slice(ROOT.length).split("/");
+    const s = parts[0];
+    if (!subs.has(s)) subs.set(s, {name:s, ios:new Map()});
+    if (parts[1] === "IO" && parts.length >= 4){
+      const ioName = parts[2];
+      const sub = subs.get(s);
+      if (!sub.ios.has(ioName)) sub.ios.set(ioName, {name:ioName, sensors:[], manual:false});
+      const io = sub.ios.get(ioName);
+      if (parts[3] === "Override" && parts[5] === "Active" && !io.sensors.includes(parts[4])) io.sensors.push(parts[4]);
+      if (parts[3] === "Manual") io.manual = true;
+    }
+  }
+  return [...subs.values()].filter(s => store.values.has(ROOT+s.name+"/Control"));
+}
+const fmt = v => (typeof v === "number" ? (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(3)) : v === undefined ? "–" : String(v));
+function fms(){ return (store.get("/FMSInfo/FMSControlData", 0) & 16) !== 0; }
+function dsEnabled(){ return (store.get("/FMSInfo/FMSControlData", 0) & 1) !== 0; }
+function measuredTopic(key, channel){
+  const field = {Position:"position", Velocity:"velocity", Range:"range"}[channel];
+  return field && key ? "/AdvantageKit/" + key + "Inputs/" + field : null;
+}
+
+// =====================================================================
+// UI
+// =====================================================================
+let selected = null, topoSeen = -1, subsSnapshot = [];
+const listEl = document.getElementById("subList"), benchEl = document.getElementById("bench");
+const el = (tag, attrs, ...kids) => { const e = document.createElement(tag); for (const [k,v] of Object.entries(attrs||{})){ if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v === true ? "" : v); } for (const k of kids) if (k !== null && k !== undefined) e.append(k); return e; };
+
+function buildList(subs){
+  listEl.innerHTML = "";
+  if (!subs.length){ listEl.append(el("div",{class:"empty"}, mode==="nt" ? "No subsystems yet. Is the robot running MW-Lib with subsystems registered?" : "")); return; }
+  for (const s of subs){
+    const card = el("div",{class:"sub", tabindex:"0", "data-sub":s.name, onclick:(e)=>{ if (e.target.closest("button,select")) return; selected = s.name; topoSeen = -1; }, onkeydown:(e)=>{ if (e.key==="Enter" && e.target === card){ selected = s.name; topoSeen = -1; } }});
+    const seg = el("div",{class:"seg", role:"group", "aria-label":s.name+" control"});
+    for (const c of CONTROLS) seg.append(el("button",{type:"button","data-v":c, onclick:()=>{ if (c === "PINNED" && !store.get(ROOT+s.name+"/PinnedState","")){ const st = store.get(ROOT+s.name+"/States",[]); if (st.length) write(ROOT+s.name+"/PinnedState","string",st[0]); } write(ROOT+s.name+"/Control","string",c); }}, CONTROL_LABEL[c]));
+    const pin = el("select",{"aria-label":s.name+" pinned state", onchange:(e)=>write(ROOT+s.name+"/PinnedState","string",e.target.value)});
+    pin.append(el("option",{value:""}, "choose…"));
+    for (const st of store.get(ROOT+s.name+"/States",[])) pin.append(el("option",{value:st}, st));
+    subscribeExtra(["/AdvantageKit/RealOutputs/Subsystem/"+s.name+"/State","/AdvantageKit/RealOutputs/Subsystem/"+s.name+"/WantedState"]);
+    card.append(
+      el("div",{class:"row between"}, el("h2",{}, s.name), seg),
+      el("div",{class:"row between"}, el("span",{class:"state","data-r":"state"}), el("label",{class:"row hint"}, "Pin to ", pin)),
+      el("div",{class:"note","data-r":"note"}),
+      el("div",{class:"iochips","data-r":"chips"}));
+    listEl.append(card);
+  }
+}
+
+function buildBench(subs){
+  benchEl.innerHTML = "";
+  const s = subs.find(x => x.name === selected) || subs[0];
+  if (!s){ benchEl.append(el("div",{class:"empty"}, "Waiting for the robot to publish its subsystems.")); return; }
+  selected = s.name;
+  benchEl.append(el("div",{class:"row between"}, el("h2",{}, s.name), el("span",{class:"hint","data-r":"benchHint"})));
+  for (const io of s.ios.values()) benchEl.append(buildIo(s.name, io));
+  if (!s.ios.size) benchEl.append(el("div",{class:"empty"}, "This subsystem has no library IO (mechanisms, ToF, gyro) to control."));
+}
+
+function numInput(id, topic, label){
+  const inp = el("input",{type:"number", step:"any", id, "aria-label":label, "data-topic":topic});
+  const send = () => { const v = parseFloat(inp.value); if (Number.isFinite(v)) write(topic, "double", v); };
+  inp.addEventListener("change", send);
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+  return inp;
+}
+
+function buildIo(sub, io){
+  const p = ROOT+sub+"/IO/"+io.name+"/";
+  const key = store.get(p+"LoggingKey","");
+  const card = el("div",{class:"io","data-io":io.name});
+  const enabled = el("input",{type:"checkbox", id:"en-"+sub+"-"+io.name, onchange:(e)=>write(p+"Enabled","boolean",e.target.checked)});
+  card.append(el("div",{class:"io-head"},
+    el("div",{}, el("h3",{}, io.name), el("div",{class:"key"}, p)),
+    el("label",{class:"switch"}, enabled, "On")));
+
+  if (io.sensors.length){
+    const sec = el("fieldset",{class:"section","data-r":"sensors"}, el("legend",{class:"label"}, "Sensor overrides"));
+    for (const c of io.sensors){
+      const mt = measuredTopic(key, c); if (mt) subscribeExtra([mt]);
+      const act = el("input",{type:"checkbox", id:"ov-"+sub+"-"+io.name+"-"+c, onchange:(e)=>write(p+"Override/"+c+"/Active","boolean",e.target.checked)});
+      sec.append(el("div",{class:"ovr"},
+        el("label",{class:"switch"}, act, c),
+        el("span",{class:"meas","data-meas":mt || ""}, mt ? "measured –" : (c==="Yaw"||c==="Pitch"||c==="Roll" ? "degrees" : "")),
+        numInput("ovv-"+sub+"-"+io.name+"-"+c, p+"Override/"+c+"/Value", c+" override value")));
+    }
+    card.append(sec);
+  }
+
+  if (io.manual){
+    const modes = store.get(p+"Manual/Modes",[]);
+    const fs = el("fieldset",{class:"section","data-r":"manual"}, el("legend",{class:"label"}, "Output override"));
+    const seg = el("div",{class:"seg modes", role:"group","aria-label":io.name+" output mode"});
+    for (const m of modes) seg.append(el("button",{type:"button","data-mode":m, onclick:()=>write(p+"Manual/Mode","string",m)}, m.replaceAll("_"," ")));
+    const sp = numInput("sp-"+sub+"-"+io.name, p+"Manual/Setpoint", io.name+" setpoint");
+    fs.append(
+      seg,
+      el("div",{class:"sp"}, el("span",{class:"lbl"},"Setpoint"), sp),
+      el("span",{class:"hint"}, "In the units of the mechanism's setTarget methods. Applies while the subsystem is in Manual."));
+    card.append(fs);
+    const key = store.get(p+"LoggingKey","");
+    const outBase = "/AdvantageKit/RealOutputs/MwLib/Subsystems/"+sub+"/IO/"+io.name+"/";
+    const ts = [outBase+"ManualModeApplied", outBase+"ManualSetpointApplied"];
+    if (key) ts.push("/AdvantageKit/"+key+"Inputs/position", "/AdvantageKit/"+key+"Inputs/velocity");
+    subscribeExtra(ts);
+    card.append(
+      el("div",{class:"readout"},
+        el("div",{}, el("small",{},"Applying"), el("b",{"data-r":"applied"},"–")),
+        el("div",{}, el("small",{},"Position"), el("b",{"data-r":"pos"},"–")),
+        el("div",{}, el("small",{},"Velocity"), el("b",{"data-r":"vel"},"–"))));
+  }
+  if (!io.sensors.length && !io.manual) card.append(el("div",{class:"hint"}, "Only an on/off switch."));
+  return card;
+}
+
+function setVal(input, v){ if (document.activeElement === input || v === undefined) return; if (input.type === "checkbox") input.checked = !!v; else if (String(input.value) !== String(v)) input.value = typeof v === "number" ? +v.toFixed(4) : v; }
+
+function refresh(){
+  const subs = topology();
+  const sig = subs.map(s => s.name+":"+[...s.ios.values()].map(i=>i.name+i.sensors.join()+(i.manual?"m":"")).join(",")).join("|");
+  if (sig !== topoSeen){ topoSeen = sig; subsSnapshot = subs; buildList(subs); buildBench(subs); }
+  const f = fms(), on = dsEnabled(), haveDs = store.values.has("/FMSInfo/FMSControlData");
+  document.getElementById("fmsChip").hidden = !f;
+  document.getElementById("fmsBanner").hidden = !f;
+  const ds = document.getElementById("dsChip"); ds.hidden = !haveDs; ds.className = "chip " + (on ? "ok" : ""); ds.lastElementChild.textContent = on ? "Enabled" : "Disabled";
+  const gp = store.get("/MwLib/TuningGamepad/Selected",""); const gpEl = document.getElementById("gpChip"); gpEl.hidden = !gp; gpEl.textContent = "Gamepad: " + gp;
+
+  for (const card of listEl.querySelectorAll(".sub")){
+    const s = card.dataset.sub, req = String(store.get(ROOT+s+"/Control","ROBOT")).toUpperCase(), act = store.get(ROOT+s+"/ActiveControl","ROBOT");
+    card.dataset.c = act; card.setAttribute("aria-current", String(s === selected));
+    for (const b of card.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.v === req));
+    setVal(card.querySelector("select"), store.get(ROOT+s+"/PinnedState",""));
+    const st = store.get("/AdvantageKit/RealOutputs/Subsystem/"+s+"/State");
+    const r = card.querySelector('[data-r="state"]'); r.innerHTML = ""; r.append("State ", el("b",{}, st === undefined ? "–" : String(st)), "  ·  applying ", el("b",{}, CONTROL_LABEL[act] || act));
+    let note = "";
+    if (req !== act) note = f && (req === "PINNED" || req === "MANUAL") ? `${CONTROL_LABEL[req]} is ignored while the FMS is attached.` : `Asked for ${CONTROL_LABEL[req] || req}; the robot is applying ${CONTROL_LABEL[act] || act}. Check the pinned state name.`;
+    card.querySelector('[data-r="note"]').textContent = note;
+    const chips = card.querySelector('[data-r="chips"]'); chips.innerHTML = "";
+    const sub = subsSnapshot.find(x => x.name === s);
+    if (sub) for (const io of sub.ios.values()){
+      const p = ROOT+s+"/IO/"+io.name+"/";
+      const off = store.get(p+"Enabled", true) === false;
+      const ovr = io.sensors.filter(c => store.get(p+"Override/"+c+"/Active", false));
+      chips.append(el("span",{class:"iochip" + (off ? " off" : ovr.length ? " ovrd" : "")}, io.name + (off ? " · off" : "") + (ovr.length ? " · " + ovr.join(", ") + " overridden" : "")));
+    }
+  }
+
+  const s = selected; if (!s) return;
+  const act = store.get(ROOT+s+"/ActiveControl","ROBOT");
+  const hint = benchEl.querySelector('[data-r="benchHint"]');
+  if (hint) hint.textContent = act === "MANUAL" ? "Manual: the output overrides below drive the mechanisms." : `Switch ${s} to Manual to override its outputs.`;
+  for (const card of benchEl.querySelectorAll(".io")){
+    const io = card.dataset.io, p = ROOT+s+"/IO/"+io+"/";
+    const en = store.get(p+"Enabled", true) !== false;
+    setVal(card.querySelector('input[id^="en-"]'), en);
+    card.classList.toggle("disabled", !en);
+    const sens = card.querySelector('[data-r="sensors"]');
+    if (sens){
+      sens.disabled = f;
+      for (const inp of sens.querySelectorAll('input[id^="ov-"]')) setVal(inp, store.get(p+"Override/"+inp.id.split("-").pop()+"/Active", false));
+      for (const inp of sens.querySelectorAll('input[type=number]')) setVal(inp, store.get(inp.dataset.topic, 0));
+      for (const m of sens.querySelectorAll("[data-meas]")) if (m.dataset.meas) m.textContent = "measured " + fmt(store.get(m.dataset.meas));
+    }
+    const man = card.querySelector('[data-r="manual"]');
+    if (man){
+      man.disabled = act !== "MANUAL" || !en;
+      const md = store.get(p+"Manual/Mode","NEUTRAL");
+      for (const b of man.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === md));
+      for (const inp of man.querySelectorAll('input[type=number]')) setVal(inp, store.get(inp.dataset.topic, 0));
+      const key = store.get(p+"LoggingKey","");
+      const out = "/AdvantageKit/RealOutputs/MwLib/Subsystems/"+s+"/IO/"+io+"/";
+      const am = store.get(out+"ManualModeApplied");
+      card.querySelector('[data-r="applied"]').textContent = act !== "MANUAL" ? "robot logic" : !en ? "off" : am === undefined ? "–" : am === "NEUTRAL" ? "neutral" : am.replaceAll("_"," ").toLowerCase() + " " + fmt(store.get(out+"ManualSetpointApplied"));
+      card.querySelector('[data-r="pos"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/position"));
+      card.querySelector('[data-r="vel"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/velocity"));
+    }
+  }
+}
+
+// =====================================================================
+// Start
+// =====================================================================
+let savedHost = null; try { savedHost = localStorage.getItem("mwlib-console-host"); } catch(e) {}
+hostEl.value = location.hostname || savedHost || "localhost";
+if (window.MW_CONSOLE_DEMO === true || location.hash === "#demo") startDemo(); else connect(hostEl.value);
+setInterval(refresh, 100);
+})();
+</script>
+<!--CONSOLE-END-->
+</body>
+</html>

@@ -182,6 +182,44 @@ public abstract class SubsystemManager {
     }
 
     /**
+     * @param name a subsystem's name (its class name without {@code Subsystem})
+     * @return the registered subsystem with that name, or null
+     */
+    public MwSubsystemBase getSubsystem(String name) {
+        for (MwSubsystemBase subsystem : subsystems) {
+            if (subsystem.getName().equals(name)) {
+                return subsystem;
+            }
+        }
+        return null;
+    }
+
+    /** @return the registered subsystems, in registration order */
+    public List<MwSubsystemBase> getSubsystems() {
+        return List.copyOf(subsystems);
+    }
+
+    /**
+     * @param subsystem a registered subsystem
+     * @return the controls of each of its library IOs, child IOs included
+     */
+    public List<IoControls> getIoControls(MwSubsystemBase subsystem) {
+        List<IoControls> list = io_controls_.get(Objects.requireNonNull(subsystem));
+        return list == null ? List.of() : List.copyOf(list);
+    }
+
+    /**
+     * Serves the subsystem console (a web page for every control on this page's NT entries) from
+     * the robot. Open {@code http://<robot>:<port>/} in a browser on the driver station. It talks
+     * NT4 to the robot directly, so nothing needs to be deployed.
+     *
+     * @param port the HTTP port, e.g. {@link SubsystemConsole#DEFAULT_PORT}
+     */
+    public void startSubsystemConsole(int port) {
+        SubsystemConsole.start(port);
+    }
+
+    /**
      * @param io an IO of a registered subsystem
      * @return its controls, or null if it is not a {@link ControllableIo} of a registered subsystem
      */
@@ -324,6 +362,11 @@ public abstract class SubsystemManager {
      */
     protected void setManualDutyCycleLimit(double limit) {
         manual_duty_cycle_limit_ = Math.max(0.0, Math.min(1.0, limit));
+    }
+
+    /** @return the manual duty-cycle limit */
+    double getManualDutyCycleLimit() {
+        return manual_duty_cycle_limit_;
     }
 
     /**

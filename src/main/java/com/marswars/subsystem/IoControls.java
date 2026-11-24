@@ -147,6 +147,8 @@ public final class IoControls {
     private record Sensor(BoolField active, DoubleField value) {}
 
     private final ControllableIo io_;
+    private final String subsystem_name_;
+    private final String io_name_;
     private final String display_name_;
     private final String log_key_;
     private final NetworkTable table_;
@@ -195,6 +197,8 @@ public final class IoControls {
      */
     IoControls(ControllableIo io, String subsystem_name, String io_name) {
         io_ = io;
+        subsystem_name_ = subsystem_name;
+        io_name_ = io_name;
         display_name_ = subsystem_name + "/" + io_name;
         log_key_ = "MwLib/Subsystems/" + subsystem_name + "/IO/" + io_name;
         table_ =
@@ -202,6 +206,10 @@ public final class IoControls {
                         .getTable(SubsystemControlTable.NT_ROOT + subsystem_name + "/IO/" + io_name);
 
         enabled_ = add(new BoolField(table_, "Enabled", true));
+
+        // Lets a dashboard find this IO's logged inputs (e.g. Inputs/position) to plot
+        String logging_key = io.getLoggingKey();
+        table_.getStringTopic("LoggingKey").publish().set(logging_key == null ? "" : logging_key);
 
         manual_modes_ = List.copyOf(io.getManualModes());
         if (manual_modes_.isEmpty()) {
@@ -261,6 +269,78 @@ public final class IoControls {
     public boolean isSensorOverridden(String channel) {
         Sensor sensor = sensors_.get(channel);
         return sensor != null && overrides_allowed_ && sensor.active().value;
+    }
+
+    /** @return the owning subsystem's name */
+    public String getSubsystemName() {
+        return subsystem_name_;
+    }
+
+    /** @return this IO's name within its subsystem (its NT folder name) */
+    public String getIoName() {
+        return io_name_;
+    }
+
+    /** @return the manual modes this IO supports; empty if it has no outputs to drive */
+    public List<ManualMode> getManualModes() {
+        return manual_modes_;
+    }
+
+    /** @return true while the IO's subsystem is in {@link SubsystemControl#MANUAL} */
+    public boolean isManual() {
+        return manual_;
+    }
+
+    /**
+     * Asks for a manual output from code, the same as a dashboard write; it applies at the top of
+     * the next loop. Does nothing if the IO has no manual modes.
+     *
+     * @param mode the output mode
+     * @param setpoint the setpoint, in the units of the matching {@code setTarget*} method
+     */
+    public void requestManual(ManualMode mode, double setpoint) {
+        if (manual_mode_ == null) {
+            return;
+        }
+        manual_mode_.entry.set(mode.name());
+        manual_setpoint_.entry.set(setpoint);
+    }
+
+    /**
+     * Turns the step test on or off from code, the same as a dashboard write.
+     *
+     * @param on true to start the step test
+     */
+    public void requestStep(boolean on) {
+        if (step_ != null) {
+            step_.entry.set(on);
+        }
+    }
+
+    /**
+     * Asks the IO to hold still from code: position mechanisms hold where they are, others go to
+     * zero velocity, or neutral if they support neither.
+     */
+    public void requestHold() {
+        if (manual_mode_ == null) {
+            return;
+        }
+        ManualMode mode = holdMode();
+        requestManual(mode, io_.getManualSeed(mode));
+    }
+
+    private ManualMode holdMode() {
+        if (manual_modes_.contains(ManualMode.POSITION)) {
+            return ManualMode.POSITION;
+        } else if (manual_modes_.contains(ManualMode.VELOCITY)) {
+            return ManualMode.VELOCITY;
+        }
+        return ManualMode.NEUTRAL;
+    }
+
+    /** @return the step test as last requested */
+    public boolean isStepRequested() {
+        return step_ != null && step_.value;
     }
 
     /** @return false while the IO is switched off */
@@ -361,14 +441,7 @@ public final class IoControls {
 
     /** Position mechanisms hold where they are; velocity mechanisms start at zero. */
     private void seedManual() {
-        ManualMode mode;
-        if (manual_modes_.contains(ManualMode.POSITION)) {
-            mode = ManualMode.POSITION;
-        } else if (manual_modes_.contains(ManualMode.VELOCITY)) {
-            mode = ManualMode.VELOCITY;
-        } else {
-            mode = ManualMode.NEUTRAL;
-        }
+        ManualMode mode = holdMode();
         double seed = io_.getManualSeed(mode);
         manual_mode_.write(mode.name());
         manual_setpoint_.write(seed);
