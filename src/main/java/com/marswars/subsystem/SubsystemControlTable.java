@@ -20,8 +20,8 @@ import java.util.Locale;
  * One subsystem's live control entries on NetworkTables:
  *
  * <ul>
- *   <li>{@code /MwLib/Subsystems/<Name>/Control} (dashboard writes): {@code ROBOT}, {@code PINNED}
- *       or {@code OFF}
+ *   <li>{@code /MwLib/Subsystems/<Name>/Control} (dashboard writes): {@code ROBOT}, {@code PINNED},
+ *       {@code MANUAL} or {@code OFF}
  *   <li>{@code /MwLib/Subsystems/<Name>/PinnedState} (dashboard writes): a state name
  *   <li>{@code /MwLib/Subsystems/<Name>/ActiveControl} (robot writes): what was applied
  *   <li>{@code /MwLib/Subsystems/<Name>/States} (robot writes): the state names a dashboard can
@@ -113,6 +113,7 @@ final class SubsystemControlTable {
         boolean fms_locked =
                 fms_attached
                         && (requested == SubsystemControl.PINNED
+                                || requested == SubsystemControl.MANUAL
                                 || (requested == SubsystemControl.OFF && !allow_off_with_fms));
         if (fms_locked) {
             applied = SubsystemControl.ROBOT;
@@ -132,6 +133,7 @@ final class SubsystemControlTable {
                 switch (applied) {
                     case ROBOT -> fms_locked ? name + ": " + requested + " ignored while FMS attached" : null;
                     case PINNED -> name + " pinned to " + inputs_.pinned_state;
+                    case MANUAL -> name + " in MANUAL";
                     case OFF -> name + " is OFF";
                 };
         status_alert_.setText(status == null ? "" : status);

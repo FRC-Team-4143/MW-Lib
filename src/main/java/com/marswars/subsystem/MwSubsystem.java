@@ -96,8 +96,9 @@ public abstract class MwSubsystem<
 
     /**
      * Applied by {@link SubsystemManager} at the top of each loop. Leaving {@link
-     * SubsystemControl#OFF}, or going back to {@link SubsystemControl#ROBOT}, calls {@link #reset()}
-     * and returns the wanted state to the default so stale state is never resumed.
+     * SubsystemControl#OFF} or {@link SubsystemControl#MANUAL} for a control that runs the logic,
+     * or going back to {@link SubsystemControl#ROBOT}, calls {@link #reset()} and returns the
+     * wanted state to the default so stale state is never resumed.
      */
     @Override
     public final void applyControl(SubsystemControl control, String pinned_state) {
@@ -108,8 +109,11 @@ public abstract class MwSubsystem<
 
         boolean resume =
                 control != SubsystemControl.OFF
+                        && control != SubsystemControl.MANUAL
                         && previous != control
-                        && (previous == SubsystemControl.OFF || control == SubsystemControl.ROBOT);
+                        && (previous == SubsystemControl.OFF
+                                || previous == SubsystemControl.MANUAL
+                                || control == SubsystemControl.ROBOT);
         if (resume) {
             reset();
             wanted_state_ = default_state_;

@@ -20,6 +20,15 @@ public enum SubsystemControl {
     PINNED,
 
     /**
+     * Tuning. The subsystem's logic does not run and every {@code setWantedState} request is
+     * dropped. Each mechanism follows its manual output at {@code
+     * /MwLib/Subsystems/<Name>/IO/<Mech>/Manual/*}, and its mechanisms' tunables (gains) accept
+     * changes. On entry, position mechanisms hold where they are and velocity mechanisms start at
+     * zero. Ignored while the FMS is attached.
+     */
+    MANUAL,
+
+    /**
      * The subsystem's logic does not run and every IO puts its outputs in neutral (each motor's
      * configured brake or coast). Inputs are still read and logged. Wanted-state requests are
      * dropped and logged.

@@ -33,6 +33,7 @@ import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
+import com.marswars.subsystem.ManualMode;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
@@ -215,13 +216,7 @@ public class FlywheelMech extends MechBase {
                 getLoggingKey() + "VelocityGains",
                 this::configVelocitySlot,
                 slot1Config);
-        MwLog.tunable(
-                getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
-        MwLog.tunable(
-                getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
         TunablePid.create(getLoggingKey() + "CurrentGains", current_pid_);
-        MwLog.tunable(
-                getLoggingKey() + "CurrentGains/Setpoint", 0.0, (val) -> setTargetCurrent(val));
     }
 
     /** {@inheritDoc} */
@@ -391,7 +386,7 @@ public class FlywheelMech extends MechBase {
      * @return The current velocity of the flywheel in radians per second
      */
     public double getCurrentVelocity() {
-        return inputs_.velocity;
+        return sensor("Velocity", inputs_.velocity);
     }
 
     /**
@@ -498,5 +493,35 @@ public class FlywheelMech extends MechBase {
      */
     public void setCurrentLimits(CurrentLimitsConfigs currentLimits) {
         setMotorCurrentLimit(currentLimits, motors_);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected List<String> getSensorChannels() {
+        return List.of("Velocity");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ManualMode> getManualModes() {
+        return List.of(ManualMode.NEUTRAL, ManualMode.VELOCITY, ManualMode.MOTION_PROFILE_VELOCITY, ManualMode.DUTY_CYCLE, ManualMode.CURRENT);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void applyManualOutput(ManualMode mode, double setpoint) {
+        switch (mode) {
+            case VELOCITY -> setTargetVelocity(setpoint);
+            case MOTION_PROFILE_VELOCITY -> setTargetVelocityMotionProfile(setpoint);
+            case DUTY_CYCLE -> setTargetDutyCycle(setpoint);
+            case CURRENT -> setTargetCurrent(setpoint);
+            default -> {}
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public double getManualSeed(ManualMode mode) {
+        return 0.0;
     }
 }

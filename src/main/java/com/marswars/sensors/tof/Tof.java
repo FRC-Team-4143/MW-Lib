@@ -1,12 +1,13 @@
 package com.marswars.sensors.tof;
 
-import com.marswars.subsystem.SubsystemIoBase;
+import com.marswars.subsystem.ControllableIo;
+import com.marswars.subsystem.IoControls;
 
 import com.marswars.logging.MwLog;
 import edu.wpi.first.wpilibj.RobotBase;
 import org.littletonrobotics.junction.Logger;
 
-public abstract class Tof implements SubsystemIoBase{
+public abstract class Tof implements ControllableIo {
 
     protected final String tof_name_;
 
@@ -15,6 +16,9 @@ public abstract class Tof implements SubsystemIoBase{
     private String logging_prefix_ = "Tof/Unknown/";
 
     protected final TofInputsAutoLogged inputs_ = new TofInputsAutoLogged();
+
+    /** Set once the owning subsystem is registered; null until then. */
+    private IoControls controls_ = null;
 
     public enum RangeMode {
         SHORT,
@@ -34,9 +38,24 @@ public abstract class Tof implements SubsystemIoBase{
         // identiy if we are in simulation
         IS_SIM = RobotBase.isSimulation();
         setLoggingPrefix(logging_prefix);
-        if(IS_SIM){
-            MwLog.tunable(getLoggingKey() + "Range Override", 0.0, (val) -> inputs_.range = val);
-        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getIoName() {
+        return tof_name_;
+    }
+
+    /** {@inheritDoc} The range can be overridden as {@code Range}, in meters. */
+    @Override
+    public void attachControls(IoControls controls) {
+        controls_ = controls;
+        controls.declareSensor("Range");
+    }
+
+    /** @return false while this sensor is switched off from the dashboard */
+    public boolean isAvailable() {
+        return controls_ == null || controls_.isEnabled();
     }
 
     private void setLoggingPrefix(String subsystem_name) {
@@ -72,11 +91,16 @@ public abstract class Tof implements SubsystemIoBase{
     }
 
     /**
-     * Get the measured range in meters
+     * Get the measured range in meters, or the dashboard override. Positive infinity while the
+     * sensor is switched off.
      * @return range in meters
      */
     public double getRange(){
-        return inputs_.range;
+        if (!isAvailable()) {
+            // switched off: report nothing in view
+            return Double.POSITIVE_INFINITY;
+        }
+        return controls_ == null ? inputs_.range : controls_.sensorValue("Range", inputs_.range);
     }
 
     /**

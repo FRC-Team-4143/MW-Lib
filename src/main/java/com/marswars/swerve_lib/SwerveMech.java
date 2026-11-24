@@ -22,6 +22,9 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import com.marswars.mechanisms.MechBase;
+import com.marswars.subsystem.ControllableIo;
+import com.marswars.subsystem.ManualMode;
+import java.util.List;
 import com.marswars.sensors.gyro.Gyro;
 import com.marswars.sensors.gyro.Pigeon2Gyro;
 import com.marswars.swerve_lib.ChassisRequest.ChassisRequestParameters;
@@ -492,5 +495,48 @@ public class SwerveMech extends MechBase {
         for (var module : modules_) {
             module.setSteerGains(gains);
         }
+    }
+
+    private final ChassisRequest.PointWheelsAt manual_point_request_ =
+            new ChassisRequest.PointWheelsAt();
+    private final ChassisRequest.ApplyChassisSpeeds manual_drive_request_ =
+            new ChassisRequest.ApplyChassisSpeeds()
+                    .withDriveRequestType(Module.DriveControlMode.CLOSED_LOOP)
+                    .withSteerRequestType(Module.SteerControlMode.CLOSED_LOOP);
+
+    /** {@inheritDoc} The gyro is updated by this mech, so its controls attach through here. */
+    @Override
+    public List<ControllableIo> getChildIos() {
+        return List.of(gyro_);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@link ManualMode#POSITION}: every wheel points at the setpoint (radians) with the drive
+     * stopped, for steer gains. {@link ManualMode#VELOCITY}: drive straight forward,
+     * robot-relative, at the setpoint (m/s), for drive gains.
+     */
+    @Override
+    public List<ManualMode> getManualModes() {
+        return List.of(ManualMode.NEUTRAL, ManualMode.POSITION, ManualMode.VELOCITY);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void applyManualOutput(ManualMode mode, double setpoint) {
+        switch (mode) {
+            case POSITION -> setChassisRequest(
+                    manual_point_request_.withModuleDirection(Rotation2d.fromRadians(setpoint)));
+            case VELOCITY -> setChassisRequest(
+                    manual_drive_request_.withSpeeds(new ChassisSpeeds(setpoint, 0.0, 0.0)));
+            default -> {}
+        }
+    }
+
+    /** {@inheritDoc} Wheels hold the front-left module's angle; the drive starts stopped. */
+    @Override
+    public double getManualSeed(ManualMode mode) {
+        return mode == ManualMode.POSITION ? current_module_states_[0].angle.getRadians() : 0.0;
     }
 }
