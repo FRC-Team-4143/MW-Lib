@@ -323,7 +323,10 @@ public class RollerMech extends MechBase {
     /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
-        switch (control_mode_) {
+        // Followers follow the leader into neutral
+        if (isNeutralOutputs()) {
+            motors_[0].setControl(neutral_request_);
+        } else switch (control_mode_) {
             case MOTION_PROFILE_POSITION:
                 motors_[0].setControl(motion_magic_position_request_);
                 break;

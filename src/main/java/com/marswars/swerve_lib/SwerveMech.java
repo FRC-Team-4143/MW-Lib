@@ -225,8 +225,8 @@ public class SwerveMech extends MechBase {
 
     /** {@inheritDoc} */
     public void writeOutputs(double timestamp) {
-        // Stop moving when disabled
-        if (DriverStation.isDisabled()) {
+        // Stop moving when disabled or held neutral
+        if (DriverStation.isDisabled() || isNeutralOutputs()) {
             for (var module : modules_) {
                 module.stop();
             }

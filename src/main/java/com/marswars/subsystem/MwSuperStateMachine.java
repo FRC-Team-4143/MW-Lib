@@ -20,6 +20,10 @@ import java.util.List;
  * anything that involves more than one subsystem lives in one place, here, and teleop and autos
  * share it. A request is instant; an auto that must wait for a state checks {@link #isIn}.
  *
+ * <p>A subsystem pinned or switched off from the dashboard (see {@link SubsystemControl}) drops
+ * the requests made here, so this code doesn't need to check. Where the robot should choose a
+ * different plan instead, check {@link #isAvailable(MwSubsystemBase)}.
+ *
  * <p>The robot's states are an enum in its constants class, the way a subsystem's states live in
  * its {@code *Constants} class:
  *

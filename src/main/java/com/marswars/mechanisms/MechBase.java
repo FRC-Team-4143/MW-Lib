@@ -5,6 +5,7 @@ import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXSConfiguration;
 import com.ctre.phoenix6.configs.TalonFXSConfigurator;
+import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.StrictFollower;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.hardware.TalonFXS;
@@ -37,6 +38,10 @@ public abstract class MechBase implements SubsystemIoBase {
     private String logging_prefix_ = "Subsystem/Unknown/";
 
     protected final boolean IS_SIM;
+
+    /** Sent to the leader instead of the mech's target while outputs are held neutral. */
+    protected final NeutralOut neutral_request_ = new NeutralOut();
+    private boolean neutral_outputs_ = false;
 
     /**
      * Creates a new mechanism base
@@ -77,6 +82,20 @@ public abstract class MechBase implements SubsystemIoBase {
      */
     public String getLoggingKey() {
         return logging_prefix_ + mech_name_ + "/";
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setNeutralOutputs(boolean neutral) {
+        neutral_outputs_ = neutral;
+    }
+
+    /**
+     * @return true while {@link #writeOutputs(double)} must hold every motor in neutral (each
+     *     motor's configured brake or coast) instead of applying its target
+     */
+    public boolean isNeutralOutputs() {
+        return neutral_outputs_;
     }
 
     /**
