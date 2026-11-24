@@ -67,8 +67,7 @@ button,input,select{font:inherit;color:inherit}
 
 .sub{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:10px 12px;display:grid;gap:8px;cursor:pointer}
 .sub[aria-current="true"]{box-shadow:0 0 0 2px var(--accent)}
-.sub[data-c="ROBOT"]{border-left-color:var(--ok)} .sub[data-c="PINNED"]{border-left-color:var(--pin)}
-.sub[data-c="MANUAL"]{border-left-color:var(--tune)} .sub[data-c="OFF"]{border-left-color:var(--off)}
+.sub[data-c="ENABLED"]{border-left-color:var(--ok)} .sub[data-c="TUNING"]{border-left-color:var(--tune)} .sub[data-c="DISABLED"]{border-left-color:var(--off)}
 .row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .row.between{justify-content:space-between}
 .state{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
@@ -76,19 +75,16 @@ button,input,select{font:inherit;color:inherit}
 .note{font-size:.8rem;color:var(--off)}
 .iochips{display:flex;flex-wrap:wrap;gap:4px}
 .iochip{flex:0 0 auto;font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted)}
-.iochip.off{color:var(--off);border-color:var(--off)} .iochip.ovrd{color:var(--pin);border-color:var(--pin)}
+.iochip.off{color:var(--off);border-color:var(--off)}
 
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--sunk);flex-wrap:wrap}
 .seg button{border:0;border-right:1px solid var(--line);background:transparent;padding:4px 10px;font-size:.8rem;color:var(--muted);cursor:pointer}
 .seg button:last-child{border-right:0}
 .seg button:disabled{cursor:not-allowed;opacity:.5}
 .seg button[aria-pressed="true"]{font-weight:650}
-.seg button[aria-pressed="true"][data-v="ROBOT"]{background:var(--ok-bg);color:var(--ok)}
-.seg button[aria-pressed="true"][data-v="PINNED"]{background:var(--pin-bg);color:var(--pin)}
-.seg button[aria-pressed="true"][data-v="MANUAL"]{background:var(--tune-bg);color:var(--tune)}
-.seg button[aria-pressed="true"][data-v="OFF"]{background:var(--off-bg);color:var(--off)}
-.seg.modes button{font-family:var(--mono);font-size:.72rem;padding:3px 8px}
-.seg.modes button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button[aria-pressed="true"][data-v="ENABLED"]{background:var(--ok-bg);color:var(--ok)}
+.seg button[aria-pressed="true"][data-v="TUNING"]{background:var(--tune-bg);color:var(--tune)}
+.seg button[aria-pressed="true"][data-v="DISABLED"]{background:var(--off-bg);color:var(--off)}
 select{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);font-family:var(--mono);font-size:.8rem}
 
 .bench{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:12px;min-width:0}
@@ -100,21 +96,18 @@ select{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background
 .switch input{width:16px;height:16px;accent-color:var(--accent)}
 .section{display:grid;gap:6px}
 .section > .label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.ovr{display:grid;grid-template-columns:minmax(70px,auto) minmax(0,1fr) 110px;gap:8px;align-items:center}
-.ovr .meas{font-family:var(--mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 input[type=number]{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-family:var(--mono);font-size:.82rem}
-.sp{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;max-width:320px}
+.setpoints{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.sp{display:grid;gap:2px}
 .sp .lbl{font-size:.78rem;color:var(--muted)}
-.readout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-width:360px}
 .readout div{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 8px;min-width:0}
 .readout small{display:block;font-size:.68rem;color:var(--muted)}
 .readout b{font-family:var(--mono);font-weight:550;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .hint{font-size:.82rem;color:var(--muted)}
 .empty{border:1px dashed var(--line);border-radius:9px;padding:22px;text-align:center;color:var(--muted)}
-.gp{font-size:.78rem}
 fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:8px}
 fieldset:disabled{opacity:.55}
-@media (max-width:520px){.ovr{grid-template-columns:minmax(0,1fr) 100px}.ovr .meas{grid-column:1/-1}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -124,7 +117,6 @@ fieldset:disabled{opacity:.55}
     <span id="conn" class="chip"><i></i><span>Connecting</span></span>
     <span id="dsChip" class="chip" hidden><i></i><span></span></span>
     <span id="fmsChip" class="chip off" hidden><i></i><span>FMS attached</span></span>
-    <span id="gpChip" class="chip gp" hidden></span>
     <span class="grow"></span>
     <form class="host" id="hostForm">
       <label for="host" class="muted">Robot</label>
@@ -138,7 +130,7 @@ fieldset:disabled{opacity:.55}
     <label><input type="checkbox" id="demoEnabled" checked> Robot enabled</label>
     <label><input type="checkbox" id="demoFms"> FMS attached</label>
   </div>
-  <div id="fmsBanner" class="banner warn" hidden>FMS attached: Pinned, Manual and sensor overrides are ignored by the robot. Switching things off may still work, depending on the robot's settings.</div>
+  <div id="fmsBanner" class="banner warn" hidden>FMS attached: Tuning is refused, and anything left in Tuning goes back to Enabled when the robot resets. Disabling still works.</div>
 
   <div class="grid">
     <div class="col" id="subList"></div>
@@ -150,8 +142,9 @@ fieldset:disabled{opacity:.55}
 (function(){
 "use strict";
 const ROOT = "/MwLib/Subsystems/";
-const CONTROLS = ["ROBOT","PINNED","MANUAL","OFF"];
-const CONTROL_LABEL = {ROBOT:"Robot",PINNED:"Pinned",MANUAL:"Manual",OFF:"Off"};
+const MODES = ["ENABLED","DISABLED","TUNING"];
+const MODE_LABEL = {ENABLED:"Enabled",DISABLED:"Disabled",TUNING:"Tuning"};
+const SETPOINT_LABEL = {"PositionGains/Setpoint":"Position","VelocityGains/Setpoint":"Velocity","DutyCycle/Setpoint":"Duty cycle","CurrentGains/Setpoint":"Current"};
 
 // =====================================================================
 // MessagePack (just what NT4 uses)
@@ -254,7 +247,7 @@ class NT4 {
       this.onStatus("connected");
       this.sendTimeSync();
       this.timer = setInterval(() => this.sendTimeSync(), 3000);
-      this.subscribe(["/MwLib/","/FMSInfo/","/AdvantageKit/RealOutputs/MwLib/"], 0.05);
+      this.subscribe(["/MwLib/","/FMSInfo/"], 0.05);
     };
     ws.onclose = () => { clearInterval(this.timer); if (!this.closed){ this.onStatus("disconnected"); this.retry(); } };
     ws.onerror = () => {};
@@ -308,157 +301,116 @@ class NT4 {
 class DemoRobot {
   constructor(){
     this.t = 0; this.enabled = true; this.fms = false;
+    const P = ["PositionGains/Setpoint","VelocityGains/Setpoint","DutyCycle/Setpoint","CurrentGains/Setpoint"];
     this.subs = {
-      Drivetrain:{states:["IDLE","FIELD_CENTRIC","ROBOT_CENTRIC","CHOREO_PATH","TRACTOR_BEAM"],def:"IDLE",
-        ios:[{name:"Swerve",key:"Subsystem/Drivetrain/Swerve/",kind:"swerve",modes:["NEUTRAL","POSITION","VELOCITY"],sensors:[],min:-3.2,max:3.2,vmax:4.5},
-             {name:"Pigeon2",key:"Subsystem/Drivetrain/Pigeon2/",kind:"sensor",modes:[],sensors:["Yaw","Pitch","Roll"]}]},
+      Drivetrain:{states:["FIELD_CENTRIC","ROBOT_CENTRIC","TRACTOR_BEAM"],def:"FIELD_CENTRIC",
+        mechs:[{name:"Swerve",kind:"swerve",setpoints:[],vmax:4.5}]},
       Elevator:{states:["STOW","L2","L4"],def:"STOW",
-        ios:[{name:"Elevator",key:"Subsystem/Elevator/Elevator/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:0,max:1.4,g:3}]},
+        mechs:[{name:"Elevator",kind:"pos",setpoints:P,min:0,max:1.4,g:3}]},
       Intake:{states:["STOW","DEPLOY","EJECT"],def:"STOW",
-        ios:[{name:"Pivot",key:"Subsystem/Intake/Pivot/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:-0.2,max:1.9,g:2},
-             {name:"Rollers",key:"Subsystem/Intake/Rollers/",kind:"vel",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","MOTION_PROFILE_VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:-300,max:300,A:10},
-             {name:"Grapple0",key:"Subsystem/Intake/Grapple0/",kind:"tof",modes:[],sensors:["Range"]}]},
+        mechs:[{name:"Pivot",kind:"pos",setpoints:P,min:-0.2,max:1.9,g:2},
+               {name:"Rollers",kind:"vel",setpoints:P,min:-300,max:300,A:10}]},
       Shooter:{states:["IDLE","SPIN_UP","SHOOT"],def:"IDLE",
-        ios:[{name:"Flywheel",key:"Subsystem/Shooter/Flywheel/",kind:"vel",modes:["NEUTRAL","VELOCITY","MOTION_PROFILE_VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Velocity"],min:0,max:600,A:2.5},
-             {name:"Hood",key:"Subsystem/Shooter/Hood/",kind:"pos",modes:["NEUTRAL","POSITION","MOTION_PROFILE_POSITION","VELOCITY","DUTY_CYCLE","CURRENT"],sensors:["Position","Velocity"],min:0.2,max:1.0,g:1}]},
+        mechs:[{name:"Flywheel",kind:"vel",setpoints:P.slice(1),min:0,max:600,A:2.5},
+               {name:"Hood",kind:"pos",setpoints:P,min:0.2,max:1.0,g:1}]},
     };
-    // what each subsystem state asks its mechanisms for: [mode, value]
+    // what each state asks its mechanisms for: [target kind, value]
     this.targets = {
-      Drivetrain:{IDLE:{Swerve:["VELOCITY",0]},FIELD_CENTRIC:{Swerve:["VELOCITY",1.5]},ROBOT_CENTRIC:{Swerve:["VELOCITY",0.8]},CHOREO_PATH:{Swerve:["VELOCITY",2.5]},TRACTOR_BEAM:{Swerve:["VELOCITY",1.0]}},
-      Elevator:{STOW:{Elevator:["MOTION_PROFILE_POSITION",0.05]},L2:{Elevator:["MOTION_PROFILE_POSITION",0.6]},L4:{Elevator:["MOTION_PROFILE_POSITION",1.25]}},
-      Intake:{STOW:{Pivot:["POSITION",1.8],Rollers:["VELOCITY",0]},DEPLOY:{Pivot:["POSITION",0],Rollers:["VELOCITY",250]},EJECT:{Pivot:["POSITION",0.6],Rollers:["VELOCITY",-200]}},
-      Shooter:{IDLE:{Flywheel:["VELOCITY",0],Hood:["POSITION",0.35]},SPIN_UP:{Flywheel:["VELOCITY",480],Hood:["POSITION",0.7]},SHOOT:{Flywheel:["VELOCITY",500],Hood:["POSITION",0.72]}},
+      Drivetrain:{FIELD_CENTRIC:{Swerve:["VEL",1.5]},ROBOT_CENTRIC:{Swerve:["VEL",0.8]},TRACTOR_BEAM:{Swerve:["VEL",1.0]}},
+      Elevator:{STOW:{Elevator:["POS",0.05]},L2:{Elevator:["POS",0.6]},L4:{Elevator:["POS",1.25]}},
+      Intake:{STOW:{Pivot:["POS",1.8],Rollers:["VEL",0]},DEPLOY:{Pivot:["POS",0],Rollers:["VEL",250]},EJECT:{Pivot:["POS",0.6],Rollers:["VEL",-200]}},
+      Shooter:{IDLE:{Flywheel:["VEL",0],Hood:["POS",0.35]},SPIN_UP:{Flywheel:["VEL",480],Hood:["POS",0.7]},SHOOT:{Flywheel:["VEL",500],Hood:["POS",0.72]}},
     };
     this.driver = [
       {Drivetrain:"FIELD_CENTRIC",Elevator:"STOW",Intake:"DEPLOY",Shooter:"IDLE"},
       {Drivetrain:"FIELD_CENTRIC",Elevator:"L2",Intake:"STOW",Shooter:"SPIN_UP"},
       {Drivetrain:"TRACTOR_BEAM",Elevator:"L4",Intake:"STOW",Shooter:"SHOOT"},
-      {Drivetrain:"FIELD_CENTRIC",Elevator:"STOW",Intake:"EJECT",Shooter:"IDLE"},
+      {Drivetrain:"ROBOT_CENTRIC",Elevator:"STOW",Intake:"EJECT",Shooter:"IDLE"},
     ];
     for (const [s,def] of Object.entries(this.subs)){
-      def.control = "ROBOT"; def.state = def.def; def.wanted = def.def;
-      this.pubStr(ROOT+s+"/Control","ROBOT"); this.pubStr(ROOT+s+"/PinnedState",""); this.pubStr(ROOT+s+"/ActiveControl","ROBOT");
-      store.put(ROOT+s+"/States", def.states);
-      for (const io of def.ios){
-        const p = ROOT+s+"/IO/"+io.name+"/";
-        io.x = io.kind==="pos" ? 0.2 : 0; io.v = 0; io.ang = 0; io.prof = 0; io.manual = false; io.u = 0;
-        store.put(p+"Enabled", true); store.put(p+"LoggingKey", io.key);
-        for (const c of io.sensors){ store.put(p+"Override/"+c+"/Active", false); store.put(p+"Override/"+c+"/Value", 0); }
-        if (io.modes.length){
-          store.put(p+"Manual/Modes", io.modes); store.put(p+"Manual/Mode","NEUTRAL"); store.put(p+"Manual/Setpoint",0);
-          store.put(p+"Manual/Step",false); store.put(p+"Manual/StepTo",0); store.put(p+"Manual/StepPeriod",2);
-        }
+      def.mode = "ENABLED"; def.state = def.def;
+      store.put(ROOT+s+"/Mode","ENABLED"); store.put(ROOT+s+"/ActiveMode","ENABLED");
+      for (const m of def.mechs){
+        m.key = "Subsystem/"+s+"/"+m.name+"/";
+        m.x = m.kind==="pos" ? 0.2 : 0; m.v = 0; m.ang = 0; m.on = true; m.target = ["VEL",0]; m.seen = {};
+        store.put(ROOT+s+"/Mechs/"+m.name+"/Enabled", true); store.put(ROOT+s+"/Mechs/"+m.name+"/LoggingKey", m.key);
+        for (const sp of m.setpoints){ store.put("/Tuning/"+m.key+sp, 0); m.seen[sp] = 0; }
+        store.put("/Tuning/"+m.key+"PositionGains/kP", 40); // gains exist too; the console leaves them alone
       }
     }
-    store.put("/MwLib/TuningGamepad/Selected","");
-    // opening scene: Elevator overridden to hold 0.9 m, Intake rollers switched off,
-    // a faked game-piece reading on the ToF, Shooter pinned to SPIN_UP
+    // opening scene: Elevator on the bench holding 0.9 m, Intake rollers off, Shooter disabled
     for (let i=0;i<60;i++) this.step();
-    this.set(ROOT+"Elevator/Control","string","MANUAL");
-    this.step();
-    this.set(ROOT+"Elevator/IO/Elevator/Manual/Setpoint","double",0.9);
-    this.set(ROOT+"Intake/IO/Rollers/Enabled","boolean",false);
-    this.set(ROOT+"Intake/IO/Grapple0/Override/Range/Value","double",0.03);
-    this.set(ROOT+"Intake/IO/Grapple0/Override/Range/Active","boolean",true);
-    this.set(ROOT+"Shooter/PinnedState","string","SPIN_UP");
-    this.set(ROOT+"Shooter/Control","string","PINNED");
-    for (let i=0;i<200;i++) this.step();
+    store.put(ROOT+"Elevator/Mode","TUNING"); this.step();
+    store.put("/Tuning/Subsystem/Elevator/Elevator/PositionGains/Setpoint", 0.9);
+    store.put(ROOT+"Intake/Mechs/Rollers/Enabled", false);
+    store.put(ROOT+"Shooter/Mode","DISABLED");
+    for (let i=0;i<150;i++) this.step();
     this.timer = setInterval(() => this.step(), 20);
   }
-  pubStr(n,v){ store.put(n,v); }
   set(name, type, value){ store.put(name, value); }
   close(){ clearInterval(this.timer); }
-  out(key, v){ store.put("/AdvantageKit/RealOutputs/"+key, v); }
+  hold(m){ m.target = m.kind === "pos" ? ["POS", this.measured(m).pos] : m.kind === "vel" ? ["VEL",0] : ["VEL",0]; }
   step(){
     const dt = 0.02; this.t += dt;
     store.put("/FMSInfo/FMSControlData", (this.enabled?1:0) | (this.fms?16:0) | 32);
     const driverStep = this.driver[Math.floor(this.t/4) % this.driver.length];
     for (const [s,def] of Object.entries(this.subs)){
-      const req = String(store.get(ROOT+s+"/Control","ROBOT")).trim().toUpperCase();
-      const pinned = store.get(ROOT+s+"/PinnedState","");
-      let c = CONTROLS.includes(req) ? req : "ROBOT";
-      if (c === "PINNED" && !def.states.includes(pinned)) c = "ROBOT";
-      if (this.fms && (c === "PINNED" || c === "MANUAL")) c = "ROBOT";
-      const prev = def.control; def.control = c;
-      if (c !== prev && c !== "OFF" && c !== "MANUAL" && (prev === "OFF" || prev === "MANUAL" || c === "ROBOT")) { def.state = def.def; def.wanted = def.def; }
-      store.put(ROOT+s+"/ActiveControl", c);
-      if (c === "ROBOT"){ def.wanted = driverStep[s]; def.state = def.wanted; }
-      else if (c === "PINNED"){ def.wanted = pinned; def.state = pinned; }
-      this.out("Subsystem/"+s+"/State", def.state); this.out("Subsystem/"+s+"/WantedState", def.wanted);
-      const tg = this.targets[s][def.state] || {};
-      for (const io of def.ios) this.stepIo(s, def, io, c, tg[io.name], dt);
-    }
-  }
-  stepIo(s, def, io, control, target, dt){
-    const p = ROOT+s+"/IO/"+io.name+"/";
-    const enabled = store.get(p+"Enabled", true) !== false;
-    const entering = control === "MANUAL" && !io.manual;
-    io.manual = control === "MANUAL";
-    let mode = "NEUTRAL", sp = 0;
-    if (io.manual && io.modes.length){
-      if (entering){
-        const m = io.modes.includes("POSITION") ? "POSITION" : io.modes.includes("VELOCITY") ? "VELOCITY" : "NEUTRAL";
-        const seed = m === "POSITION" ? (io.kind==="swerve" ? io.ang : this.measured(io).pos) : 0;
-        store.put(p+"Manual/Mode", m); store.put(p+"Manual/Setpoint", +seed.toFixed(3)); store.put(p+"Manual/Step", false); store.put(p+"Manual/StepTo", +seed.toFixed(3));
+      // mode switch (the robot applies it once, on the change)
+      const want = String(store.get(ROOT+s+"/Mode","ENABLED")).trim().toUpperCase();
+      if (want !== def.mode){
+        if (!MODES.includes(want) || (want === "TUNING" && this.fms)) store.put(ROOT+s+"/Mode", def.mode);
+        else {
+          def.mode = want; store.put(ROOT+s+"/ActiveMode", want);
+          if (want === "TUNING") def.mechs.forEach(m => this.hold(m));
+          if (want === "ENABLED") def.state = def.def;
+        }
       }
-      const want = String(store.get(p+"Manual/Mode","NEUTRAL")).trim().toUpperCase();
-      mode = io.modes.includes(want) ? want : "NEUTRAL";
-      sp = +store.get(p+"Manual/Setpoint",0) || 0;
-      const per = +store.get(p+"Manual/StepPeriod",2) || 0;
-      if (store.get(p+"Manual/Step",false) && per > 0 && Math.floor(this.t/per) % 2 === 1) sp = +store.get(p+"Manual/StepTo",0) || 0;
-      if (mode === "DUTY_CYCLE") sp = Math.max(-0.3, Math.min(0.3, sp));
-    }
-    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/EnabledApplied", enabled);
-    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/ManualModeApplied", io.manual ? mode : "NEUTRAL");
-    this.out("MwLib/Subsystems/"+s+"/IO/"+io.name+"/ManualSetpointApplied", io.manual ? sp : 0);
-    if (io.kind === "sensor" || io.kind === "tof"){
-      if (io.kind === "tof"){ const piece = def.state === "DEPLOY" && Math.sin(this.t*1.3) > 0.2; store.put("/AdvantageKit/"+io.key+"Inputs/range", piece ? 0.04 : 0.42); }
-      return;
-    }
-    let cmdMode, val, neutral = !this.enabled || !enabled || control === "OFF";
-    if (control === "MANUAL"){ cmdMode = mode; val = sp; if (mode === "NEUTRAL") neutral = true; }
-    else if (target){ [cmdMode, val] = target; }
-    else { neutral = true; }
-    this.physics(io, neutral ? "NEUTRAL" : cmdMode, val, dt);
-    const m = this.measured(io);
-    store.put("/AdvantageKit/"+io.key+"Inputs/position", m.pos);
-    store.put("/AdvantageKit/"+io.key+"Inputs/velocity", m.vel);
-  }
-  measured(io){
-    if (io.kind === "pos") return {pos: io.min + io.x*(io.max-io.min), vel: io.v*(io.max-io.min)};
-    if (io.kind === "vel") return {pos: io.ang, vel: io.x*io.max};
-    return {pos: io.ang, vel: io.x*io.vmax};
-  }
-  physics(io, mode, val, dt){
-    if (io.kind === "pos"){
-      const span = io.max-io.min, tn = (val-io.min)/span;
-      let u;
-      if (mode === "NEUTRAL") u = -25*io.v + io.g*0.9;
-      else if (mode === "DUTY_CYCLE") u = val*12;
-      else if (mode === "CURRENT") u = val/40*12;
-      else if (mode === "VELOCITY") u = 8*(val/span - io.v) + io.g;
-      else {
-        let goal = tn;
-        if (mode === "MOTION_PROFILE_POSITION"){ const r=0.7*dt; io.prof += Math.max(-r, Math.min(r, tn-io.prof)); goal = io.prof; } else io.prof = io.x;
-        u = 40*(goal-io.x) - 8*io.v + io.g;
+      if (def.mode === "ENABLED") def.state = driverStep[s];
+      store.put("/AdvantageKit/RealOutputs/Subsystem/"+s+"/State", def.state);
+      for (const m of def.mechs){
+        const on = store.get(ROOT+s+"/Mechs/"+m.name+"/Enabled", true) !== false;
+        if (on !== m.on){ m.on = on; if (on && def.mode === "TUNING") this.hold(m); }
+        // setpoint tunables call setTarget* when they change, in any mode
+        for (const sp of m.setpoints){
+          const v = +store.get("/Tuning/"+m.key+sp, 0);
+          if (v !== m.seen[sp]){ m.seen[sp] = v; m.target = [{"PositionGains/Setpoint":"POS","VelocityGains/Setpoint":"VEL","DutyCycle/Setpoint":"DUTY","CurrentGains/Setpoint":"CUR"}[sp], v]; }
+        }
+        if (def.mode === "ENABLED"){ const tg = (this.targets[s][def.state] || {})[m.name]; if (tg) m.target = tg; }
+        const neutral = !this.enabled || !m.on || def.mode === "DISABLED";
+        this.physics(m, neutral ? ["NEUTRAL",0] : m.target, dt);
+        const me = this.measured(m);
+        store.put("/AdvantageKit/"+m.key+"Inputs/position", me.pos);
+        store.put("/AdvantageKit/"+m.key+"Inputs/velocity", me.vel);
       }
+    }
+  }
+  measured(m){
+    if (m.kind === "pos") return {pos: m.min + m.x*(m.max-m.min), vel: m.v*(m.max-m.min)};
+    if (m.kind === "vel") return {pos: m.ang, vel: m.x*m.max};
+    return {pos: 0, vel: m.x*m.vmax};
+  }
+  physics(m, [kind, val], dt){
+    if (m.kind === "pos"){
+      const span = m.max-m.min; let u;
+      if (kind === "NEUTRAL") u = -25*m.v + m.g*0.9;
+      else if (kind === "DUTY") u = val*12;
+      else if (kind === "CUR") u = val/40*12;
+      else if (kind === "VEL") u = 8*(val/span - m.v) + m.g;
+      else u = 40*((val-m.min)/span - m.x) - 8*m.v + m.g;
       u = Math.max(-12, Math.min(12, u));
-      io.v += (u - io.g)*dt; io.x += io.v*dt;
-      if (io.x < 0){ io.x = 0; if (io.v < 0) io.v = 0; } if (io.x > 1){ io.x = 1; if (io.v > 0) io.v = 0; }
-    } else if (io.kind === "vel"){
-      let u;
-      const full = Math.max(Math.abs(io.min), Math.abs(io.max));
-      if (mode === "NEUTRAL") u = io.x*0.85;
-      else if (mode === "DUTY_CYCLE") u = val;
-      else if (mode === "CURRENT") u = val/40;
-      else if (mode === "POSITION" || mode === "MOTION_PROFILE_POSITION") u = Math.max(-1,Math.min(1,(val-io.ang)*0.05));
+      m.v += (u - m.g)*dt; m.x += m.v*dt;
+      if (m.x < 0){ m.x = 0; if (m.v < 0) m.v = 0; } if (m.x > 1){ m.x = 1; if (m.v > 0) m.v = 0; }
+    } else if (m.kind === "vel"){
+      const full = Math.max(Math.abs(m.min), Math.abs(m.max)); let u;
+      if (kind === "NEUTRAL") u = m.x*0.85*m.max/full;
+      else if (kind === "DUTY") u = val;
+      else if (kind === "CUR") u = val/40;
+      else if (kind === "POS") u = (val-m.ang)*0.05;
       else u = val/full;
       u = Math.max(-1, Math.min(1, u));
-      io.x += io.A*(u*(full/io.max) - io.x)*dt; io.ang += io.x*io.max*dt;
+      m.x += m.A*(u*(full/m.max) - m.x)*dt; m.ang += m.x*m.max*dt;
     } else {
-      if (mode === "POSITION"){ io.ang += Math.max(-8*dt, Math.min(8*dt, val - io.ang)); io.x += 4*(0 - io.x)*dt; }
-      else if (mode === "VELOCITY"){ io.x += 4*(val/io.vmax - io.x)*dt; }
-      else io.x += 4*(0 - io.x)*dt;
+      m.x += 4*((kind === "VEL" ? val/m.vmax : 0) - m.x)*dt;
     }
   }
 }
@@ -470,7 +422,7 @@ let backend = null, mode = "none";
 const connEl = document.getElementById("conn");
 const hostEl = document.getElementById("host");
 function setConn(state){
-  if (state === "connected") topoSeen = -1; // rebuild, which re-subscribes the readout topics
+  if (state === "connected") topoSeen = ""; // rebuild, which re-subscribes the readout topics
   const label = {connecting:"Connecting to "+hostEl.value, connected:"Connected to "+hostEl.value, disconnected:"Not connected, retrying", failed:"Can't connect", demo:"Demo robot"}[state] || state;
   connEl.className = "chip " + (state==="connected" ? "ok" : state==="demo" ? "pin" : state==="connecting" ? "" : "off");
   connEl.lastElementChild.textContent = label;
@@ -495,7 +447,7 @@ document.getElementById("demoEnabled").addEventListener("change", e => { if (mod
 document.getElementById("demoFms").addEventListener("change", e => { if (mode==="demo") backend.fms = e.target.checked; });
 
 function write(name, type, value){ if (backend) backend.set(name, type, value); }
-function subscribeExtra(topics){ if (mode === "nt") backend.subscribe(topics, 0.02); }
+function subscribe(topics){ if (mode === "nt") backend.subscribe(topics, 0.05); }
 
 // =====================================================================
 // Model from topics
@@ -505,48 +457,42 @@ function topology(){
   for (const name of store.values.keys()){
     if (!name.startsWith(ROOT)) continue;
     const parts = name.slice(ROOT.length).split("/");
-    const s = parts[0];
-    if (!subs.has(s)) subs.set(s, {name:s, ios:new Map()});
-    if (parts[1] === "IO" && parts.length >= 4){
-      const ioName = parts[2];
-      const sub = subs.get(s);
-      if (!sub.ios.has(ioName)) sub.ios.set(ioName, {name:ioName, sensors:[], manual:false});
-      const io = sub.ios.get(ioName);
-      if (parts[3] === "Override" && parts[5] === "Active" && !io.sensors.includes(parts[4])) io.sensors.push(parts[4]);
-      if (parts[3] === "Manual") io.manual = true;
-    }
+    if (!subs.has(parts[0])) subs.set(parts[0], {name:parts[0], mechs:[]});
+    if (parts[1] === "Mechs" && parts[3] === "Enabled") subs.get(parts[0]).mechs.push(parts[2]);
   }
-  return [...subs.values()].filter(s => store.values.has(ROOT+s.name+"/Control"));
+  return [...subs.values()].filter(s => store.values.has(ROOT+s.name+"/Mode"));
 }
-const fmt = v => (typeof v === "number" ? (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(3)) : v === undefined ? "–" : String(v));
+function setpointsOf(key){
+  const base = "/Tuning/" + key, out = [];
+  for (const name of store.values.keys()) if (name.startsWith(base) && name.endsWith("/Setpoint")) out.push(name);
+  const order = n => { const i = Object.keys(SETPOINT_LABEL).indexOf(n.slice(base.length)); return i < 0 ? 99 : i; };
+  return out.sort((a,b) => order(a) - order(b) || a.localeCompare(b));
+}
+const fmt = v => (typeof v === "number" ? (v = Math.abs(v) < 5e-4 ? 0 : v, Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(3)) : v === undefined ? "–" : String(v));
 function fms(){ return (store.get("/FMSInfo/FMSControlData", 0) & 16) !== 0; }
 function dsEnabled(){ return (store.get("/FMSInfo/FMSControlData", 0) & 1) !== 0; }
-function measuredTopic(key, channel){
-  const field = {Position:"position", Velocity:"velocity", Range:"range"}[channel];
-  return field && key ? "/AdvantageKit/" + key + "Inputs/" + field : null;
-}
 
 // =====================================================================
 // UI
 // =====================================================================
-let selected = null, topoSeen = -1, subsSnapshot = [];
+let selected = null, topoSeen = "";
 const listEl = document.getElementById("subList"), benchEl = document.getElementById("bench");
 const el = (tag, attrs, ...kids) => { const e = document.createElement(tag); for (const [k,v] of Object.entries(attrs||{})){ if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v === true ? "" : v); } for (const k of kids) if (k !== null && k !== undefined) e.append(k); return e; };
+const select = name => { selected = name; topoSeen = ""; };
 
 function buildList(subs){
   listEl.innerHTML = "";
   if (!subs.length){ listEl.append(el("div",{class:"empty"}, mode==="nt" ? "No subsystems yet. Is the robot running MW-Lib with subsystems registered?" : "")); return; }
   for (const s of subs){
-    const card = el("div",{class:"sub", tabindex:"0", "data-sub":s.name, onclick:(e)=>{ if (e.target.closest("button,select")) return; selected = s.name; topoSeen = -1; }, onkeydown:(e)=>{ if (e.key==="Enter" && e.target === card){ selected = s.name; topoSeen = -1; } }});
-    const seg = el("div",{class:"seg", role:"group", "aria-label":s.name+" control"});
-    for (const c of CONTROLS) seg.append(el("button",{type:"button","data-v":c, onclick:()=>{ if (c === "PINNED" && !store.get(ROOT+s.name+"/PinnedState","")){ const st = store.get(ROOT+s.name+"/States",[]); if (st.length) write(ROOT+s.name+"/PinnedState","string",st[0]); } write(ROOT+s.name+"/Control","string",c); }}, CONTROL_LABEL[c]));
-    const pin = el("select",{"aria-label":s.name+" pinned state", onchange:(e)=>write(ROOT+s.name+"/PinnedState","string",e.target.value)});
-    pin.append(el("option",{value:""}, "choose…"));
-    for (const st of store.get(ROOT+s.name+"/States",[])) pin.append(el("option",{value:st}, st));
-    subscribeExtra(["/AdvantageKit/RealOutputs/Subsystem/"+s.name+"/State","/AdvantageKit/RealOutputs/Subsystem/"+s.name+"/WantedState"]);
+    const card = el("div",{class:"sub", tabindex:"0", "data-sub":s.name,
+      onclick:(e)=>{ if (!e.target.closest("button")) select(s.name); },
+      onkeydown:(e)=>{ if (e.key === "Enter" && e.target === card) select(s.name); }});
+    const seg = el("div",{class:"seg", role:"group", "aria-label":s.name+" mode"});
+    for (const m of MODES) seg.append(el("button",{type:"button","data-v":m, onclick:()=>write(ROOT+s.name+"/Mode","string",m)}, MODE_LABEL[m]));
+    subscribe(["/AdvantageKit/RealOutputs/Subsystem/"+s.name+"/State"]);
     card.append(
       el("div",{class:"row between"}, el("h2",{}, s.name), seg),
-      el("div",{class:"row between"}, el("span",{class:"state","data-r":"state"}), el("label",{class:"row hint"}, "Pin to ", pin)),
+      el("span",{class:"state","data-r":"state"}),
       el("div",{class:"note","data-r":"note"}),
       el("div",{class:"iochips","data-r":"chips"}));
     listEl.append(card);
@@ -559,8 +505,8 @@ function buildBench(subs){
   if (!s){ benchEl.append(el("div",{class:"empty"}, "Waiting for the robot to publish its subsystems.")); return; }
   selected = s.name;
   benchEl.append(el("div",{class:"row between"}, el("h2",{}, s.name), el("span",{class:"hint","data-r":"benchHint"})));
-  for (const io of s.ios.values()) benchEl.append(buildIo(s.name, io));
-  if (!s.ios.size) benchEl.append(el("div",{class:"empty"}, "This subsystem has no library IO (mechanisms, ToF, gyro) to control."));
+  for (const m of s.mechs) benchEl.append(buildMech(s.name, m));
+  if (!s.mechs.length) benchEl.append(el("div",{class:"empty"}, "No mechanisms to switch."));
 }
 
 function numInput(id, topic, label){
@@ -571,115 +517,76 @@ function numInput(id, topic, label){
   return inp;
 }
 
-function buildIo(sub, io){
-  const p = ROOT+sub+"/IO/"+io.name+"/";
+function buildMech(sub, mech){
+  const p = ROOT+sub+"/Mechs/"+mech+"/";
   const key = store.get(p+"LoggingKey","");
-  const card = el("div",{class:"io","data-io":io.name});
-  const enabled = el("input",{type:"checkbox", id:"en-"+sub+"-"+io.name, onchange:(e)=>write(p+"Enabled","boolean",e.target.checked)});
-  card.append(el("div",{class:"io-head"},
-    el("div",{}, el("h3",{}, io.name), el("div",{class:"key"}, p)),
-    el("label",{class:"switch"}, enabled, "On")));
-
-  if (io.sensors.length){
-    const sec = el("fieldset",{class:"section","data-r":"sensors"}, el("legend",{class:"label"}, "Sensor overrides"));
-    for (const c of io.sensors){
-      const mt = measuredTopic(key, c); if (mt) subscribeExtra([mt]);
-      const act = el("input",{type:"checkbox", id:"ov-"+sub+"-"+io.name+"-"+c, onchange:(e)=>write(p+"Override/"+c+"/Active","boolean",e.target.checked)});
-      sec.append(el("div",{class:"ovr"},
-        el("label",{class:"switch"}, act, c),
-        el("span",{class:"meas","data-meas":mt || ""}, mt ? "measured –" : (c==="Yaw"||c==="Pitch"||c==="Roll" ? "degrees" : "")),
-        numInput("ovv-"+sub+"-"+io.name+"-"+c, p+"Override/"+c+"/Value", c+" override value")));
-    }
-    card.append(sec);
-  }
-
-  if (io.manual){
-    const modes = store.get(p+"Manual/Modes",[]);
-    const fs = el("fieldset",{class:"section","data-r":"manual"}, el("legend",{class:"label"}, "Output override"));
-    const seg = el("div",{class:"seg modes", role:"group","aria-label":io.name+" output mode"});
-    for (const m of modes) seg.append(el("button",{type:"button","data-mode":m, onclick:()=>write(p+"Manual/Mode","string",m)}, m.replaceAll("_"," ")));
-    const sp = numInput("sp-"+sub+"-"+io.name, p+"Manual/Setpoint", io.name+" setpoint");
-    fs.append(
-      seg,
-      el("div",{class:"sp"}, el("span",{class:"lbl"},"Setpoint"), sp),
-      el("span",{class:"hint"}, "In the units of the mechanism's setTarget methods. Applies while the subsystem is in Manual."));
-    card.append(fs);
-    const key = store.get(p+"LoggingKey","");
-    const outBase = "/AdvantageKit/RealOutputs/MwLib/Subsystems/"+sub+"/IO/"+io.name+"/";
-    const ts = [outBase+"ManualModeApplied", outBase+"ManualSetpointApplied"];
-    if (key) ts.push("/AdvantageKit/"+key+"Inputs/position", "/AdvantageKit/"+key+"Inputs/velocity");
-    subscribeExtra(ts);
-    card.append(
-      el("div",{class:"readout"},
-        el("div",{}, el("small",{},"Applying"), el("b",{"data-r":"applied"},"–")),
-        el("div",{}, el("small",{},"Position"), el("b",{"data-r":"pos"},"–")),
-        el("div",{}, el("small",{},"Velocity"), el("b",{"data-r":"vel"},"–"))));
-  }
-  if (!io.sensors.length && !io.manual) card.append(el("div",{class:"hint"}, "Only an on/off switch."));
+  if (key) subscribe(["/Tuning/"+key, "/AdvantageKit/"+key+"Inputs/position", "/AdvantageKit/"+key+"Inputs/velocity"]);
+  const card = el("div",{class:"io","data-mech":mech,"data-key":key});
+  const on = el("input",{type:"checkbox", id:"en-"+sub+"-"+mech, onchange:(e)=>write(p+"Enabled","boolean",e.target.checked)});
+  card.append(
+    el("div",{class:"io-head"}, el("div",{}, el("h3",{}, mech), el("div",{class:"key"}, p+"Enabled")), el("label",{class:"switch"}, on, "On")),
+    el("div",{class:"readout two"},
+      el("div",{}, el("small",{},"Position"), el("b",{"data-r":"pos"},"–")),
+      el("div",{}, el("small",{},"Velocity"), el("b",{"data-r":"vel"},"–"))));
+  const fs = el("fieldset",{class:"section","data-r":"tuning"}, el("legend",{class:"label"}, "Tuning setpoints"));
+  const rows = el("div",{class:"setpoints","data-r":"rows"});
+  fs.append(rows, el("span",{class:"hint"}, "Each one calls the mechanism's setTarget method when its value changes. Gains stay in your usual dashboard."));
+  card.append(fs);
   return card;
 }
 
-function setVal(input, v){ if (document.activeElement === input || v === undefined) return; if (input.type === "checkbox") input.checked = !!v; else if (String(input.value) !== String(v)) input.value = typeof v === "number" ? +v.toFixed(4) : v; }
+function fillSetpoints(card, sub){
+  const rows = card.querySelector('[data-r="rows"]');
+  const topics = setpointsOf(card.dataset.key);
+  if (rows.dataset.sig === topics.join()) return;
+  rows.dataset.sig = topics.join(); rows.innerHTML = "";
+  if (!topics.length){ rows.append(el("span",{class:"hint"}, "No setpoint tunables. It holds still in Tuning.")); return; }
+  for (const t of topics){
+    const suffix = t.slice(("/Tuning/"+card.dataset.key).length);
+    rows.append(el("label",{class:"sp"}, el("span",{class:"lbl"}, SETPOINT_LABEL[suffix] || suffix), numInput("sp-"+sub+"-"+card.dataset.mech+"-"+suffix.replaceAll("/","-"), t, suffix)));
+  }
+}
+
+function setVal(input, v){ if (!input || document.activeElement === input || v === undefined) return; if (input.type === "checkbox") input.checked = !!v; else if (String(input.value) !== String(v)) input.value = typeof v === "number" ? +v.toFixed(4) : v; }
 
 function refresh(){
   const subs = topology();
-  const sig = subs.map(s => s.name+":"+[...s.ios.values()].map(i=>i.name+i.sensors.join()+(i.manual?"m":"")).join(",")).join("|");
-  if (sig !== topoSeen){ topoSeen = sig; subsSnapshot = subs; buildList(subs); buildBench(subs); }
+  const sig = subs.map(s => s.name+":"+s.mechs.join(",")).join("|") + "#" + selected;
+  if (sig !== topoSeen){ topoSeen = sig; buildList(subs); buildBench(subs); }
   const f = fms(), on = dsEnabled(), haveDs = store.values.has("/FMSInfo/FMSControlData");
   document.getElementById("fmsChip").hidden = !f;
   document.getElementById("fmsBanner").hidden = !f;
   const ds = document.getElementById("dsChip"); ds.hidden = !haveDs; ds.className = "chip " + (on ? "ok" : ""); ds.lastElementChild.textContent = on ? "Enabled" : "Disabled";
-  const gp = store.get("/MwLib/TuningGamepad/Selected",""); const gpEl = document.getElementById("gpChip"); gpEl.hidden = !gp; gpEl.textContent = "Gamepad: " + gp;
 
   for (const card of listEl.querySelectorAll(".sub")){
-    const s = card.dataset.sub, req = String(store.get(ROOT+s+"/Control","ROBOT")).toUpperCase(), act = store.get(ROOT+s+"/ActiveControl","ROBOT");
+    const s = card.dataset.sub, req = String(store.get(ROOT+s+"/Mode","ENABLED")).toUpperCase(), act = store.get(ROOT+s+"/ActiveMode","ENABLED");
     card.dataset.c = act; card.setAttribute("aria-current", String(s === selected));
-    for (const b of card.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.v === req));
-    setVal(card.querySelector("select"), store.get(ROOT+s+"/PinnedState",""));
+    for (const b of card.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.v === act));
     const st = store.get("/AdvantageKit/RealOutputs/Subsystem/"+s+"/State");
-    const r = card.querySelector('[data-r="state"]'); r.innerHTML = ""; r.append("State ", el("b",{}, st === undefined ? "–" : String(st)), "  ·  applying ", el("b",{}, CONTROL_LABEL[act] || act));
-    let note = "";
-    if (req !== act) note = f && (req === "PINNED" || req === "MANUAL") ? `${CONTROL_LABEL[req]} is ignored while the FMS is attached.` : `Asked for ${CONTROL_LABEL[req] || req}; the robot is applying ${CONTROL_LABEL[act] || act}. Check the pinned state name.`;
-    card.querySelector('[data-r="note"]').textContent = note;
+    const r = card.querySelector('[data-r="state"]'); r.innerHTML = ""; r.append("State ", el("b",{}, st === undefined ? "–" : String(st)), act === "ENABLED" ? "" : "  ·  logic parked");
+    card.querySelector('[data-r="note"]').textContent = req === act ? "" : req === "TUNING" && f ? "Tuning is refused while the FMS is attached." : "Switching…";
     const chips = card.querySelector('[data-r="chips"]'); chips.innerHTML = "";
-    const sub = subsSnapshot.find(x => x.name === s);
-    if (sub) for (const io of sub.ios.values()){
-      const p = ROOT+s+"/IO/"+io.name+"/";
-      const off = store.get(p+"Enabled", true) === false;
-      const ovr = io.sensors.filter(c => store.get(p+"Override/"+c+"/Active", false));
-      chips.append(el("span",{class:"iochip" + (off ? " off" : ovr.length ? " ovrd" : "")}, io.name + (off ? " · off" : "") + (ovr.length ? " · " + ovr.join(", ") + " overridden" : "")));
+    const sub = subs.find(x => x.name === s);
+    if (sub) for (const m of sub.mechs){
+      const off = store.get(ROOT+s+"/Mechs/"+m+"/Enabled", true) === false;
+      chips.append(el("span",{class:"iochip" + (off ? " off" : "")}, m + (off ? " · off" : "")));
     }
   }
 
   const s = selected; if (!s) return;
-  const act = store.get(ROOT+s+"/ActiveControl","ROBOT");
+  const act = store.get(ROOT+s+"/ActiveMode","ENABLED");
   const hint = benchEl.querySelector('[data-r="benchHint"]');
-  if (hint) hint.textContent = act === "MANUAL" ? "Manual: the output overrides below drive the mechanisms." : `Switch ${s} to Manual to override its outputs.`;
+  if (hint) hint.textContent = act === "TUNING" ? "Tuning: only the setpoints below move the mechanisms." : act === "DISABLED" ? "Disabled: every mechanism is neutral." : `Switch ${s} to Tuning to drive its mechanisms by hand.`;
   for (const card of benchEl.querySelectorAll(".io")){
-    const io = card.dataset.io, p = ROOT+s+"/IO/"+io+"/";
-    const en = store.get(p+"Enabled", true) !== false;
+    const m = card.dataset.mech, key = card.dataset.key, en = store.get(ROOT+s+"/Mechs/"+m+"/Enabled", true) !== false;
     setVal(card.querySelector('input[id^="en-"]'), en);
     card.classList.toggle("disabled", !en);
-    const sens = card.querySelector('[data-r="sensors"]');
-    if (sens){
-      sens.disabled = f;
-      for (const inp of sens.querySelectorAll('input[id^="ov-"]')) setVal(inp, store.get(p+"Override/"+inp.id.split("-").pop()+"/Active", false));
-      for (const inp of sens.querySelectorAll('input[type=number]')) setVal(inp, store.get(inp.dataset.topic, 0));
-      for (const m of sens.querySelectorAll("[data-meas]")) if (m.dataset.meas) m.textContent = "measured " + fmt(store.get(m.dataset.meas));
-    }
-    const man = card.querySelector('[data-r="manual"]');
-    if (man){
-      man.disabled = act !== "MANUAL" || !en;
-      const md = store.get(p+"Manual/Mode","NEUTRAL");
-      for (const b of man.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === md));
-      for (const inp of man.querySelectorAll('input[type=number]')) setVal(inp, store.get(inp.dataset.topic, 0));
-      const key = store.get(p+"LoggingKey","");
-      const out = "/AdvantageKit/RealOutputs/MwLib/Subsystems/"+s+"/IO/"+io+"/";
-      const am = store.get(out+"ManualModeApplied");
-      card.querySelector('[data-r="applied"]').textContent = act !== "MANUAL" ? "robot logic" : !en ? "off" : am === undefined ? "–" : am === "NEUTRAL" ? "neutral" : am.replaceAll("_"," ").toLowerCase() + " " + fmt(store.get(out+"ManualSetpointApplied"));
-      card.querySelector('[data-r="pos"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/position"));
-      card.querySelector('[data-r="vel"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/velocity"));
-    }
+    card.querySelector('[data-r="pos"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/position"));
+    card.querySelector('[data-r="vel"]').textContent = fmt(store.get("/AdvantageKit/"+key+"Inputs/velocity"));
+    fillSetpoints(card, s);
+    const fs = card.querySelector('[data-r="tuning"]');
+    fs.disabled = act !== "TUNING" || !en || f;
+    for (const inp of fs.querySelectorAll('input[type=number]')) setVal(inp, store.get(inp.dataset.topic, 0));
   }
 }
 

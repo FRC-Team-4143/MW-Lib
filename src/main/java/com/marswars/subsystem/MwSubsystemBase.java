@@ -18,22 +18,10 @@ public interface MwSubsystemBase {
     public void reset();
 
     /**
-     * Called by {@link SubsystemManager} at the top of every loop with the control it decided on.
-     * Subsystems that are not an {@link MwSubsystem} can ignore it: the manager still skips {@link
-     * #update(double)} and neutralizes outputs while {@link SubsystemControl#OFF}.
-     *
-     * @param control the control in effect this loop
-     * @param pinned_state the name of the pinned state when {@code control} is {@link
-     *     SubsystemControl#PINNED}, otherwise null
+     * Called once when the subsystem goes back to {@link SubsystemMode#ENABLED} after being disabled
+     * or in tuning, before its next update. Defaults to {@link #reset()}.
      */
-    public default void applyControl(SubsystemControl control, String pinned_state) {}
-
-    /**
-     * The names of the states this subsystem can be pinned to. Empty means it can't be pinned.
-     *
-     * @return the state names
-     */
-    public default List<String> getStateNames() {
-        return List.of();
+    public default void onEnable() {
+        reset();
     }
 }

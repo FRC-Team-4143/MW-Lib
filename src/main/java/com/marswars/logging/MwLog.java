@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleConsumer;
-import java.util.function.Predicate;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkNumber;
@@ -40,10 +39,8 @@ public final class MwLog {
 
     // Tunable registry — LoggedNetworkNumber.periodic() is auto-driven by the Logger;
     // we only need to detect value changes and invoke the consumer.
-    private record TunableEntry(
-            String key, LoggedNetworkNumber number, double[] last, DoubleConsumer consumer) {}
+    private record TunableEntry(LoggedNetworkNumber number, double[] last, DoubleConsumer consumer) {}
     private static final List<TunableEntry> tunables_ = new ArrayList<>();
-    private static Predicate<String> tunable_gate_ = key -> true;
 
     // time()/timeEnd() registry
     private static final Map<String, Double> timing_starts_ = new HashMap<>();
@@ -163,13 +160,8 @@ public final class MwLog {
         for (TunableEntry entry : tunables_) {
             double current = entry.number().get();
             if (current != entry.last()[0]) {
-                if (tunable_gate_.test(entry.key())) {
-                    entry.last()[0] = current;
-                    entry.consumer().accept(current);
-                } else {
-                    // Not accepting changes right now: put the dashboard back to the live value
-                    entry.number().set(entry.last()[0]);
-                }
+                entry.last()[0] = current;
+                entry.consumer().accept(current);
             }
         }
     }
@@ -187,34 +179,8 @@ public final class MwLog {
         LoggedNetworkNumber number = new LoggedNetworkNumber("/Tuning/" + key, defaultValue);
         // Use a single-element array so the lambda can capture a mutable reference
         double[] last = {defaultValue};
-        tunables_.add(new TunableEntry(key, number, last, onChange));
+        tunables_.add(new TunableEntry(number, last, onChange));
         onChange.accept(defaultValue);
-    }
-
-    /**
-     * Decides which tunables accept dashboard changes. A change to a key the gate rejects is not
-     * applied and the dashboard entry is set back to the live value. {@link
-     * com.marswars.subsystem.SubsystemManager} installs a gate so a subsystem's tunables only
-     * change while it is in {@code MANUAL}; keys no subsystem owns are always accepted.
-     *
-     * @param gate given a tunable key (without the {@code /Tuning/} prefix), true to accept changes
-     */
-    public static void setTunableGate(Predicate<String> gate) {
-        tunable_gate_ = gate == null ? key -> true : gate;
-    }
-
-    /**
-     * @param keys which tunable keys to include
-     * @return the live value of every matching tunable, keyed by tunable key
-     */
-    public static Map<String, Double> tunableValues(Predicate<String> keys) {
-        Map<String, Double> values = new java.util.LinkedHashMap<>();
-        for (TunableEntry entry : tunables_) {
-            if (keys.test(entry.key())) {
-                values.put(entry.key(), entry.last()[0]);
-            }
-        }
-        return values;
     }
 
     // -------------------------------------------------------------------------

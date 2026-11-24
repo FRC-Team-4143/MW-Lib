@@ -16,8 +16,7 @@ import com.ctre.phoenix6.signals.MotorArrangementValue;
 import edu.wpi.first.wpilibj.RobotBase;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
-import com.marswars.subsystem.ControllableIo;
-import com.marswars.subsystem.IoControls;
+import com.marswars.subsystem.SwitchableIo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +26,7 @@ import java.util.function.Function;
  * Base class for mechanism IO implementations with common motor configuration helpers.
  * Provides motor configuration helpers for CTRE TalonFX motor controllers.
  */
-public abstract class MechBase implements ControllableIo {
+public abstract class MechBase implements SwitchableIo {
 
     /** Container for constructed motor controllers and their status signals. */
     public class ConstructedMotors {
@@ -40,12 +39,10 @@ public abstract class MechBase implements ControllableIo {
 
     protected final boolean IS_SIM;
 
-    /** Sent to the leader instead of the mech's target while outputs are held neutral. */
+    /** Sent to the leader instead of the target while outputs are neutral; followers follow. */
     protected final NeutralOut neutral_request_ = new NeutralOut();
-    private boolean neutral_outputs_ = false;
-
-    /** Set once the mech's subsystem is registered; null until then (e.g. in unit tests). */
-    protected IoControls controls_ = null;
+    /** Set by SubsystemManager when this mech or its subsystem is switched off. */
+    protected boolean neutral_outputs_ = false;
 
     /**
      * Creates a new mechanism base
@@ -94,55 +91,15 @@ public abstract class MechBase implements ControllableIo {
         neutral_outputs_ = neutral;
     }
 
-    /**
-     * @return true while {@link #writeOutputs(double)} must hold every motor in neutral (each
-     *     motor's configured brake or coast) instead of applying its target: the subsystem is OFF,
-     *     this mech is switched off, or it is in manual NEUTRAL
-     */
-    @Override
-    public boolean isNeutralOutputs() {
-        return neutral_outputs_ || (controls_ != null && controls_.holdsNeutral());
-    }
-
-    /**
-     * @return false while this mech is switched off from the dashboard; its outputs are neutral and
-     *     anything waiting on it should not expect it to move
-     */
-    public boolean isAvailable() {
-        return controls_ == null || controls_.isEnabled();
-    }
-
     /** {@inheritDoc} */
     @Override
     public String getIoName() {
         return getMechName();
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc} Does nothing by default. */
     @Override
-    public void attachControls(IoControls controls) {
-        controls_ = controls;
-        for (String channel : getSensorChannels()) {
-            controls.declareSensor(channel);
-        }
-    }
-
-    /**
-     * @return the readings that can be overridden from the dashboard; each one is applied in the
-     *     matching getter through {@link #sensor(String, double)}
-     */
-    protected List<String> getSensorChannels() {
-        return List.of();
-    }
-
-    /**
-     * @param channel a channel from {@link #getSensorChannels()}
-     * @param raw the measured value
-     * @return the dashboard override if one is active, otherwise {@code raw}
-     */
-    protected double sensor(String channel, double raw) {
-        return controls_ == null ? raw : controls_.sensorValue(channel, raw);
-    }
+    public void hold() {}
 
     /**
      * Get the name of the mechanism.

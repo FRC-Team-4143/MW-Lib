@@ -37,7 +37,6 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import com.marswars.mechanisms.MotorConfig.TalonMotorType;
 import com.marswars.util.TunablePid;
-import com.marswars.subsystem.ManualMode;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
 
@@ -382,11 +381,19 @@ public class ElevatorMech extends MechBase {
                 getLoggingKey() + "PositionGains",
                 this::configPositionSlot,
                 slot0Config);
+        MwLog.tunable(
+                getLoggingKey() + "PositionGains/Setpoint", 0.0, (val) -> setTargetPosition(val));
         TunablePid.create(
                 getLoggingKey() + "VelocityGains",
                 this::configVelocitySlot,
                 slot1Config);
+        MwLog.tunable(
+                getLoggingKey() + "VelocityGains/Setpoint", 0.0, (val) -> setTargetVelocity(val));
+        MwLog.tunable(
+                getLoggingKey() + "DutyCycle/Setpoint", 0.0, (val) -> setTargetDutyCycle(val));
         TunablePid.create(getLoggingKey() + "CurrentGains", current_pid_);
+        MwLog.tunable(
+                getLoggingKey() + "CurrentGains/Setpoint", 0.0, (val) -> setTargetCurrent(val));
     }
 
     /** {@inheritDoc} */
@@ -474,8 +481,7 @@ public class ElevatorMech extends MechBase {
     /** {@inheritDoc} */
     @Override
     public void writeOutputs(double timestamp) {
-        // Followers follow the leader into neutral
-        if (isNeutralOutputs()) {
+        if (neutral_outputs_) {
             motors_[0].setControl(neutral_request_);
         } else switch (control_mode_) {
             case MOTION_PROFILE_POSITION:
@@ -576,7 +582,7 @@ public class ElevatorMech extends MechBase {
      * @return the current position in meters
      */
     public double getCurrentPosition() {
-        return sensor("Position", inputs_.position);
+        return inputs_.position;
     }
 
     /**
@@ -585,7 +591,7 @@ public class ElevatorMech extends MechBase {
      * @return the current velocity in meters per second
      */
     public double getCurrentVelocity() {
-        return sensor("Velocity", inputs_.velocity);
+        return inputs_.velocity;
     }
 
     /**
@@ -721,37 +727,9 @@ public class ElevatorMech extends MechBase {
         setMotorCurrentLimit(currentLimits, motors_);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc} Holds the current position. */
     @Override
-    protected List<String> getSensorChannels() {
-        return List.of("Position", "Velocity");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<ManualMode> getManualModes() {
-        return List.of(ManualMode.NEUTRAL, ManualMode.POSITION, ManualMode.MOTION_PROFILE_POSITION, ManualMode.VELOCITY, ManualMode.DUTY_CYCLE, ManualMode.CURRENT);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void applyManualOutput(ManualMode mode, double setpoint) {
-        switch (mode) {
-            case POSITION -> setTargetPosition(setpoint);
-            case MOTION_PROFILE_POSITION -> setTargetPositionMotionProfile(setpoint);
-            case VELOCITY -> setTargetVelocity(setpoint);
-            case DUTY_CYCLE -> setTargetDutyCycle(setpoint);
-            case CURRENT -> setTargetCurrent(setpoint);
-            default -> {}
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public double getManualSeed(ManualMode mode) {
-        // hold where it is; everything else starts at zero
-        return mode == ManualMode.POSITION || mode == ManualMode.MOTION_PROFILE_POSITION
-                ? inputs_.position
-                : 0.0;
+    public void hold() {
+        setTargetPosition(inputs_.position);
     }
 }

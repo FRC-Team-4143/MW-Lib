@@ -20,12 +20,13 @@ public interface SubsystemIoBase {
     public abstract void logData();
 
     /**
-     * Set by {@link SubsystemManager} every loop before {@link #writeOutputs(double)}. While true,
-     * {@code writeOutputs} must put every actuator in neutral (its configured brake or coast)
-     * instead of applying its last target. Used when the subsystem is {@link SubsystemControl#OFF}.
-     * IO with no actuators can ignore it.
+     * Called by {@link SubsystemManager} when this IO must start or stop holding its outputs neutral
+     * (its subsystem or the IO itself was switched off). Called on the change only, not every loop.
+     * While neutral, {@code writeOutputs} must put every actuator in its configured brake or coast
+     * instead of its last target. Every {@code *Mech} does this; a custom IO with actuators should
+     * too, or it keeps applying its last command while its subsystem is disabled.
      *
-     * @param neutral true to hold outputs in neutral
+     * @param neutral true to hold outputs neutral
      */
     public default void setNeutralOutputs(boolean neutral) {}
 }

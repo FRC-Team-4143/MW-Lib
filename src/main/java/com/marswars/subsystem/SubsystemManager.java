@@ -5,8 +5,6 @@ import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import com.marswars.logging.BatteryLogger;
@@ -15,38 +13,24 @@ import com.marswars.regions.RegionPublisher;
 import com.marswars.util.RobotIdentity;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Runs every registered subsystem's control loop.
  *
- * <p>Every registered subsystem gets a live {@link SubsystemControl} switch on NetworkTables at
- * {@code /MwLib/Subsystems/<Name>/Control}: {@code ROBOT} (the default, follows wanted-state
- * requests), {@code PINNED} (held in the state at {@code /MwLib/Subsystems/<Name>/PinnedState}) or
- * {@code MANUAL} (logic skipped, mechanisms driven by hand) or {@code OFF} (logic skipped, outputs
- * neutral, inputs still logged). Changes apply at the top of the next loop, are recorded as
- * AdvantageKit inputs for replay, and raise an alert while a subsystem is not under robot control.
- *
- * <p>Every library IO in a registered subsystem ({@link ControllableIo}: each {@code *Mech}, {@code
- * Tof}, {@code Gyro}) also gets its own on/off switch, sensor overrides and, for mechanisms, a
- * manual output, at {@code /MwLib/Subsystems/<Name>/IO/<IoName>/} (see {@link IoControls}).
- *
- * <p>A library IO's tunables (keys under its logging key, e.g. motor gains) only accept changes
- * while its subsystem is in {@code MANUAL}; {@link #setTuneOnlyInManual(boolean)} turns this off.
- * Other tunables stay live. No tunable changes while the FMS is attached. Leaving {@code MANUAL}
- * logs every value of the subsystem's that changed, to copy into constants.
- *
- * <p>With the FMS attached, {@code PINNED}, {@code MANUAL} and sensor overrides are ignored; {@code
- * OFF} (subsystem or IO) is honoured unless {@link #setAllowOffWhenFmsAttached(boolean)} turns it
- * off.
+ * <p>Each subsystem can be switched live between {@link SubsystemMode#ENABLED}, {@link
+ * SubsystemMode#DISABLED} and {@link SubsystemMode#TUNING} at {@code
+ * /MwLib/Subsystems/<Name>/Mode}, and each of its mechanisms switched off at {@code
+ * /MwLib/Subsystems/<Name>/Mechs/<Mech>/Enabled}. Switching costs nothing per loop: a change is
+ * queued by an NT listener and applied once at the top of the next loop, which moves the subsystem
+ * between the {@code running} list (logic runs) and the {@code parked} list (logic skipped; IO is
+ * still read, written and logged). See {@code docs/subsystem-controls.md}.
  */
 public abstract class SubsystemManager {
+    /** Every registered subsystem, in registration order. */
     protected ArrayList<MwSubsystemBase> subsystems;
     protected Notifier loopThread;
     protected boolean log_init = false;
@@ -57,21 +41,16 @@ public abstract class SubsystemManager {
 
     protected static List<String> disabled_subsystems_;
 
-    private final Map<MwSubsystemBase, SubsystemControlTable> control_tables_ = new HashMap<>();
-    private boolean allow_off_with_fms_ = true;
-    private double manual_duty_cycle_limit_ = 0.30;
-    private boolean tune_only_in_manual_ = true;
-
-    private final Map<MwSubsystemBase, List<IoControls>> io_controls_ = new HashMap<>();
-    private final Map<ControllableIo, IoControls> controls_by_io_ = new IdentityHashMap<>();
-    // every tunable a subsystem owns (for the tuned-values report), and just its IOs' (gated)
-    private final Map<MwSubsystemBase, List<String>> tunable_prefixes_ = new LinkedHashMap<>();
-    private final Map<MwSubsystemBase, List<String>> io_tunable_prefixes_ = new LinkedHashMap<>();
-    private final Map<MwSubsystemBase, Map<String, Double>> tuning_start_values_ = new HashMap<>();
+    // ENABLED subsystems run their logic; DISABLED and TUNING ones are parked
+    private final List<MwSubsystemBase> running_ = new ArrayList<>();
+    private final List<MwSubsystemBase> parked_ = new ArrayList<>();
+    private final Map<MwSubsystemBase, SubsystemSwitch> switches_ = new HashMap<>();
+    // mode changes from NT listeners, applied on the robot thread at the top of a loop
+    private final Queue<Runnable> events_ = new ConcurrentLinkedQueue<>();
 
     /**
-     * @return the names of the subsystems that were left out at build time (the constructor's
-     *     {@code disabled_subsystems} list)
+     * @return the names of the subsystems left out at build time (the constructor's {@code
+     *     disabled_subsystems} list)
      */
     public static List<String> getDisabledSubsystems() {
         return disabled_subsystems_;
@@ -118,8 +97,6 @@ public abstract class SubsystemManager {
         // Handle disabling subsystems
         disabled_subsystems_ = disabled_subsystems;
         DataLogManager.log("Disabling subsystems: " + disabled_subsystems_.toString());
-
-        MwLog.setTunableGate(this::acceptsTunableChange);
     }
 
     public void registerSubsystem(MwSubsystemBase system) {
@@ -128,57 +105,91 @@ public abstract class SubsystemManager {
                     "Registered disabled subsystem: " + system.getClass().getSimpleName());
         } else {
             subsystems.add(system);
-            control_tables_.put(system, new SubsystemControlTable(system));
-            io_controls_.put(system, new ArrayList<>());
-            List<String> prefixes = new ArrayList<>();
-            prefixes.add(system.getSubsystemKey());
-            tunable_prefixes_.put(system, prefixes);
-            io_tunable_prefixes_.put(system, new ArrayList<>());
-            attachIos(system);
+            running_.add(system);
+            switches_.put(system, new SubsystemSwitch(system, events_, this::sortLists));
         }
     }
 
-    /** Attaches controls to every library IO (and child IO) the subsystem has not had attached. */
-    private void attachIos(MwSubsystemBase system) {
-        List<SubsystemIoBase> ios = system.getIos();
-        if (ios == null) {
-            return;
-        }
-        for (SubsystemIoBase io : ios) {
-            if (io instanceof ControllableIo controllable) {
-                attachIo(system, controllable);
-            }
+    /** Tests: mode changes queued and not yet applied. */
+    int pendingModeChanges() {
+        return events_.size();
+    }
+
+    /** Puts each subsystem in the list for its mode, keeping registration order. */
+    private void sortLists() {
+        running_.clear();
+        parked_.clear();
+        for (MwSubsystemBase s : subsystems) {
+            (switches_.get(s).mode() == SubsystemMode.ENABLED ? running_ : parked_).add(s);
         }
     }
 
-    private void attachIo(MwSubsystemBase system, ControllableIo io) {
-        if (controls_by_io_.containsKey(io)) {
-            return;
+    private SubsystemSwitch switchFor(MwSubsystemBase subsystem) {
+        SubsystemSwitch sw = switches_.get(subsystem);
+        if (sw == null) {
+            throw new IllegalArgumentException(subsystem.getName() + " is not registered");
         }
-        List<IoControls> list = io_controls_.get(system);
-        Set<String> taken = new HashSet<>();
-        for (Map.Entry<ControllableIo, IoControls> e : controls_by_io_.entrySet()) {
-            if (list.contains(e.getValue())) {
-                taken.add(e.getKey().getIoName());
-            }
-        }
-        String name = io.getIoName();
-        for (int i = 2; taken.contains(name); i++) {
-            name = io.getIoName() + i;
-        }
-        IoControls controls = new IoControls(io, system.getName(), name);
-        controls_by_io_.put(io, controls);
-        list.add(controls);
-        io.attachControls(controls);
+        return sw;
+    }
 
-        String key = io.getLoggingKey();
-        if (key != null) {
-            tunable_prefixes_.get(system).add(key);
-            io_tunable_prefixes_.get(system).add(key);
+    /**
+     * Asks for a subsystem's mode from code, the same as a dashboard write. It applies at the top
+     * of the next loop.
+     *
+     * @param subsystem a registered subsystem
+     * @param mode the mode
+     */
+    public void requestMode(MwSubsystemBase subsystem, SubsystemMode mode) {
+        switchFor(subsystem).request(mode);
+    }
+
+    /**
+     * Switches one mechanism on or off from code, the same as a dashboard write. It applies at the
+     * top of the next loop.
+     *
+     * @param subsystem the registered subsystem that owns the mechanism
+     * @param mech the mechanism
+     * @param enabled false to hold its outputs neutral
+     */
+    public void requestMechEnabled(MwSubsystemBase subsystem, SwitchableIo mech, boolean enabled) {
+        if (!switchFor(subsystem).requestMech(mech, enabled)) {
+            throw new IllegalArgumentException(mech.getIoName() + " is not an IO of " + subsystem.getName());
         }
-        for (ControllableIo child : io.getChildIos()) {
-            attachIo(system, child);
-        }
+    }
+
+    /**
+     * @param subsystem a registered subsystem
+     * @return its current mode
+     */
+    public SubsystemMode getMode(MwSubsystemBase subsystem) {
+        return switchFor(subsystem).mode();
+    }
+
+    /**
+     * @param subsystem a registered subsystem
+     * @return true if it is {@link SubsystemMode#ENABLED}
+     */
+    public boolean isAvailable(MwSubsystemBase subsystem) {
+        return getMode(subsystem) == SubsystemMode.ENABLED;
+    }
+
+    /**
+     * @param subsystem the registered subsystem that owns the mechanism
+     * @param mech the mechanism
+     * @return false while the mechanism is switched off
+     */
+    public boolean isMechEnabled(MwSubsystemBase subsystem, SwitchableIo mech) {
+        return switchFor(subsystem).isMechEnabled(mech);
+    }
+
+    /**
+     * @param subsystem a registered subsystem
+     * @param mode the mode to watch
+     * @return a trigger that is true while the subsystem is in {@code mode}
+     */
+    public Trigger inMode(MwSubsystemBase subsystem, SubsystemMode mode) {
+        SubsystemSwitch sw = switchFor(subsystem);
+        return new Trigger(() -> sw.mode() == mode);
     }
 
     /**
@@ -186,206 +197,22 @@ public abstract class SubsystemManager {
      * @return the registered subsystem with that name, or null
      */
     public MwSubsystemBase getSubsystem(String name) {
-        for (MwSubsystemBase subsystem : subsystems) {
-            if (subsystem.getName().equals(name)) {
-                return subsystem;
+        for (MwSubsystemBase s : subsystems) {
+            if (s.getName().equals(name)) {
+                return s;
             }
         }
         return null;
     }
 
-    /** @return the registered subsystems, in registration order */
-    public List<MwSubsystemBase> getSubsystems() {
-        return List.copyOf(subsystems);
-    }
-
     /**
-     * @param subsystem a registered subsystem
-     * @return the controls of each of its library IOs, child IOs included
-     */
-    public List<IoControls> getIoControls(MwSubsystemBase subsystem) {
-        List<IoControls> list = io_controls_.get(Objects.requireNonNull(subsystem));
-        return list == null ? List.of() : List.copyOf(list);
-    }
-
-    /**
-     * Serves the subsystem console (a web page for every control on this page's NT entries) from
-     * the robot. Open {@code http://<robot>:<port>/} in a browser on the driver station. It talks
-     * NT4 to the robot directly, so nothing needs to be deployed.
+     * Serves the subsystem console, a control page bundled in MW-Lib, from the robot. Browse to
+     * {@code http://<robot>:<port>/}.
      *
      * @param port the HTTP port, e.g. {@link SubsystemConsole#DEFAULT_PORT}
      */
     public void startSubsystemConsole(int port) {
         SubsystemConsole.start(port);
-    }
-
-    /**
-     * @param io an IO of a registered subsystem
-     * @return its controls, or null if it is not a {@link ControllableIo} of a registered subsystem
-     */
-    public IoControls getIoControls(ControllableIo io) {
-        return controls_by_io_.get(io);
-    }
-
-    /**
-     * The tunable gate. Nothing changes while the FMS is attached. A mechanism's or sensor's
-     * tunables (keys under its logging key, e.g. motor gains) only change while its subsystem is in
-     * MANUAL; other tunables, including subsystem-level gains that need the subsystem's logic
-     * running, stay live.
-     */
-    boolean acceptsTunableChange(String key) {
-        if (DriverStation.isFMSAttached()) {
-            return false;
-        }
-        if (!tune_only_in_manual_) {
-            return true;
-        }
-        for (Map.Entry<MwSubsystemBase, List<String>> e : io_tunable_prefixes_.entrySet()) {
-            for (String prefix : e.getValue()) {
-                if (key.startsWith(prefix)) {
-                    return control_tables_.get(e.getKey()).getActive() == SubsystemControl.MANUAL;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean ownsTunable(MwSubsystemBase subsystem, String key) {
-        return tunable_prefixes_.get(subsystem).stream().anyMatch(key::startsWith);
-    }
-
-    /** On entering MANUAL, remember the tunables; on leaving, log the ones that changed. */
-    private void trackTuning(MwSubsystemBase subsystem, SubsystemControl before, SubsystemControl after) {
-        if (before != SubsystemControl.MANUAL && after == SubsystemControl.MANUAL) {
-            tuning_start_values_.put(subsystem, MwLog.tunableValues(k -> ownsTunable(subsystem, k)));
-        } else if (before == SubsystemControl.MANUAL && after != SubsystemControl.MANUAL) {
-            Map<String, Double> start = tuning_start_values_.remove(subsystem);
-            if (start == null) {
-                return;
-            }
-            List<String> changes = new ArrayList<>();
-            MwLog.tunableValues(k -> ownsTunable(subsystem, k))
-                    .forEach(
-                            (key, value) -> {
-                                Double was = start.get(key);
-                                if (was != null && !was.equals(value)) {
-                                    changes.add(key + ": " + was + " -> " + value);
-                                }
-                            });
-            MwLog.log(subsystem.getSubsystemKey() + "TunedValues", changes.toArray(new String[0]));
-            if (!changes.isEmpty()) {
-                DataLogManager.log(
-                        subsystem.getName()
-                                + " left MANUAL with tuned values (copy into constants):\n  "
-                                + String.join("\n  ", changes));
-            }
-        }
-    }
-
-    /**
-     * Asks for a subsystem's control from code, the same as a dashboard write: it takes effect at
-     * the top of the next loop and dashboards show it.
-     *
-     * @param subsystem a registered subsystem
-     * @param control the control to request; use {@link #requestPinnedState} to pin
-     */
-    public void requestControl(MwSubsystemBase subsystem, SubsystemControl control) {
-        tableFor(subsystem).request(control, null);
-    }
-
-    /**
-     * Pins a subsystem to a state from code (see {@link SubsystemControl#PINNED}).
-     *
-     * @param subsystem a registered subsystem
-     * @param state the state to hold it in
-     */
-    public <S extends Enum<S>> void requestPinnedState(MwSubsystem<S, ?> subsystem, S state) {
-        tableFor(subsystem).request(SubsystemControl.PINNED, state.name());
-    }
-
-    /**
-     * @param subsystem a registered subsystem
-     * @param control the control to request
-     * @return a command that requests {@code control} once; it also runs while disabled
-     */
-    public Command requestControlCommand(MwSubsystemBase subsystem, SubsystemControl control) {
-        return Commands.runOnce(() -> requestControl(subsystem, control))
-                .ignoringDisable(true)
-                .withName(subsystem.getName() + " control " + control);
-    }
-
-    /**
-     * @param subsystem a registered subsystem
-     * @return the control applied on the last loop
-     */
-    public SubsystemControl getControl(MwSubsystemBase subsystem) {
-        return tableFor(subsystem).getActive();
-    }
-
-    /**
-     * @param subsystem a registered subsystem
-     * @return true if the subsystem follows wanted-state requests (its control is {@link
-     *     SubsystemControl#ROBOT}); check it only where the robot should choose a different plan,
-     *     requests to an unavailable subsystem are already dropped
-     */
-    public boolean isAvailable(MwSubsystemBase subsystem) {
-        return getControl(subsystem) == SubsystemControl.ROBOT;
-    }
-
-    /**
-     * @param subsystem a registered subsystem
-     * @param control the control to watch
-     * @return a trigger that is true while the subsystem's control is {@code control}
-     */
-    public Trigger inControl(MwSubsystemBase subsystem, SubsystemControl control) {
-        SubsystemControlTable table = tableFor(subsystem);
-        return new Trigger(() -> table.getActive() == control);
-    }
-
-    /**
-     * Whether {@link SubsystemControl#OFF}, and switching off a single IO, are honoured while the
-     * FMS is attached, so a broken mechanism can be shut off mid-match. Default true. {@link
-     * SubsystemControl#PINNED}, {@link SubsystemControl#MANUAL} and sensor overrides are always
-     * ignored with the FMS attached.
-     *
-     * @param allow true to honour OFF during matches
-     */
-    protected void setAllowOffWhenFmsAttached(boolean allow) {
-        allow_off_with_fms_ = allow;
-    }
-
-    /**
-     * Largest duty cycle a mechanism can be driven at in {@link ManualMode#DUTY_CYCLE}. Default
-     * 0.30.
-     *
-     * @param limit the limit, 0 to 1
-     */
-    protected void setManualDutyCycleLimit(double limit) {
-        manual_duty_cycle_limit_ = Math.max(0.0, Math.min(1.0, limit));
-    }
-
-    /** @return the manual duty-cycle limit */
-    double getManualDutyCycleLimit() {
-        return manual_duty_cycle_limit_;
-    }
-
-    /**
-     * Whether a library IO's tunables (e.g. motor gains) only accept changes while its subsystem is
-     * in {@link SubsystemControl#MANUAL}. Default true. When false, they change live in every
-     * control, as before. Tunables never change while the FMS is attached.
-     *
-     * @param only true to gate tunables on MANUAL
-     */
-    protected void setTuneOnlyInManual(boolean only) {
-        tune_only_in_manual_ = only;
-    }
-
-    private SubsystemControlTable tableFor(MwSubsystemBase subsystem) {
-        SubsystemControlTable table = control_tables_.get(Objects.requireNonNull(subsystem));
-        if (table == null) {
-            throw new IllegalArgumentException(subsystem.getName() + " is not registered");
-        }
-        return table;
     }
 
     /** Preform the control loop for all subsystems */
@@ -396,25 +223,12 @@ public abstract class SubsystemManager {
         // Republish field region outlines if the alliance changed
         RegionPublisher.periodic();
 
-        // Apply dashboard control changes before anyone requests states this loop
-        boolean fms_attached = DriverStation.isFMSAttached();
-        double now = MwLog.timestampSeconds();
-        for (MwSubsystemBase subsystem : subsystems) {
+        // Apply mode switches made since the last loop (usually none)
+        for (Runnable event; (event = events_.poll()) != null; ) {
             try {
-                SubsystemControlTable table = control_tables_.get(subsystem);
-                SubsystemControl before = table.getActive();
-                table.periodic(fms_attached, allow_off_with_fms_);
-                SubsystemControl after = table.getActive();
-                trackTuning(subsystem, before, after);
-
-                attachIos(subsystem);
-                for (IoControls controls : io_controls_.get(subsystem)) {
-                    controls.periodic(
-                            after, fms_attached, allow_off_with_fms_, now, manual_duty_cycle_limit_);
-                }
+                event.run();
             } catch (Exception e) {
-                DataLogManager.log(
-                        " Failed to apply control for " + subsystem.getClass().getCanonicalName());
+                DataLogManager.log(" Failed to apply a subsystem mode change");
                 e.printStackTrace();
             }
         }
@@ -423,49 +237,52 @@ public abstract class SubsystemManager {
         // requests take effect in this same loop
         update(MwLog.timestampSeconds());
 
-        // For each subsystem run its update loop
-        for (MwSubsystemBase subsystem : subsystems) {
-            try {
-                MwLog.time(subsystem.getSubsystemKey() + "/loop_time");
-
-                List<SubsystemIoBase> ios = subsystem.getIos();
-
-                // Deterministic timestamp — sourced from the log during replay
-                double timestamp = MwLog.timestampSeconds();
-
-                SubsystemControl control = control_tables_.get(subsystem).getActive();
-                boolean off = control == SubsystemControl.OFF;
-
-                for (SubsystemIoBase io : ios) {
-                    io.readInputs(timestamp);
-                    io.setNeutralOutputs(off);
-                }
-
-                // OFF and MANUAL subsystems' logic does not run; their IO still writes and logs
-                if (control == SubsystemControl.MANUAL) {
-                    for (IoControls controls : io_controls_.get(subsystem)) {
-                        controls.applyManual();
-                    }
-                } else if (!off) {
-                    subsystem.update(timestamp);
-                }
-
-                for (SubsystemIoBase io : ios) {
-                    io.writeOutputs(timestamp);
-                    io.logData();
-                }
-
-                MwLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
-            } catch (Exception e) {
-                DataLogManager.log(
-                        " Failed to run update loop for "
-                                + subsystem.getClass().getCanonicalName());
-                e.printStackTrace();
-            }
+        for (MwSubsystemBase subsystem : running_) {
+            runSubsystem(subsystem, true);
+        }
+        for (MwSubsystemBase subsystem : parked_) {
+            runSubsystem(subsystem, false);
         }
         // Log battery data every loop
         if (start_logging_) {
             BatteryLogger.logBatteryData();
+        }
+    }
+
+    /**
+     * One subsystem's loop: read inputs, run its logic if it is ENABLED, write outputs, log.
+     *
+     * @param subsystem the subsystem
+     * @param run_logic false for DISABLED and TUNING subsystems
+     */
+    private void runSubsystem(MwSubsystemBase subsystem, boolean run_logic) {
+        try {
+            MwLog.time(subsystem.getSubsystemKey() + "/loop_time");
+
+            List<SubsystemIoBase> ios = subsystem.getIos();
+
+            // Deterministic timestamp — sourced from the log during replay
+            double timestamp = MwLog.timestampSeconds();
+
+            for (SubsystemIoBase io : ios) {
+                io.readInputs(timestamp);
+            }
+
+            if (run_logic) {
+                subsystem.update(timestamp);
+            }
+
+            for (SubsystemIoBase io : ios) {
+                io.writeOutputs(timestamp);
+                io.logData();
+            }
+
+            MwLog.timeEnd(subsystem.getSubsystemKey() + "/loop_time");
+        } catch (Exception e) {
+            DataLogManager.log(
+                    " Failed to run update loop for "
+                            + subsystem.getClass().getCanonicalName());
+            e.printStackTrace();
         }
     }
 
@@ -486,6 +303,14 @@ public abstract class SubsystemManager {
     public void reset() {
         for (MwSubsystemBase subsystem : subsystems) {
             subsystem.reset();
+        }
+        // Nothing stays in TUNING into a match (applies at the top of the next loop)
+        if (DriverStation.isFMSAttached()) {
+            for (MwSubsystemBase subsystem : subsystems) {
+                if (switches_.get(subsystem).mode() == SubsystemMode.TUNING) {
+                    requestMode(subsystem, SubsystemMode.ENABLED);
+                }
+            }
         }
     }
 }

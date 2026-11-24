@@ -1,112 +1,96 @@
-# Subsystem controls
+# Subsystem modes
 
-Every subsystem registered with `SubsystemManager` (or `MwSuperStateMachine`) can be switched,
-pinned, overridden or turned off live from NetworkTables, with no robot code. Every library IO in
-it (each `*Mech`, `Tof`, `Gyro`, and the gyro inside `SwerveMech`) gets its own on/off switch,
-sensor overrides and an output override.
+Every subsystem registered with `SubsystemManager` (or `MwSuperStateMachine`) can be switched live
+between three modes, and each of its mechanisms switched off on its own, with no robot code.
 
-## Who controls a subsystem
+| Mode       | What happens |
+|------------|--------------|
+| `ENABLED`  | Normal. The subsystem's logic runs every loop. |
+| `DISABLED` | The logic doesn't run. Every mechanism holds its motors neutral (each motor's configured brake or coast). Inputs are still read and logged. |
+| `TUNING`   | The logic doesn't run, so nothing but you moves the subsystem. On entry each mechanism holds where it is (velocity mechanisms stop). After that, the mechanism's existing setpoint tunables drive it. |
 
-`/MwLib/Subsystems/<Name>/Control`, where `<Name>` is the class name without `Subsystem`:
+## NetworkTables
 
-| Control  | What runs                                                                                     |
-|----------|-----------------------------------------------------------------------------------------------|
-| `ROBOT`  | The default. The subsystem follows `setWantedState` from the super state machine, autos and buttons. |
-| `PINNED` | Held in the state at `/MwLib/Subsystems/<Name>/PinnedState`. Its own transition and logic run; requests are dropped. |
-| `MANUAL` | Its logic does not run. Each mechanism follows its output override (below).                    |
-| `OFF`    | Its logic does not run and every motor goes to its configured neutral (brake or coast). Inputs are still read and logged. |
+| Entry | Written by | Holds |
+|---|---|---|
+| `/MwLib/Subsystems/<Name>/Mode` | dashboard | `ENABLED`, `DISABLED` or `TUNING` |
+| `/MwLib/Subsystems/<Name>/ActiveMode` | robot | the mode it applied |
+| `/MwLib/Subsystems/<Name>/Mechs/<Mech>/Enabled` | dashboard | `false` holds that one mechanism neutral |
+| `/MwLib/Subsystems/<Name>/Mechs/<Mech>/LoggingKey` | robot | where the mech's tunables and inputs live |
 
-- Requests to a subsystem that is not `ROBOT` are dropped and logged as `DroppedWantedState`.
-- Going back to `ROBOT`, or leaving `OFF` or `MANUAL` for a control that runs the logic, calls
-  `reset()` and returns the wanted state to the default.
-- `/MwLib/Subsystems/<Name>/ActiveControl` is what the robot applied; `/States` lists the states a
-  dashboard can offer for pinning.
-- Every boot starts at `ROBOT`. A subsystem not under robot control raises a warning alert; an
-  unknown control or state name raises an error alert and falls back to `ROBOT`.
+`<Name>` is the subsystem's class name without `Subsystem`. A mechanism switched off stays off
+through mode changes until it is switched back on. Every boot starts with everything enabled.
 
-## Per-IO controls
+## How it works (and what it costs)
 
-`/MwLib/Subsystems/<Name>/IO/<IoName>/`:
+The manager keeps two lists: **running** (ENABLED; logic runs) and **parked** (DISABLED or
+TUNING; logic skipped). Each loop goes through both lists; parked subsystems still read inputs,
+write outputs and log.
 
-| Entry | Effect |
-|---|---|
-| `Enabled` | `false` switches the IO off. A mechanism holds its motors neutral while the rest of the subsystem keeps running. A gyro reports disconnected (swerve falls back to kinematics); a ToF reports nothing in range. |
-| `Override/<Channel>/Active`, `Value` | Replaces a reading in the IO's getters. Channels: `Position`, `Velocity` (mechanisms), `Range` (ToF, meters), `Yaw`, `Pitch`, `Roll` (gyro, degrees). The raw reading is still logged. |
-| `Manual/Mode`, `Manual/Setpoint` | The output while the subsystem is `MANUAL`. `Manual/Modes` lists what the mechanism supports: `NEUTRAL`, `POSITION`, `MOTION_PROFILE_POSITION`, `VELOCITY`, `MOTION_PROFILE_VELOCITY`, `DUTY_CYCLE`, `CURRENT`. Setpoints use the units of the matching `setTarget*` method. |
-| `Manual/Step`, `StepTo`, `StepPeriod` | Alternates the setpoint between `Setpoint` and `StepTo` every `StepPeriod` seconds. |
+A switch costs nothing per loop. Writing an entry fires an NT listener, which queues the change.
+The manager applies queued changes once at the top of its next loop, on the robot thread:
 
-- On entering `MANUAL`, position mechanisms hold where they are and velocity mechanisms start at zero.
-- Duty cycle is clamped to ±0.30 (`setManualDutyCycleLimit`).
-- Swerve in `MANUAL`: `POSITION` points every wheel at an angle (radians), `VELOCITY` drives
-  straight forward, robot-relative (m/s).
-- Names clash inside a subsystem get a number (`Roller`, `Roller2`).
+- **To DISABLED:** every IO's `setNeutralOutputs(true)`; the subsystem moves to the parked list.
+- **To TUNING:** every mechanism's `hold()`; the subsystem moves to the parked list.
+- **To ENABLED:** outputs un-neutraled, then `onEnable()` (`reset()`, and the wanted state back to
+  the default); the subsystem moves back to the running list.
+- **A mechanism on or off:** that mechanism's `setNeutralOutputs`. One switched back on in TUNING
+  is held, so it doesn't jump to a stale target.
 
-## Tunables
+The only per-loop cost is checking that the queue is empty, plus one boolean read in each
+mechanism's `writeOutputs`.
 
-A library IO's tunables (keys under its logging key, such as motor gains) only accept changes while
-its subsystem is in `MANUAL`; changes at other times are put back. Other tunables, including
-subsystem-level gains that need the logic running, stay live. Leaving `MANUAL` logs every changed
-value as `Subsystem/<Name>/TunedValues` and to the console, to copy into constants.
-`setTuneOnlyInManual(false)` turns the gate off.
+## Tuning
+
+TUNING uses what the mechanisms already have. Each `*Mech` registers live setpoint tunables:
+`PositionGains/Setpoint`, `VelocityGains/Setpoint`, `DutyCycle/Setpoint` and
+`CurrentGains/Setpoint`, under `/Tuning/<LoggingKey>`. Each calls the matching `setTarget*` when its
+value changes. With the subsystem parked, nothing overwrites those targets, so they drive the
+mechanism. Gains are tuned the same way as always, in `/Tuning`.
+
+A tunable only fires when its value changes, so to send the same setpoint again, change it and
+change it back. `SwerveMech` has no setpoint tunables, so it holds still in TUNING; tune the drive
+with `MwSwerveSubsystem.chassisTuningCommand` as before.
 
 ## Matches (FMS attached)
 
-`PINNED`, `MANUAL`, sensor overrides and every tunable are ignored. `OFF`, for a subsystem or a
-single IO, still works so a broken mechanism can be shut off; `setAllowOffWhenFmsAttached(false)`
-locks it too.
-
-## Replay
-
-Every dashboard entry is read as an AdvantageKit input, so log replay reproduces every control
-change, override and output override.
+TUNING is refused, and the dashboard entry is put back. `reset()` (call it from your mode inits, as
+usual) moves anything still in TUNING back to ENABLED. DISABLED still works, so a broken mechanism
+or subsystem can be switched off mid-match.
 
 ## From code
 
-All optional. In `RobotContainer`:
+All optional:
 
 ```java
-setAllowOffWhenFmsAttached(true);      // default
-setManualDutyCycleLimit(0.30);         // default
-setTuneOnlyInManual(true);             // default
+startSubsystemConsole(SubsystemConsole.DEFAULT_PORT); // web control panel, below
 
-startSubsystemConsole(SubsystemConsole.DEFAULT_PORT); // web console, below
-new TuningGamepad(this, 3);                           // spare controller, below
+operator.start().onTrue(Commands.runOnce(() -> requestMode(elevator, SubsystemMode.DISABLED)));
+requestMechEnabled(intake, intake_rollers, false);
 
-// switches, same as a dashboard write (applies next loop)
-operator.start().onTrue(requestControlCommand(elevator, SubsystemControl.OFF));
-requestPinnedState(elevator, ElevatorStates.HIGH);
-
-// checks
 if (!isAvailable(elevator)) { /* pick another plan */ }
-inControl(shooter, SubsystemControl.OFF).onTrue(leds.flash(Color.kRed));
-getIoControls(elevator_mech).requestManual(ManualMode.POSITION, 0.5);
+inMode(shooter, SubsystemMode.DISABLED).onTrue(leds.flash(Color.kRed));
 ```
 
-Mechanisms also expose `isAvailable()` (false while switched off).
+Requests from code go through the same NT entries, so dashboards show them, and they apply at the
+top of the next loop.
+
+A custom IO (not a `*Mech`) with actuators should override `SubsystemIoBase.setNeutralOutputs` to
+neutral them; otherwise it keeps applying its last command while its subsystem is DISABLED.
+Subsystems can override `onEnable()` for anything beyond `reset()`.
 
 ## Subsystem console
 
-`startSubsystemConsole(5807)` serves a web page bundled in MW-Lib from the robot: open
+`startSubsystemConsole(5807)` serves a control page bundled in MW-Lib from the robot. Browse to
 `http://10.TE.AM.2:5807/` (or `http://localhost:5807/` in simulation). It talks NT4 to the robot
-directly and needs no internet or deploy step. It shows every subsystem with its control and
-state, and for the selected one each IO's on/off switch, sensor overrides and output override, with
-what the robot is applying and measuring. It doesn't edit gains; use your usual dashboard for
-`/Tuning`. The **Demo robot** button runs a simulated robot in the page.
-
-## Tuning gamepad
-
-`new TuningGamepad(this, port)` drives mechanisms whose subsystem is in `MANUAL` from a spare Xbox
-controller, writing the same entries the console does:
-
-- Bumpers: previous / next mechanism (shown in the console as "Gamepad: …")
-- Left stick Y: duty cycle, scaled to the duty-cycle limit; on release the mechanism holds
-- A: start or stop the step test
-- B: neutral
+directly, so it needs no internet and nothing to deploy. It shows every subsystem's mode and state,
+each mechanism's switch and measured position and velocity, and in TUNING the mechanism's setpoint
+tunables. It doesn't show or edit gains. **Demo robot** runs a simulated robot in the page.
 
 ## Autos
 
-`RobotStateNodes` adds the condition `IsSubsystemAvailable subsystem="Elevator"`, so a tree can fail
-fast rather than wait on a subsystem that was pinned, put in manual or switched off:
+`RobotStateNodes` adds the condition `IsSubsystemAvailable subsystem="Elevator"` (true when
+ENABLED), so a tree can fail fast instead of waiting on a parked subsystem:
 
 ```xml
 <ReactiveSequence>
@@ -115,8 +99,14 @@ fast rather than wait on a subsystem that was pinned, put in manual or switched 
 </ReactiveSequence>
 ```
 
+## Logs and replay
+
+Mode and mechanism changes are logged as events (`Subsystem/<Name>/Mode`,
+`Subsystem/<Name>/Mechs/<Mech>/Enabled`) and to the console. They are not replay inputs: a replay
+runs every subsystem's logic.
+
 ## Build-time disable
 
-The `disabled_subsystems` constructor list still leaves subsystems out entirely (not registered).
+The `disabled_subsystems` constructor list still leaves subsystems out entirely.
 `getDisabledSubsystems()` returns it; `getEnabledSubsystems()` is deprecated because it returned
 that same disabled list.

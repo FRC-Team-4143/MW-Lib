@@ -18,17 +18,9 @@ import java.util.function.Supplier;
  *       once. A request is instant, like a button press; the state stays wanted until something
  *       asks for another one.
  *   <li>condition {@code IsSystemState}: the robot is in a state
- *   <li>condition {@code IsSubsystemAvailable}: a subsystem is under robot control (not pinned,
- *       in manual or switched off from the dashboard), so an auto can fail fast instead of waiting
- *       on a subsystem that will never move
+ *   <li>condition {@code IsSubsystemAvailable}: a subsystem is ENABLED (not disabled or in tuning
+ *       from the dashboard), so an auto can fail fast instead of waiting on it
  * </ul>
- *
- * <pre>{@code
- * <ReactiveSequence>
- *   <IsSubsystemAvailable subsystem="Elevator"/>
- *   <Sequence> ... the scoring steps ... </Sequence>
- * </ReactiveSequence>
- * }</pre>
  *
  * To wait until the robot reaches a state, retry the condition (add a {@code Timeout} around it so
  * it can't wait forever):
@@ -70,7 +62,7 @@ public final class RobotStateNodes {
                 n -> robot.get().isIn(n.getEnum("state", state_class)));
         factory.registerSimpleCondition(
                 "IsSubsystemAvailable",
-                "The subsystem is under robot control (not pinned, manual or off)",
+                "The subsystem is ENABLED (not disabled or in tuning)",
                 List.of(
                         PortInfo.input(
                                 "subsystem",
